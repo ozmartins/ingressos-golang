@@ -1,0 +1,73 @@
+version: "2"
+
+linters:
+  enable:
+    - govet
+    - staticcheck
+    - errcheck
+    - ineffassign
+    - unused
+    - revive
+    - depguard
+
+  settings:
+    revive:
+      rules:
+        # Regras padrão úteis, exceto `exported`.
+        #
+        # Este código comenta onde o comentário explica uma decisão — por que a
+        # reserva não retenta, por que o preço não é float, por que a leitura não
+        # tem cache. Exigir doc em todo símbolo exportado produziria linhas como
+        # "// NovoCliente cria um novo cliente", que diluem os comentários que de
+        # fato carregam informação.
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: if-return
+        - name: increment-decrement
+        - name: var-naming
+        - name: var-declaration
+        - name: package-comments
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: indent-error-flow
+        - name: errorf
+        - name: empty-block
+        - name: superfluous-else
+        - name: unreachable-code
+        - name: redefines-builtin-id
+
+    depguard:
+      rules:
+        # Princípio I da constituição: dependências apontam para dentro.
+        # O núcleo não conhece adaptadores nem infraestrutura.
+        nucleo-sem-adaptadores:
+          files:
+            - "**/internal/domain/**"
+            - "**/internal/usecase/**"
+          deny:
+            - pkg: "github.com/oseias/ingressos-golang/catalogo/internal/adapter"
+              desc: "domain/usecase não podem importar adaptadores (constituição, princípio I)"
+            - pkg: "github.com/oseias/ingressos-golang/catalogo/internal/platform"
+              desc: "domain/usecase não podem importar infraestrutura de plataforma (constituição, princípio I)"
+            - pkg: "github.com/jackc/pgx"
+              desc: "driver de banco é detalhe de adaptador"
+            - pkg: "google.golang.org/grpc"
+              desc: "transporte é detalhe de adaptador"
+            - pkg: "net/http"
+              desc: "framework web é detalhe de adaptador"
+            - pkg: "github.com/coreos/go-oidc"
+              desc: "provedor de identidade é detalhe de adaptador"
+
+formatters:
+  enable:
+    - gofmt
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

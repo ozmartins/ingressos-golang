@@ -1,0 +1,28 @@
+// Contrato gRPC do Servico-Estoque, consumido por este serviço como CLIENTE.
+// Fonte: ers-catalogo.md, seção 5. Copiado sem alterações — este serviço não
+// é dono deste contrato e não pode evoluí-lo unilateralmente.
+//
+// Geração: protoc --go_out=gen/pb --go-grpc_out=gen/pb contracts/estoque.proto
+
+syntax = "proto3";
+
+package estoque;
+
+option go_package = "./pb";
+
+service ServicoEstoque {
+  rpc BloquearPoltronas (SolicitacaoBloqueio) returns (RespostaBloqueio);
+}
+
+message SolicitacaoBloqueio {
+  string sessao_id = 1;
+  repeated string poltronas_ids = 2;
+  string usuario_id = 3; // UUID extraído da claim `sub` do JWT pelo Servico-Catalogo
+}
+
+message RespostaBloqueio {
+  bool sucesso = 1;
+  string reserva_id = 2;
+  string mensagem = 3;
+  int64 expira_em = 4; // epoch em segundos
+}

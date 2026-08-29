@@ -1,0 +1,343 @@
+openapi: 3.1.0
+info:
+  title: Servico-Catalogo API
+  version: 1.0.0
+  description: |
+    API pública de navegação do catálogo de cinema e ponte síncrona para a reserva
+    de poltronas no Servico-Estoque.
+
+    Divergências deliberadas em relação à ERS original (ver research.md, D7 e D8):
+      1. Coleções respondem com envelope de paginação, não com array nu (FR-001..FR-005).
+      2. Erros seguem RFC 9457 (application/problem+json), inclusive o 409 (FR-038).
+servers:
+  - url: /api/v1
+
+paths:
+  /filmes:
+    get:
+      summary: Lista filmes do catálogo
+      description: |
+        Sem o parâmetro `status`, retorna apenas filmes EM_CARTAZ e BREVE (FR-008).
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [EM_CARTAZ, BREVE, FORA_DE_CARTAZ]
+      responses:
+        '200':
+          description: Página de filmes
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaFilmes' }
+        '400': { $ref: '#/components/responses/EntradaInvalida' }
+
+  /cinemas:
+    get:
+      summary: Lista cinemas
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Página de cinemas
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaCinemas' }
+        '400': { $ref: '#/components/responses/EntradaInvalida' }
+
+  /cinemas/{id}/salas:
+    get:
+      summary: Lista as salas de um cinema
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Página de salas
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaSalas' }
+        '400': { $ref: '#/components/responses/EntradaInvalida' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+
+  /sessoes:
+    get:
+      summary: Consulta a grade de sessões
+      description: |
+        Retorna apenas sessões AGENDADA ou EM_ANDAMENTO (FR-016).
+        Filtros podem ser combinados.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: filme_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: cinema_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: data
+          in: query
+          description: Data no formato YYYY-MM-DD
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Página da grade de sessões
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaSessoes' }
+        '400': { $ref: '#/components/responses/EntradaInvalida' }
+
+  /sessoes/{id}/reservar:
+    post:
+      summary: Solicita o bloqueio de poltronas para uma sessão
+      description: |
+        Encaminha a solicitação ao Servico-Estoque via gRPC, com timeout de 2s e
+        sem retentativa (FR-027, FR-029). O usuário é identificado pela claim `sub`
+        do token (FR-021).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SolicitacaoReserva' }
+      responses:
+        '201':
+          description: Poltronas reservadas
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReservaConfirmada' }
+        '400': { $ref: '#/components/responses/EntradaInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+        '422': { $ref: '#/components/responses/SessaoNaoReservavel' }
+        '502': { $ref: '#/components/responses/RespostaInvalidaDoParceiro' }
+        '503': { $ref: '#/components/responses/IndisponibilidadeTemporaria' }
+
+  /health:
+    get:
+      summary: Indicador de saúde para o orquestrador
+      security: []
+      responses:
+        '200':
+          description: Instância apta a receber tráfego
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, enum: [ok] }
+                  dependencias:
+                    type: object
+                    properties:
+                      banco: { type: string, enum: [ok, indisponivel] }
+        '503':
+          description: Instância não apta
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT RS256 emitido pelo Keycloak, validado localmente via JWKS.
+
+  parameters:
+    Page:
+      name: page
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, default: 1 }
+    PageSize:
+      name: page_size
+      in: query
+      required: false
+      description: |
+        Teto configurável por ambiente (`PAGINACAO_TAMANHO_MAXIMO`, padrão 100).
+        Acima do teto vigente a requisição é recusada com 400 e
+        `type: .../parametro-invalido`, cujo `detail` informa o máximo aceito.
+      schema: { type: integer, minimum: 1, default: 20 }
+
+  schemas:
+    Paginacao:
+      type: object
+      required: [pagina, tamanho, total, tem_proxima]
+      properties:
+        pagina: { type: integer, example: 1 }
+        tamanho: { type: integer, example: 20 }
+        total:
+          type: integer
+          description: Total de registros que atendem aos filtros (FR-003)
+          example: 137
+        tem_proxima: { type: boolean, example: true }
+
+    Filme:
+      type: object
+      required: [id, titulo, duracao_minutos, classificacao_etaria, genero, status]
+      properties:
+        id: { type: string, format: uuid }
+        titulo: { type: string }
+        sinopse: { type: string, description: Omitido quando ausente }
+        duracao_minutos: { type: integer }
+        classificacao_etaria: { type: string }
+        genero: { type: string }
+        imagem_url: { type: string, format: uri, description: Omitido quando ausente }
+        status: { type: string, enum: [EM_CARTAZ, BREVE, FORA_DE_CARTAZ] }
+
+    Cinema:
+      type: object
+      required: [id, nome, cidade, estado, endereco]
+      properties:
+        id: { type: string, format: uuid }
+        nome: { type: string }
+        cidade: { type: string }
+        estado: { type: string, minLength: 2, maxLength: 2 }
+        endereco: { type: string }
+
+    Sala:
+      type: object
+      required: [id, cinema_id, numero, tipo_tela, capacidade_total]
+      properties:
+        id: { type: string, format: uuid }
+        cinema_id: { type: string, format: uuid }
+        numero: { type: integer }
+        tipo_tela: { type: string, enum: ['2D', '3D', IMAX, VIP] }
+        capacidade_total: { type: integer }
+
+    Sessao:
+      type: object
+      required: [id, filme_id, filme_titulo, cinema_id, cinema_nome, sala_numero, tipo_tela, data_hora_inicio, idioma, preco_base]
+      properties:
+        id: { type: string, format: uuid }
+        filme_id: { type: string, format: uuid }
+        filme_titulo: { type: string }
+        cinema_id: { type: string, format: uuid }
+        cinema_nome: { type: string }
+        sala_numero: { type: integer }
+        tipo_tela: { type: string, enum: ['2D', '3D', IMAX, VIP] }
+        data_hora_inicio: { type: string, format: date-time }
+        idioma: { type: string, enum: [DUBLADO, LEGENDADO] }
+        preco_base:
+          type: string
+          description: Decimal exato em texto, para não perder precisão em ponto flutuante
+          example: '42.00'
+
+    PaginaFilmes:
+      type: object
+      required: [itens, pagina]
+      properties:
+        itens: { type: array, items: { $ref: '#/components/schemas/Filme' } }
+        pagina: { $ref: '#/components/schemas/Paginacao' }
+    PaginaCinemas:
+      type: object
+      required: [itens, pagina]
+      properties:
+        itens: { type: array, items: { $ref: '#/components/schemas/Cinema' } }
+        pagina: { $ref: '#/components/schemas/Paginacao' }
+    PaginaSalas:
+      type: object
+      required: [itens, pagina]
+      properties:
+        itens: { type: array, items: { $ref: '#/components/schemas/Sala' } }
+        pagina: { $ref: '#/components/schemas/Paginacao' }
+    PaginaSessoes:
+      type: object
+      required: [itens, pagina]
+      properties:
+        itens: { type: array, items: { $ref: '#/components/schemas/Sessao' } }
+        pagina: { $ref: '#/components/schemas/Paginacao' }
+
+    SolicitacaoReserva:
+      type: object
+      required: [poltronas_ids]
+      properties:
+        poltronas_ids:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { type: string }
+          example: ['A1', 'A2']
+
+    ReservaConfirmada:
+      type: object
+      required: [reserva_id, expira_em]
+      properties:
+        reserva_id: { type: string, format: uuid }
+        expira_em:
+          type: string
+          format: date-time
+          description: Instante de expiração devolvido pelo Servico-Estoque
+
+    Problem:
+      type: object
+      description: RFC 9457
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              campo: { type: string }
+              mensagem: { type: string }
+
+  responses:
+    EntradaInvalida:
+      description: Parâmetro ou corpo inválido
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    NaoAutenticado:
+      description: Credencial ausente, inválida, expirada ou sem identificação do usuário
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    NaoEncontrado:
+      description: Recurso inexistente
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Conflito:
+      description: Uma ou mais poltronas indisponíveis
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    SessaoNaoReservavel:
+      description: Sessão existe mas não aceita reservas (já iniciada, finalizada ou cancelada)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    RespostaInvalidaDoParceiro:
+      description: Servico-Estoque respondeu sucesso sem os dados obrigatórios da reserva
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    IndisponibilidadeTemporaria:
+      description: Servico-Estoque indisponível, tempo excedido ou em recusa rápida
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }

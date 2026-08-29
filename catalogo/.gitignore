@@ -1,0 +1,24 @@
+# Go
+*.exe
+*.test
+*.out
+vendor/
+/bin/
+/catalogo
+
+# Ambiente e segredos
+.env
+.env.*
+!.env.example
+
+# Ferramentas e editores
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+.vscode/
+.idea/
+
+# Cobertura
+coverage.out
+coverage.html

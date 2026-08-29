@@ -1,0 +1,41 @@
+CREATE TABLE filmes (
+    id VARCHAR(36) PRIMARY KEY,
+    titulo VARCHAR(255) NOT NULL,
+    sinopse TEXT,
+    duracao_minutos INT NOT NULL,
+    classificacao_etaria VARCHAR(50) NOT NULL,
+    genero VARCHAR(100) NOT NULL,
+    imagem_url VARCHAR(500),
+    status VARCHAR(50) NOT NULL DEFAULT 'EM_CARTAZ',
+    criado_em TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE cinemas (
+    id VARCHAR(36) PRIMARY KEY,
+    nome VARCHAR(255) NOT NULL,
+    cidade VARCHAR(100) NOT NULL,
+    estado VARCHAR(2) NOT NULL,
+    endereco TEXT NOT NULL,
+    criado_em TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE salas (
+    id VARCHAR(36) PRIMARY KEY,
+    cinema_id VARCHAR(36) NOT NULL REFERENCES cinemas(id),
+    numero INT NOT NULL,
+    tipo_tela VARCHAR(50) NOT NULL,
+    capacidade_total INT NOT NULL,
+    criado_em TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE sessoes (
+    id VARCHAR(36) PRIMARY KEY,
+    filme_id VARCHAR(36) NOT NULL REFERENCES filmes(id),
+    sala_id VARCHAR(36) NOT NULL REFERENCES salas(id),
+    data_hora_inicio TIMESTAMP WITH TIME ZONE NOT NULL,
+    idioma VARCHAR(50) NOT NULL,
+    preco_base DECIMAL(10, 2) NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'AGENDADA',
+    criado_em TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);

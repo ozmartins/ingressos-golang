@@ -24,22 +24,51 @@ O catálogo de erros está em [`specs/001-catalogo-sessoes-reserva/contracts/err
 
 ## Executando localmente
 
-```bash
-docker compose up -d                  # postgres, keycloak, estoque simulado
-export DATABASE_URL="postgres://catalogo:catalogo@localhost:5432/catalogo?sslmode=disable"
-migrate -path migrations -database "$DATABASE_URL" up
-psql "$DATABASE_URL" -f test/fixtures/catalogo_exemplo.sql
+O compose sobe a stack inteira — Postgres, Keycloak (com o realm `cinema` já
+importado de `keycloak/realm-cinema.json`), o estoque simulado, as migrações e o
+próprio catálogo:
 
-export KEYCLOAK_ISSUER_URL="http://localhost:8081/realms/cinema"
+```bash
+docker compose up -d
+psql "postgres://catalogo:catalogo@localhost:5432/catalogo?sslmode=disable" \
+  -f test/fixtures/catalogo_exemplo.sql      # catálogo de exemplo, opcional
+curl -s localhost:8082/health
+```
+
+A API fica em `http://localhost:8082`. As migrações rodam num serviço próprio
+(`migrate`) que precisa terminar com sucesso antes de o catálogo subir, então o
+serviço nunca encontra um esquema pela metade.
+
+Token para as rotas autenticadas (usuário de desenvolvimento `teste`/`teste`):
+
+```bash
+TOKEN=$(curl -s -d client_id=cinema-app -d username=teste -d password=teste \
+  -d grant_type=password \
+  http://localhost:8081/realms/cinema/protocol/openid-connect/token | jq -r .access_token)
+```
+
+O realm fixa o emissor em `http://keycloak:8081` — a mesma URL dentro e fora da
+rede do compose. O `iss` do token precisa bater exatamente com o emissor que o
+catálogo descobriu no boot, e um hostname por ambiente quebraria essa
+verificação. O console de admin continua em `http://localhost:8081` (admin/admin).
+
+### Rodando o serviço fora do contêiner
+
+```bash
+docker compose up -d postgres keycloak estoque-simulado migrate
+echo "127.0.0.1 keycloak" | sudo tee -a /etc/hosts   # uma vez, pelo emissor fixo
+export DATABASE_URL="postgres://catalogo:catalogo@localhost:5432/catalogo?sslmode=disable"
+export KEYCLOAK_ISSUER_URL="http://keycloak:8081/realms/cinema"
 export KEYCLOAK_AUDIENCE="cinema-app"
 export ESTOQUE_GRPC_ADDR="localhost:50051"
+export HTTP_PORT=8082
 make run
 ```
 
 O roteiro completo de validação está em
 [`specs/001-catalogo-sessoes-reserva/quickstart.md`](specs/001-catalogo-sessoes-reserva/quickstart.md).
 
-### Como contêiner
+### Como contêiner avulso
 
 A imagem sobe apenas com variáveis de ambiente, sem arquivo de configuração:
 

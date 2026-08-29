@@ -1,0 +1,41 @@
+{
+  "realm": "cinema",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "clients": [
+    {
+      "clientId": "cinema-app",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": ["*"],
+      "webOrigins": ["*"],
+      "protocolMappers": [
+        {
+          "name": "aud-cinema-app",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "cinema-app",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "teste",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "teste@example.com",
+      "firstName": "Teste",
+      "lastName": "Usuario",
+      "credentials": [{ "type": "password", "value": "teste", "temporary": false }],
+      "realmRoles": ["default-roles-cinema"]
+    }
+  ]
+}

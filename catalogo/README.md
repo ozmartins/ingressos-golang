@@ -39,6 +39,23 @@ A API fica em `http://localhost:8082`. As migrações rodam num serviço própri
 (`migrate`) que precisa terminar com sucesso antes de o catálogo subir, então o
 serviço nunca encontra um esquema pela metade.
 
+### Documentação da API
+
+| Recurso | Endereço |
+| --- | --- |
+| Swagger UI | `http://localhost:8082/docs` |
+| Contrato OpenAPI 3.1 | `http://localhost:8082/openapi.yaml` |
+
+O contrato não é gerado a partir do código: ele é escrito à mão em
+`specs/001-catalogo-sessoes-reserva/contracts/openapi.yaml`, embutido no binário
+com `go:embed` e servido como está. Depois de editá-lo, rode `make openapi-sync`
+para atualizar a cópia de runtime — `make test` falha se as duas divergirem, e
+falha também se o contrato descrever uma rota que o roteador não registra (ou o
+contrário).
+
+Para exercitar `POST /sessoes/{id}/reservar` pela interface, gere o token abaixo
+e cole-o em **Authorize** (apenas o valor, sem o prefixo `Bearer`).
+
 Token para as rotas autenticadas (usuário de desenvolvimento `teste`/`teste`):
 
 ```bash

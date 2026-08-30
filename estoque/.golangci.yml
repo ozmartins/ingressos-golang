@@ -1,0 +1,39 @@
+version: "2"
+
+linters:
+  enable:
+    - govet
+    - staticcheck
+    - errcheck
+    - revive
+    - depguard
+  settings:
+    depguard:
+      rules:
+        # Princípio I da constituição: o núcleo não importa infraestrutura.
+        # Verificação mecânica, não revisão humana.
+        nucleo-nao-importa-adaptador:
+          files:
+            - "**/internal/domain/**"
+            - "**/internal/usecase/**"
+          deny:
+            - pkg: github.com/oseias/ingressos-golang/estoque/internal/adapter
+              desc: "domain e usecase não podem importar adaptadores (constituição, princípio I)"
+            - pkg: github.com/oseias/ingressos-golang/estoque/internal/platform
+              desc: "domain e usecase não podem importar a camada de plataforma (constituição, princípio I)"
+            - pkg: github.com/jackc/pgx
+              desc: "driver de banco pertence aos adaptadores"
+            - pkg: github.com/rabbitmq/amqp091-go
+              desc: "cliente AMQP pertence aos adaptadores"
+            - pkg: github.com/redis/go-redis
+              desc: "cliente Redis pertence aos adaptadores"
+            - pkg: google.golang.org/grpc
+              desc: "gRPC pertence aos adaptadores"
+  exclusions:
+    rules:
+      - path: _test\.go$
+        linters: [errcheck]
+
+formatters:
+  enable:
+    - gofmt

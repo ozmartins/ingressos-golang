@@ -23,8 +23,12 @@ O compose sobe, nesta ordem de dependência: `postgres` → `migrate` (aplica
 depois que as migrações terminam com sucesso, então nunca encontra esquema pela
 metade.
 
-Portas: gRPC `50051`, administração (saúde e métricas) `8090`, RabbitMQ
-management `15672`, PostgreSQL `5433`, Redis `6379`.
+Portas no host: gRPC `50051`, administração (saúde e métricas) `8090`, RabbitMQ
+management `15673`, AMQP `55672`, PostgreSQL `55433`, Redis `56379`.
+
+As portas das dependências são deslocadas de propósito: a máquina de
+desenvolvimento normalmente já tem um PostgreSQL, um Redis ou um RabbitMQ de
+outro projeto ocupando as portas padrão.
 
 Verificação de prontidão:
 
@@ -66,7 +70,7 @@ grpcurl -cacert certs/ca.pem -cert certs/cliente.pem -key certs/cliente-key.pem 
 **Esperado**: `sucesso: true`, `reserva_id` preenchido e `expira_em` ≈ agora + 10
 min (FR-001, FR-007). O mapa passa a mostrar `A1` e `A2` como `RESERVADA`, e a
 fila de quem escuta `reserva.criada` recebe o evento (veja em
-http://localhost:15672, usuário `guest`/`guest`).
+http://localhost:15673, usuário `guest`/`guest`).
 
 Repetir o mesmo comando deve devolver `sucesso: false` com
 `motivo: POLTRONAS_INDISPONIVEIS` (FR-002).

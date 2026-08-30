@@ -1,0 +1,14 @@
+.git/
+.github/
+bin/
+certs/
+specs/
+test/
+*.md
+.env
+.env.*
+Dockerfile*
+.dockerignore
+.golangci.yml
+.idea/
+.vscode/

@@ -1,0 +1,20 @@
+# Binários e artefatos de build
+bin/
+*.exe
+*.test
+*.out
+vendor/
+
+# Material criptográfico de desenvolvimento — nunca versionado (constituição, II)
+certs/
+
+# Ambiente e segredos
+.env
+.env.*
+
+# Ferramentas e editores
+.idea/
+.vscode/
+.DS_Store
+*.swp
+*.tmp

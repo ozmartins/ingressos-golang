@@ -1,0 +1,83 @@
+// Contrato gRPC do Servico-Estoque. Este serviço é o DONO deste contrato.
+//
+// Compatibilidade: as mensagens `SolicitacaoBloqueio` e `RespostaBloqueio`
+// reproduzem, campo a campo e número a número, a cópia consumida pelo
+// Servico-Catalogo (specs/001-catalogo-sessoes-reserva/contracts/estoque.proto).
+// As adições desta versão são estritamente aditivas — um cliente compilado com
+// a versão anterior continua funcionando sem recompilar:
+//   - novo RPC `ConsultarMapaPoltronas` (FR-029..FR-031)
+//   - novo campo `motivo` = 5 em `RespostaBloqueio` (FR-046)
+//
+// Geração: buf generate (ver buf.gen.yaml na raiz do serviço)
+
+syntax = "proto3";
+
+package estoque;
+
+option go_package = "github.com/oseias/ingressos-golang/estoque/gen/pb/estoque;estoque";
+
+service ServicoEstoque {
+  // Bloqueia atomicamente um conjunto de poltronas de uma sessão para uma
+  // pessoa usuária, criando uma reserva pendente com prazo de 10 minutos.
+  // Tudo-ou-nada: nenhuma poltrona muda de estado se alguma estiver tomada.
+  rpc BloquearPoltronas (SolicitacaoBloqueio) returns (RespostaBloqueio);
+
+  // Devolve o mapa completo de poltronas de uma sessão com o estado corrente
+  // de cada uma. Operação de leitura: não altera nenhum estado.
+  rpc ConsultarMapaPoltronas (SolicitacaoMapa) returns (RespostaMapa);
+}
+
+message SolicitacaoBloqueio {
+  string sessao_id = 1;
+  // Rótulos das poltronas no escopo da sessão (fileira + número, ex.: "A1").
+  // Sem repetições; no máximo POLTRONAS_MAX_POR_BLOQUEIO itens (padrão 10).
+  repeated string poltronas_ids = 2;
+  string usuario_id = 3; // UUID da claim `sub`, validado pelo Servico-Catalogo
+}
+
+message RespostaBloqueio {
+  // false SOMENTE quando alguma poltrona solicitada não está livre.
+  // Entrada inválida e falha temporária são sinalizadas por status gRPC,
+  // nunca por sucesso=false — ver contracts/erros.md.
+  bool sucesso = 1;
+  string reserva_id = 2;   // UUID v4; vazio quando sucesso=false
+  string mensagem = 3;     // texto humano, livre para mudar de redação
+  int64 expira_em = 4;     // epoch em segundos; 0 quando sucesso=false
+  MotivoFalha motivo = 5;  // MOTIVO_NAO_INFORMADO quando sucesso=true
+}
+
+enum MotivoFalha {
+  MOTIVO_NAO_INFORMADO = 0;
+  POLTRONAS_INDISPONIVEIS = 1; // ao menos uma já está RESERVADA ou OCUPADA
+}
+
+message SolicitacaoMapa {
+  string sessao_id = 1;
+}
+
+message RespostaMapa {
+  string sessao_id = 1;
+  repeated Poltrona poltronas = 2;
+}
+
+message Poltrona {
+  string rotulo = 1;   // "A1" — identidade da poltrona no escopo da sessão
+  string fileira = 2;  // "A"
+  int32 numero = 3;    // 1
+  TipoPoltrona tipo = 4;
+  StatusPoltrona status = 5;
+}
+
+enum TipoPoltrona {
+  TIPO_NAO_INFORMADO = 0;
+  NORMAL = 1;
+  PCD = 2;
+  NAMORADEIRA = 3;
+}
+
+enum StatusPoltrona {
+  STATUS_NAO_INFORMADO = 0;
+  LIVRE = 1;
+  RESERVADA = 2;
+  OCUPADA = 3;
+}

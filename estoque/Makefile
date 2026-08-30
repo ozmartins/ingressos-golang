@@ -16,8 +16,11 @@ test-integration:
 lint:
 	golangci-lint run
 
-# O contrato versionado em specs/ é a fonte da verdade; a cópia em proto/ é o que
-# o gerador consome. O alvo abaixo mantém as duas em sincronia.
+# O .proto versionado em specs/ é a ORIGEM da cópia em proto/, que é o que o
+# gerador consome; o alvo abaixo mantém as duas em sincronia. Origem não é fonte
+# da verdade: quem descreve o comportamento do serviço é o código (constituição,
+# princípio IX). Divergência entre os dois vira pergunta, não conserto unilateral
+# (princípio X).
 CONTRATO := specs/001-estoque-bloqueio-poltronas/contracts/estoque.proto
 
 contrato-sync:

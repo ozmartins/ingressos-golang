@@ -20,6 +20,13 @@ produzidos pelo fluxo spec-kit (`specify` → `clarify` → `plan` → `tasks` �
 [`.specify/memory/constitution.md`](.specify/memory/constitution.md) — o plano
 tem uma seção de verificação contra cada princípio.
 
+Quatro dessas regras valem também para quem só vai ler ou mexer no código: nada de
+complexidade além da necessária ou pedida (VII); domínio e operações expostas têm
+teste automatizado (VIII); **o código é a fonte da verdade, não a spec** (IX) — os
+documentos acima são instrumentos de projeto, e afirmação sobre comportamento atual
+se verifica no código; e divergência entre código e spec é pergunta ao mantenedor,
+não decisão de quem encontrou (X).
+
 Leia primeiro, nesta ordem: [`spec.md`](specs/001-estoque-bloqueio-poltronas/spec.md)
 (o quê e por quê), [`research.md`](specs/001-estoque-bloqueio-poltronas/research.md)
 (as decisões técnicas e o que foi rejeitado),

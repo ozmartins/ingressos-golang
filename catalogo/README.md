@@ -7,6 +7,13 @@ atua como cliente gRPC do `Servico-Estoque` no momento da reserva.
 Especificação, plano e tarefas: [`specs/001-catalogo-sessoes-reserva/`](specs/001-catalogo-sessoes-reserva/).
 Princípios que governam o código: [`.specify/memory/constitution.md`](.specify/memory/constitution.md).
 
+Quatro dessas regras valem também para quem só vai ler ou mexer no código: nada de
+complexidade além da necessária ou pedida (VI); domínio e operações expostas têm
+teste automatizado (VII); **o código é a fonte da verdade, não a spec** (VIII) — os
+documentos acima são instrumentos de projeto, e afirmação sobre comportamento atual
+se verifica no código; e divergência entre código e spec é pergunta ao mantenedor,
+não decisão de quem encontrou (IX).
+
 ## Duas divergências em relação à ERS original
 
 Quem já leu `ers-catalogo.md` precisa saber destas duas mudanças deliberadas:

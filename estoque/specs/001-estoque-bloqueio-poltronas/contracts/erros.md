@@ -25,10 +25,16 @@ catálogo devolver 409 para um erro do cliente.
 | `NOT_FOUND` | `ConsultarMapaPoltronas` para sessão desconhecida | FR-031 | `SESSAO_DESCONHECIDA` |
 | `UNAVAILABLE` | Banco, mecanismo de exclusividade ou dependência de estado indisponível — nenhum estado foi alterado | FR-006, SC-012 | `DEPENDENCIA_INDISPONIVEL` |
 | `DEADLINE_EXCEEDED` | Orçamento da operação estourado antes de decidir | SC-001 | — |
+| `INTERNAL` | Falha que o catálogo de erros de domínio não prevê — defeito deste serviço, não do chamador. A resposta é sempre a mesma, sem metadados: o detalhe fica só no log, correlacionado pelo `trace_id` | — | `ERRO_INTERNO` |
 | `UNAUTHENTICATED` / recusa no handshake | Chamador sem identidade de serviço válida | FR-037 | — (a conexão TLS nem se estabelece) |
 
 `LIMITE_POLTRONAS_EXCEDIDO` acompanha o limite vigente em `ErrorInfo.metadata["limite"]`,
 para que o chamador possa informar a pessoa usuária sem consultar documentação (FR-004).
+
+`ERRO_INTERNO` é a categoria de escape: qualquer erro que não case com um erro de
+domínio conhecido chega ao cliente por ela. Repetir uma resposta `INTERNAL` não
+tem por que dar certo — quem integra deve tratá-la como defeito a reportar, não
+como falha transitória a retentar (esta última é `UNAVAILABLE`).
 
 ## Detalhes tipados
 

@@ -1,0 +1,127 @@
+openapi: 3.1.0
+info:
+  title: Servico-Pagamento — API de consulta
+  version: "1.0.0"
+  description: |
+    Única superfície síncrona do serviço. Serve para o aplicativo acompanhar o
+    desfecho do pagamento de uma reserva enquanto o processamento acontece de
+    forma assíncrona.
+
+    Contrato: FR-015..FR-018 e FR-025 de ../spec.md. Categorias de erro em
+    ./erros.md. Mudança incompatível exige versão nova no caminho (/api/v2).
+servers:
+  - url: /api/v1
+paths:
+  /pagamentos/reserva/{reserva_id}:
+    get:
+      summary: Consulta o andamento do pagamento de uma reserva
+      description: |
+        Devolve o estado atual da transação da reserva informada. Só a pessoa dona
+        da reserva obtém dados: para qualquer outra, a resposta é indistinguível
+        de reserva inexistente (FR-017). Nenhum papel administrativo é reconhecido.
+      operationId: consultarPagamentoPorReserva
+      security:
+        - bearerJWT: []
+      parameters:
+        - name: reserva_id
+          in: path
+          required: true
+          description: UUID v4 da reserva
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Transação encontrada e pertencente a quem consulta
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pagamento"
+              examples:
+                pago:
+                  value:
+                    transacao_id: e402a129-8812-4211-b123-000129381293
+                    reserva_id: 9982a1b3-44c1-4221-a123-902183120192
+                    status: PAGO
+                    valor_total: 84.00
+                    forma_pagamento: PIX
+                    criado_em: "2026-08-29T21:35:00Z"
+                processando:
+                  value:
+                    transacao_id: e402a129-8812-4211-b123-000129381293
+                    reserva_id: 9982a1b3-44c1-4221-a123-902183120192
+                    status: PROCESSANDO
+                    valor_total: 84.00
+                    forma_pagamento: CARTAO_CREDITO
+                    criado_em: "2026-08-29T21:35:00Z"
+        "400":
+          description: "`reserva_id` não é um UUID válido (FR-018)"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erro" }
+        "401":
+          description: Credencial ausente, malformada, expirada ou com assinatura inválida
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erro" }
+        "404":
+          description: |
+            Não há pagamento visível para essa reserva. Cobre dois casos
+            deliberadamente indistinguíveis (FR-017): a reserva não tem transação,
+            ou a transação pertence a outra pessoa.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erro" }
+        "503":
+          description: Serviço incapaz de consultar o armazenamento
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erro" }
+  /health/live:
+    get:
+      summary: O processo está no ar
+      security: []
+      responses:
+        "200": { description: Processo vivo }
+  /health/ready:
+    get:
+      summary: O serviço é capaz de processar cobranças
+      description: Verifica armazenamento e canal de eventos (FR-025).
+      security: []
+      responses:
+        "200": { description: Pronto }
+        "503": { description: Alguma dependência indisponível }
+components:
+  securitySchemes:
+    bearerJWT:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT emitido pelo Keycloak, validado de forma stateless por JWKS
+        (assinatura, emissor, público e validade). A claim `sub` identifica a
+        pessoa e é comparada ao dono da transação.
+  schemas:
+    Pagamento:
+      type: object
+      required: [transacao_id, reserva_id, status, valor_total, forma_pagamento, criado_em]
+      properties:
+        transacao_id:   { type: string, format: uuid }
+        reserva_id:     { type: string, format: uuid }
+        status:
+          type: string
+          enum: [PROCESSANDO, PAGO, RECUSADO, CANCELADO, PENDENTE_VERIFICACAO]
+        valor_total:    { type: number, format: double, exclusiveMinimum: 0 }
+        forma_pagamento: { type: string, enum: [PIX, CARTAO_CREDITO] }
+        criado_em:      { type: string, format: date-time }
+      description: |
+        `motivo_falha` e `codigo_transacao_gateway` NÃO são expostos: a ERS não os
+        inclui na resposta, e o motivo da recusa já chega ao aplicativo pela
+        notificação. Não expor referência de adquirente evita vazar detalhe da
+        integração pela API pública.
+    Erro:
+      type: object
+      required: [codigo, mensagem]
+      properties:
+        codigo:   { type: string, description: "categoria estável — ver ./erros.md" }
+        mensagem: { type: string, description: "texto humano, livre para mudar de redação" }

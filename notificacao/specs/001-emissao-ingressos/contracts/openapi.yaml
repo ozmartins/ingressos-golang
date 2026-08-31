@@ -1,0 +1,215 @@
+openapi: 3.1.0
+info:
+  title: Servico-Notificacao — Ingressos
+  version: "1.0.0"
+  description: |
+    Emissão de ingressos digitais é assíncrona e não aparece aqui: acontece no consumo
+    de `pagamento.sucesso` (ver contracts/eventos.md). Esta API expõe apenas leitura
+    pela pessoa dona e a baixa do ingresso na portaria.
+
+    Dois esquemas de credencial, sem hierarquia entre eles: cada operação aceita
+    somente o seu. Apresentar o outro é recusa, não promoção (research D7).
+
+servers:
+  - url: http://localhost:8080
+    description: ambiente local
+
+tags:
+  - name: cliente
+    description: operações da pessoa dona do ingresso
+  - name: portaria
+    description: operações do dispositivo de validação do cinema
+  - name: saude
+    description: sondas de vivacidade e prontidão
+
+paths:
+  /api/v1/ingressos/meus-ingressos:
+    get:
+      tags: [cliente]
+      summary: Lista os ingressos da pessoa autenticada
+      description: |
+        Devolve todos os ingressos da pessoa, sem paginação, ordenados do mais recente
+        para o mais antigo (FR-023). O recorte é sempre pelo `sub` do token: não há
+        parâmetro capaz de alcançar ingresso de terceiro (FR-014).
+      operationId: listarMeusIngressos
+      security:
+        - tokenPessoa: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: |
+            Filtro opcional por estado (FR-024). Ausente significa todos os estados.
+            Valor não reconhecido é 400 — nunca tratado como ausência de filtro.
+          schema:
+            type: string
+            enum: [VALIDO, UTILIZADO, CANCELADO]
+      responses:
+        "200":
+          description: Lista de ingressos, possivelmente vazia
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Ingresso"
+              examples:
+                comIngressos:
+                  value:
+                    - ingresso_id: "771a9210-9981-42a1-b882-102938471290"
+                      reserva_id: "9982a1b3-44c1-4221-a123-902183120192"
+                      codigo_qr: "CIN1.dxqSEJmBQqG4ghApOEcSkA.9pQ1kZ2mTr8xVbN4hLcE6yWq0dFjIuOa7sPgRtYnMzE"
+                      status: "VALIDO"
+                      criado_em: "2026-08-29T21:35:12Z"
+                semIngressos:
+                  summary: Pessoa sem nenhum ingresso — lista vazia, não é erro
+                  value: []
+        "400":
+          description: Filtro de estado não reconhecido
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problema" }
+        "401":
+          description: Credencial de pessoa ausente, expirada ou inválida
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problema" }
+
+  /api/v1/ingressos/validar:
+    post:
+      tags: [portaria]
+      summary: Valida o código na entrada da sala e dá baixa no ingresso
+      description: |
+        A autorização e a baixa acontecem no mesmo ato, por escrita condicionada: sob
+        leituras simultâneas do mesmo código, no máximo uma autoriza (FR-011).
+
+        Código malformado, assinatura inválida e ingresso inexistente devolvem a mesma
+        resposta 404 — indistinguíveis por exigência da FR-010.
+      operationId: validarIngresso
+      security:
+        - chavePortaria: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [codigo_qr]
+              properties:
+                codigo_qr:
+                  type: string
+                  minLength: 1
+                  maxLength: 255
+            example:
+              codigo_qr: "CIN1.dxqSEJmBQqG4ghApOEcSkA.9pQ1kZ2mTr8xVbN4hLcE6yWq0dFjIuOa7sPgRtYnMzE"
+      responses:
+        "200":
+          description: Entrada autorizada; o ingresso passou a UTILIZADO neste ato
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [valido, mensagem, ingresso_id, utilizado_em]
+                properties:
+                  valido: { type: boolean, const: true }
+                  mensagem: { type: string }
+                  ingresso_id: { type: string, format: uuid }
+                  utilizado_em: { type: string, format: date-time }
+              example:
+                valido: true
+                mensagem: "Entrada autorizada."
+                ingresso_id: "771a9210-9981-42a1-b882-102938471290"
+                utilizado_em: "2026-08-29T22:00:00Z"
+        "401":
+          description: Chave de dispositivo ausente ou não reconhecida (o ingresso não chega a ser consultado)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problema" }
+        "404":
+          description: |
+            Código sem ingresso correspondente. Cobre três casos deliberadamente
+            indistinguíveis: malformado, assinatura inválida, inexistente (FR-010).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Recusa" }
+              example:
+                valido: false
+                mensagem: "Ingresso não encontrado."
+        "409":
+          description: Ingresso já utilizado anteriormente; o instante original não foi alterado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Recusa" }
+              example:
+                valido: false
+                mensagem: "Ingresso já utilizado anteriormente."
+        "422":
+          description: Corpo sem `codigo_qr` ou com tipo errado
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problema" }
+
+  /health/live:
+    get:
+      tags: [saude]
+      summary: Vivacidade — o processo está de pé
+      security: []
+      responses:
+        "200": { description: vivo }
+
+  /health/ready:
+    get:
+      tags: [saude]
+      summary: Prontidão — banco e broker alcançáveis
+      security: []
+      responses:
+        "200": { description: pronto }
+        "503": { description: dependência indisponível }
+
+components:
+  securitySchemes:
+    tokenPessoa:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Token do Keycloak, validado localmente por JWKS: assinatura, emissor, público e
+        validade. A identidade é o `sub`. Não é aceito na rota da portaria.
+    chavePortaria:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: |
+        Chave estática do dispositivo de portaria, comparada em tempo constante. Não
+        carrega identidade de pessoa e não é aceita na rota do cliente.
+
+  schemas:
+    Ingresso:
+      type: object
+      required: [ingresso_id, reserva_id, codigo_qr, status, criado_em]
+      properties:
+        ingresso_id: { type: string, format: uuid }
+        reserva_id: { type: string, format: uuid }
+        codigo_qr: { type: string }
+        status:
+          type: string
+          enum: [VALIDO, UTILIZADO, CANCELADO]
+        criado_em: { type: string, format: date-time }
+
+    Recusa:
+      description: Recusa de entrada na portaria; a forma é a da ERS, não RFC 9457.
+      type: object
+      required: [valido, mensagem]
+      properties:
+        valido: { type: boolean, const: false }
+        mensagem: { type: string }
+
+    Problema:
+      description: Erro de protocolo, no formato RFC 9457.
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }

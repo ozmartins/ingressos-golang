@@ -74,7 +74,9 @@ func subirAmbiente(t *testing.T) *ambiente {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pool, err := pgxpool.New(ctx, dsn)
+	// O pool do serviço, não um cru: é ele que fixa o `search_path` no schema
+	// `notificacao`, e é isso que o teste precisa exercitar.
+	pool, err := postgres.Conectar(ctx, dsn)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,4 +225,35 @@ func (a *ambiente) contarIngressos(t *testing.T) int {
 		t.Fatalf("contar ingressos: %v", err)
 	}
 	return n
+}
+
+// TestSchemaProprio prova que o serviço não usa `public`: as consultas dos
+// repositórios não qualificam a tabela, então é o `search_path` do pool que
+// decide onde elas caem. Se alguém remover essa configuração ou desqualificar
+// as migrações, as tabelas voltam para `public` e este teste falha.
+func TestSchemaProprio(t *testing.T) {
+	a := subirAmbiente(t)
+	ctx := context.Background()
+
+	// O `search_path` efetivo, não o schema resolvido: como o usuário do banco
+	// também se chama `notificacao`, o padrão `"$user", public` acertaria o
+	// schema por coincidência de nome e esconderia a falta da configuração no
+	// pool.
+	var searchPath string
+	if err := a.Pool.QueryRow(ctx, `SELECT current_setting('search_path')`).Scan(&searchPath); err != nil {
+		t.Fatalf("consultando search_path: %v", err)
+	}
+	if searchPath != postgres.Schema {
+		t.Errorf("search_path = %q, esperado %q", searchPath, postgres.Schema)
+	}
+
+	for _, tabela := range []string{"ingressos_emitidos", "registros_notificacao"} {
+		var emPublic *string
+		if err := a.Pool.QueryRow(ctx, `SELECT to_regclass('public.'|| $1)::text`, tabela).Scan(&emPublic); err != nil {
+			t.Fatalf("consultando public.%s: %v", tabela, err)
+		}
+		if emPublic != nil {
+			t.Errorf("tabela %q existe em public (%s); deveria existir só em %s", tabela, *emPublic, postgres.Schema)
+		}
+	}
 }

@@ -47,6 +47,14 @@ export DATABASE_URL='postgres://postgres:postgres@localhost:5432/notificacao?ssl
 make migrate-up
 ```
 
+A migração cria o schema `notificacao` e as duas tabelas dentro dele; o serviço
+fixa o `search_path` nesse schema no próprio pool, então nada da notificação
+fica em `public` além da tabela de controle do golang-migrate — `make
+migrate-up` anexa `&search_path=public` à `DATABASE_URL` justamente para manter
+essa tabela no lugar. Os `psql` deste roteiro qualificam as tabelas
+(`notificacao.ingressos_emitidos`) porque a sessão do `psql` não herda esse
+`search_path`.
+
 Variáveis do processo:
 
 ```bash
@@ -82,9 +90,9 @@ começando em `CIN1.`, e uma linha em `registros_notificacao` com `status='ENVIA
 
 ```bash
 psql "$DATABASE_URL" -c \
-  "SELECT id, status, left(codigo_qr, 5) AS prefixo FROM ingressos_emitidos;"
+  "SELECT id, status, left(codigo_qr, 5) AS prefixo FROM notificacao.ingressos_emitidos;"
 psql "$DATABASE_URL" -c \
-  "SELECT ingresso_id, canal, status FROM registros_notificacao;"
+  "SELECT ingresso_id, canal, status FROM notificacao.registros_notificacao;"
 ```
 
 ## Cenário 2 — Reentrega não duplica (FR-004, SC-001)
@@ -95,8 +103,8 @@ inalterado, e **nenhum** registro de aviso novo (D6 — a reentrega é inerte).
 ```bash
 make publicar-pagamento RESERVA=9982a1b3-44c1-4221-a123-902183120192 \
                         USUARIO=c394c8b3-76a1-4328-b803-02f5923b7a15
-psql "$DATABASE_URL" -c "SELECT count(*) FROM ingressos_emitidos;"       # esperado: 1
-psql "$DATABASE_URL" -c "SELECT count(*) FROM registros_notificacao;"    # esperado: 1
+psql "$DATABASE_URL" -c "SELECT count(*) FROM notificacao.ingressos_emitidos;"       # esperado: 1
+psql "$DATABASE_URL" -c "SELECT count(*) FROM notificacao.registros_notificacao;"    # esperado: 1
 ```
 
 ## Cenário 3 — A pessoa vê os próprios ingressos (P3, FR-013, FR-023, FR-024)
@@ -123,7 +131,7 @@ curl -si localhost:8080/api/v1/ingressos/meus-ingressos | head -1               
 ## Cenário 4 — A portaria valida, uma vez só (P2, FR-007, FR-008)
 
 ```bash
-CODIGO=$(psql -tA "$DATABASE_URL" -c "SELECT codigo_qr FROM ingressos_emitidos LIMIT 1;")
+CODIGO=$(psql -tA "$DATABASE_URL" -c "SELECT codigo_qr FROM notificacao.ingressos_emitidos LIMIT 1;")
 
 # primeira leitura: 200, autorizada
 curl -si -X POST localhost:8080/api/v1/ingressos/validar \
@@ -183,7 +191,7 @@ preenchido; **fila principal vazia** — a mensagem foi confirmada, não reproce
 
 ```bash
 psql "$DATABASE_URL" -c \
-  "SELECT status, detalhes IS NOT NULL AS tem_detalhe FROM registros_notificacao ORDER BY enviado_em DESC LIMIT 1;"
+  "SELECT status, detalhes IS NOT NULL AS tem_detalhe FROM notificacao.registros_notificacao ORDER BY enviado_em DESC LIMIT 1;"
 docker compose exec rabbitmq rabbitmqctl list_queues name messages
 ```
 

@@ -1,6 +1,15 @@
 -- Duas tabelas do Servico-Notificacao. DDL da ERS, mais as restrições CHECK que
 -- trazem invariantes do domínio para dentro do banco (data-model.md §1 e §3).
-CREATE TABLE ingressos_emitidos (
+--
+-- A notificação é dona do seu próprio schema: nada dela vive em `public`. Cada
+-- objeto é qualificado porque esta migração roda pelo CLI do golang-migrate,
+-- cujo `search_path` é o padrão da conexão. A tabela de controle de versões
+-- (`schema_migrations`) segue em `public`: ela é do ferramental de migração,
+-- não do domínio.
+
+CREATE SCHEMA IF NOT EXISTS notificacao;
+
+CREATE TABLE notificacao.ingressos_emitidos (
     id           VARCHAR(36)  PRIMARY KEY,
     reserva_id   VARCHAR(36)  NOT NULL UNIQUE,
     usuario_id   VARCHAR(36)  NOT NULL,
@@ -17,11 +26,11 @@ CREATE TABLE ingressos_emitidos (
 );
 
 -- Único índice além das chaves: serve à listagem por pessoa (research.md D8).
-CREATE INDEX ingressos_por_pessoa ON ingressos_emitidos (usuario_id, criado_em DESC);
+CREATE INDEX ingressos_por_pessoa ON notificacao.ingressos_emitidos (usuario_id, criado_em DESC);
 
-CREATE TABLE registros_notificacao (
+CREATE TABLE notificacao.registros_notificacao (
     id          VARCHAR(36) PRIMARY KEY,
-    ingresso_id VARCHAR(36) NOT NULL REFERENCES ingressos_emitidos(id),
+    ingresso_id VARCHAR(36) NOT NULL REFERENCES notificacao.ingressos_emitidos(id),
     usuario_id  VARCHAR(36) NOT NULL,
     canal       VARCHAR(50) NOT NULL DEFAULT 'EMAIL',
     status      VARCHAR(50) NOT NULL DEFAULT 'ENVIADO',

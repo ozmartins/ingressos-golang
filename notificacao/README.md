@@ -46,7 +46,7 @@ erro de largada — não cai silenciosamente no padrão.
 
 | Variável | Para quê |
 |---|---|
-| `DATABASE_URL` | PostgreSQL |
+| `DATABASE_URL` | PostgreSQL (o `search_path` é fixado no código, no schema `notificacao`) |
 | `AMQP_URL` | RabbitMQ |
 | `JWKS_URL`, `JWT_ISSUER`, `JWT_AUDIENCE` | validação do token do Keycloak |
 | `INGRESSO_QR_SEGREDO` | assinatura do código de acesso |
@@ -78,6 +78,13 @@ export DATABASE_URL='postgres://postgres:postgres@localhost:5432/notificacao?ssl
 make migrate-up
 make run
 ```
+
+As tabelas da notificação vivem no schema `notificacao`, não em `public`: a
+migração cria o schema e qualifica cada objeto, e o serviço fixa o `search_path`
+no pool de conexões. Para inspecionar o banco com `psql`, aponte o `search_path`
+antes (`SET search_path TO notificacao;`) ou qualifique as tabelas. Só a tabela
+de controle do golang-migrate (`schema_migrations`) segue em `public` — ela é do
+ferramental, não do domínio.
 
 Roteiro completo de validação ponta a ponta, com oito cenários, em
 [`quickstart.md`](specs/001-emissao-ingressos/quickstart.md).

@@ -77,7 +77,7 @@ func subirAmbiente(t *testing.T) *ambiente {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pool, err := pgxpool.New(ctx, dsn)
+	pool, err := postgres.Abrir(ctx, dsn)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,6 +1,15 @@
 -- Tabela única do Servico-Pagamento. DDL da ERS, mais resultado_anunciado,
 -- pago_em e o estado PENDENTE_VERIFICACAO — justificados em data-model.md §1.
-CREATE TABLE transacoes_pagamento (
+--
+-- O pagamento é dono do seu próprio schema: nada dele vive em `public`. A
+-- tabela é qualificada porque esta migração roda pelo CLI do golang-migrate,
+-- cujo `search_path` é o padrão da conexão. A tabela de controle de versões
+-- (`schema_migrations`) segue em `public`: ela é do ferramental de migração,
+-- não do domínio.
+
+CREATE SCHEMA IF NOT EXISTS pagamento;
+
+CREATE TABLE pagamento.transacoes_pagamento (
     id                       VARCHAR(36) PRIMARY KEY,
     reserva_id               VARCHAR(36) NOT NULL UNIQUE,
     usuario_id               VARCHAR(36) NOT NULL,

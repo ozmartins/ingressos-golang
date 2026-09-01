@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 	amqp091 "github.com/rabbitmq/amqp091-go"
 
 	"github.com/oseias/ingressos-golang/pagamento/internal/adapter/adquirente/simulado"
@@ -57,7 +56,7 @@ func executar() error {
 	ctx, parar := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer parar()
 
-	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
+	pool, err := postgres.Abrir(ctx, cfg.DatabaseURL)
 	if err != nil {
 		return err
 	}

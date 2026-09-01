@@ -16,11 +16,18 @@ test-integration:
 lint:
 	golangci-lint run
 
+# A tabela de controle do migrate fica em `public`, fixada pelo `search_path`.
+# O padrão (`"$$user", public`) a moveria para o schema `pagamento` assim que a
+# primeira migração o criasse — o usuário do banco tem o mesmo nome —, e as
+# versões já aplicadas sumiriam do rastro. A migração em si qualifica cada
+# objeto, então não depende do `search_path`.
+MIGRATE_URL ?= $(DATABASE_URL)&search_path=public
+
 migrate-up:
-	migrate -path migrations -database "$(DATABASE_URL)" up
+	migrate -path migrations -database "$(MIGRATE_URL)" up
 
 migrate-down:
-	migrate -path migrations -database "$(DATABASE_URL)" down 1
+	migrate -path migrations -database "$(MIGRATE_URL)" down 1
 
 run: build
 	./bin/pagamento

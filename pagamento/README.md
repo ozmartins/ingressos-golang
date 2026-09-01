@@ -32,6 +32,16 @@ make migrate-up
 make run
 ```
 
+A `DATABASE_URL` precisa da query string: `make migrate-up` anexa
+`&search_path=public` a ela.
+
+As tabelas do pagamento vivem no schema `pagamento`, não em `public`: a migração
+cria o schema e qualifica cada objeto, e o serviço fixa o `search_path` no pool
+de conexões. Para inspecionar o banco com `psql`, aponte o `search_path` antes
+(`SET search_path TO pagamento;`) ou qualifique a tabela. Só a tabela de
+controle do golang-migrate (`schema_migrations`) segue em `public` — ela é do
+ferramental, não do domínio.
+
 Roteiro completo de validação: [`specs/001-pagamento-assincrono/quickstart.md`](specs/001-pagamento-assincrono/quickstart.md).
 
 ## Configuração
@@ -41,7 +51,7 @@ malformada impede o processo de subir.
 
 | Variável | Obrigatória | Padrão | O que é |
 |---|---|---|---|
-| `DATABASE_URL` | sim | — | conexão PostgreSQL |
+| `DATABASE_URL` | sim | — | conexão PostgreSQL (o `search_path` é fixado no código, no schema `pagamento`) |
 | `AMQP_URL` | sim | — | conexão RabbitMQ |
 | `JWKS_URL` | sim | — | conjunto de chaves do Keycloak |
 | `JWT_ISSUER` | sim | — | emissor aceito |

@@ -15,7 +15,7 @@ Prova, com o serviço rodando de verdade, os desfechos que a spec exige.
 ```bash
 cd pagamento
 docker compose up -d postgres rabbitmq       # espera os health checks
-export DATABASE_URL='postgres://pagamento:pagamento@localhost:5432/pagamento?sslmode=disable'
+export DATABASE_URL='postgres://pagamento:pagamento@localhost:5432/pagamento?sslmode=disable'  # `make migrate-up` anexa `&search_path=public`
 make migrate-up
 make run                                     # declara a topologia e começa a consumir
 ```
@@ -46,7 +46,7 @@ publicado com `transacao_id`, `reserva_id`, `usuario_id`, `valor_total` e `pago_
 ```bash
 make espiar-evento ROUTING=pagamento.sucesso      # lê da fila de inspeção
 psql "$DATABASE_URL" -c \
-  "select status, resultado_anunciado, pago_em from transacoes_pagamento where reserva_id='$RESERVA'"
+  "select status, resultado_anunciado, pago_em from pagamento.transacoes_pagamento where reserva_id='$RESERVA'"
 # → PAGO | t | <instante>
 ```
 
@@ -73,7 +73,7 @@ Compare os corpos dos dois 404 byte a byte: precisam ser iguais.
 ```bash
 RESERVA=$(uuidgen)
 for i in $(seq 1 20); do make publicar-reserva RESERVA=$RESERVA VALOR=50.00 FORMA=PIX & done; wait
-psql "$DATABASE_URL" -c "select count(*) from transacoes_pagamento where reserva_id='$RESERVA'"
+psql "$DATABASE_URL" -c "select count(*) from pagamento.transacoes_pagamento where reserva_id='$RESERVA'"
 # → 1
 make espiar-evento ROUTING=pagamento.sucesso | grep -c "$RESERVA"
 # → 1  (um único anúncio; ver §4 de contracts/eventos.md)
@@ -137,7 +137,7 @@ Para ver o estado intermediário à mão, dá para forjá-lo no banco:
 
 ```bash
 psql "$DATABASE_URL" -c \
-  "update transacoes_pagamento set resultado_anunciado=false where reserva_id='$RESERVA'"
+  "update pagamento.transacoes_pagamento set resultado_anunciado=false where reserva_id='$RESERVA'"
 make publicar-reserva RESERVA=$RESERVA VALOR=84.00 FORMA=PIX
 ```
 

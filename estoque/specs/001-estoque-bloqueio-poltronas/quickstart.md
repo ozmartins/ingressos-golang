@@ -23,6 +23,12 @@ O compose sobe, nesta ordem de dependência: `postgres` → `migrate` (aplica
 depois que as migrações terminam com sucesso, então nunca encontra esquema pela
 metade.
 
+As migrações criam o schema `estoque` e todas as tabelas dentro dele; o serviço
+fixa o `search_path` nesse schema, então nada do estoque fica em `public` além
+da tabela de controle do próprio golang-migrate. Fora do compose, use
+`make migrate-up`, que anexa `&search_path=public` à `DATABASE_URL` para manter
+essa tabela de controle no lugar.
+
 Portas no host: gRPC `50051`, administração (saúde e métricas) `8090`, RabbitMQ
 management `15673`, AMQP `55672`, PostgreSQL `55433`, Redis `56379`.
 

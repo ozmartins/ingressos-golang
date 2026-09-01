@@ -16,6 +16,10 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/shared"
 )
 
+// Schema onde vivem as tabelas do estoque. O serviço é dono dele e não usa
+// `public`.
+const Schema = "estoque"
+
 // Banco é o pool de conexões e o ponto de entrada dos repositórios.
 type Banco struct {
 	pool *pgxpool.Pool
@@ -28,6 +32,13 @@ func Abrir(ctx context.Context, url string) (*Banco, error) {
 	if err != nil {
 		return nil, fmt.Errorf("DATABASE_URL malformada: %w", err)
 	}
+	// O `search_path` é do serviço, não do operador: fixá-lo aqui garante que
+	// uma DATABASE_URL sem ele nunca faça as consultas caírem em `public` e
+	// encontrarem tabelas de outro serviço com o mesmo nome.
+	if cfg.ConnConfig.RuntimeParams == nil {
+		cfg.ConnConfig.RuntimeParams = map[string]string{}
+	}
+	cfg.ConnConfig.RuntimeParams["search_path"] = Schema
 	cfg.MaxConnIdleTime = 5 * time.Minute
 
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)

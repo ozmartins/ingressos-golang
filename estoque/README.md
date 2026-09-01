@@ -55,6 +55,13 @@ docker compose up --build
 curl -fsS http://localhost:8090/health/ready
 ```
 
+As tabelas do estoque vivem no schema `estoque`, não em `public`: as migrações
+criam o schema e qualificam cada objeto, e o serviço fixa o `search_path` no
+pool de conexões. Para inspecionar o banco com `psql`, aponte o `search_path`
+antes (`SET search_path TO estoque;`) ou qualifique as tabelas. Só a tabela de
+controle do golang-migrate (`schema_migrations`) segue em `public` — ela é do
+ferramental, não do domínio.
+
 O roteiro completo de validação — provisionar sessão, bloquear, confirmar,
 liberar, expirar — está em
 [`quickstart.md`](specs/001-estoque-bloqueio-poltronas/quickstart.md).
@@ -82,7 +89,7 @@ ou malformada.
 
 | Variável | Padrão | Para quê |
 |---|---|---|
-| `DATABASE_URL` | — (obrigatória) | PostgreSQL, fonte de verdade |
+| `DATABASE_URL` | — (obrigatória) | PostgreSQL, fonte de verdade (o `search_path` é fixado no código, no schema `estoque`) |
 | `RABBITMQ_URL` | — (obrigatória) | barramento de fatos |
 | `REDIS_URL` | vazio | índice de prazo; ausente, só a varredura expira |
 | `GRPC_ADDR` | `:50051` | canal síncrono |

@@ -1,8 +1,16 @@
 -- Esquema do Servico-Estoque. Fonte: data-model.md.
 -- As três primeiras tabelas vêm da ERS; as duas últimas sustentam requisitos
 -- que a ERS enuncia mas não modela (entrega confiável do fato e idempotência).
+--
+-- O estoque é dono do seu próprio schema: nada dele vive em `public`. Cada
+-- objeto é qualificado porque esta migração roda pelo CLI do golang-migrate,
+-- cujo `search_path` é o padrão da conexão. A tabela de controle de versões
+-- (`schema_migrations`) segue em `public`: ela é do ferramental de migração,
+-- não do domínio.
 
-CREATE TABLE poltronas (
+CREATE SCHEMA IF NOT EXISTS estoque;
+
+CREATE TABLE estoque.poltronas (
     id            VARCHAR(36)  PRIMARY KEY,       -- UUID v5 de sessao_id|fileira|numero
     sessao_id     VARCHAR(36)  NOT NULL,
     fileira       VARCHAR(5)   NOT NULL,
@@ -19,7 +27,7 @@ CREATE TABLE poltronas (
     CONSTRAINT ck_poltrona_numero CHECK (numero > 0)
 );
 
-CREATE TABLE reservas (
+CREATE TABLE estoque.reservas (
     id             VARCHAR(36) PRIMARY KEY,       -- UUID v4
     sessao_id      VARCHAR(36) NOT NULL,
     usuario_id     VARCHAR(36) NOT NULL,
@@ -34,15 +42,15 @@ CREATE TABLE reservas (
     CONSTRAINT ck_reserva_finalizacao CHECK ((status = 'PENDENTE') = (finalizado_em IS NULL))
 );
 
-CREATE TABLE reserva_poltronas (
-    reserva_id  VARCHAR(36) NOT NULL REFERENCES reservas(id),
-    poltrona_id VARCHAR(36) NOT NULL REFERENCES poltronas(id),
+CREATE TABLE estoque.reserva_poltronas (
+    reserva_id  VARCHAR(36) NOT NULL REFERENCES estoque.reservas(id),
+    poltrona_id VARCHAR(36) NOT NULL REFERENCES estoque.poltronas(id),
     PRIMARY KEY (reserva_id, poltrona_id)
 );
 
 -- Caixa de saída: o fato é gravado na mesma transação que o produziu e
 -- publicado depois, fora do caminho da requisição (FR-018, SC-005).
-CREATE TABLE outbox_eventos (
+CREATE TABLE estoque.outbox_eventos (
     id            BIGSERIAL   PRIMARY KEY,
     message_id    VARCHAR(64) NOT NULL UNIQUE,
     routing_key   VARCHAR(120) NOT NULL,
@@ -56,7 +64,7 @@ CREATE TABLE outbox_eventos (
 );
 
 -- Idempotência do consumo (FR-021, FR-034).
-CREATE TABLE mensagens_processadas (
+CREATE TABLE estoque.mensagens_processadas (
     fila          VARCHAR(120) NOT NULL,
     message_id    VARCHAR(64)  NOT NULL,
     processado_em TIMESTAMPTZ  NOT NULL DEFAULT now(),

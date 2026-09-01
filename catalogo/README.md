@@ -31,12 +31,14 @@ O catálogo de erros está em [`specs/001-catalogo-sessoes-reserva/contracts/err
 
 ## Executando localmente
 
-O compose sobe a stack inteira — Postgres, Keycloak (com o realm `cinema` já
-importado de `keycloak/realm-cinema.json`), o estoque simulado, as migrações e o
-próprio catálogo:
+O compose da raiz do repositório sobe o catálogo com tudo de que ele depende —
+Keycloak (com o realm `cinema` já importado de `keycloak/realm-cinema.json`), o
+estoque simulado e as migrações. O PostgreSQL não sobe em contêiner: os serviços
+usam a instância instalada na máquina, preparada uma única vez com
+`psql -U postgres -f ../infra/postgres/criar-bancos.sql`:
 
 ```bash
-docker compose up -d
+docker compose -f ../docker-compose.yml up -d catalogo
 psql "postgres://catalogo:catalogo@localhost:5432/catalogo?sslmode=disable" \
   -f test/fixtures/catalogo_exemplo.sql      # catálogo de exemplo, opcional
 curl -s localhost:8082/health
@@ -86,12 +88,12 @@ verificação. O console de admin continua em `http://localhost:8081` (admin/adm
 ### Rodando o serviço fora do contêiner
 
 ```bash
-docker compose up -d postgres keycloak estoque-simulado migrate
+docker compose -f ../docker-compose.yml up -d keycloak estoque-simulado migrate-catalogo
 echo "127.0.0.1 keycloak" | sudo tee -a /etc/hosts   # uma vez, pelo emissor fixo
 export DATABASE_URL="postgres://catalogo:catalogo@localhost:5432/catalogo?sslmode=disable"   # precisa da query string: `make migrate-up` anexa `&search_path=public`
 export KEYCLOAK_ISSUER_URL="http://keycloak:8081/realms/cinema"
 export KEYCLOAK_AUDIENCE="cinema-app"
-export ESTOQUE_GRPC_ADDR="localhost:50051"
+export ESTOQUE_GRPC_ADDR="localhost:50052"   # o simulado; a 50051 é do estoque real
 export HTTP_PORT=8082
 make run
 ```

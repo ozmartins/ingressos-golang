@@ -26,7 +26,7 @@ A divergência foi decidida com o mantenedor em 2026-08-30 e está registrada em
 ## Como subir
 
 ```bash
-docker compose up -d postgres rabbitmq
+docker compose -f ../docker-compose.yml up -d rabbitmq
 export DATABASE_URL='postgres://pagamento:pagamento@localhost:5432/pagamento?sslmode=disable'
 make migrate-up
 make run

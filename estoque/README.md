@@ -51,7 +51,7 @@ Leia primeiro, nesta ordem: [`spec.md`](specs/001-estoque-bloqueio-poltronas/spe
 
 ```bash
 make certs           # CA e pares de desenvolvimento (descartáveis)
-docker compose up --build
+docker compose -f ../docker-compose.yml up -d --build estoque
 curl -fsS http://localhost:8090/health/ready
 ```
 

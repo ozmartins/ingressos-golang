@@ -73,8 +73,8 @@ erro de largada — não cai silenciosamente no padrão.
 ## Rodar
 
 ```bash
-docker compose up -d
-export DATABASE_URL='postgres://postgres:postgres@localhost:5432/notificacao?sslmode=disable'
+docker compose -f ../docker-compose.yml up -d rabbitmq keycloak
+export DATABASE_URL='postgres://notificacao:notificacao@localhost:5432/notificacao?sslmode=disable'
 make migrate-up
 make run
 ```

@@ -1,0 +1,212 @@
+# Ambiente completo do cinema: as quatro APIs e a infraestrutura que elas
+# compartilham. Substitui os quatro compose por serviço, que subiam um RabbitMQ
+# (e um Postgres) cada um e, por isso, não conseguiam trocar eventos entre si.
+#
+# O PostgreSQL NÃO sobe aqui: os serviços usam a instância instalada na máquina
+# que roda o compose, alcançada por `host.docker.internal`. Crie usuários e
+# bancos uma vez com `psql -U postgres -f infra/postgres/criar-bancos.sql`, e
+# garanta que o Postgres do host escute em todas as interfaces
+# (`listen_addresses = '*'`) e aceite a rede do Docker no `pg_hba.conf`.
+
+# Rota até o Postgres do host. Em Linux o alias não existe por padrão; o
+# `host-gateway` o aponta para o gateway da rede do compose.
+x-host-postgres: &host-postgres
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+
+services:
+  # ---------------------------------------------------------------- infra ---
+  redis:
+    image: redis:7-alpine
+    # `Ex` habilita a notificação de chave expirada, que dispara a liberação
+    # pronta da reserva. A varredura no banco continua sendo a autoridade.
+    command: ["redis-server", "--notify-keyspace-events", "Ex"]
+    ports: ["${PORTA_REDIS:-6379}:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    ports:
+      - "${PORTA_RABBITMQ:-5672}:5672"
+      - "${PORTA_RABBITMQ_PAINEL:-15672}:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HTTP_PORT: "8081"
+      # O emissor precisa ser a MESMA URL dentro e fora da rede do compose: o
+      # token carrega `iss`, e os serviços recusam qualquer emissor diferente do
+      # que descobriram no boot. Daí o hostname `keycloak` e a porta 8081 iguais
+      # nos dois lados. O console de admin fica em localhost para o navegador.
+      KC_HOSTNAME: http://keycloak:8081
+      KC_HOSTNAME_ADMIN: http://localhost:8081
+      KC_HEALTH_ENABLED: "true"
+    volumes: ["./catalogo/keycloak:/opt/keycloak/data/import:ro"]
+    ports: ["${PORTA_KEYCLOAK:-8081}:8081"]
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8081 && echo -e 'GET /realms/cinema HTTP/1.1\\nHost: localhost\\nConnection: close\\n\\n' >&3 && cat <&3 | head -1 | grep -q 200"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  # ----------------------------------------------------------- migrações ---
+  # Cada job aplica as migrações do seu serviço no Postgres do host e sai; a API
+  # correspondente só sobe depois que ele termina com sucesso, então nunca
+  # encontra um esquema pela metade.
+  #
+  # O `search_path=public` fixa onde vive a tabela de controle do migrate. Sem
+  # ele o padrão `"$$user", public` a moveria de lugar assim que a primeira
+  # migração criasse o schema homônimo ao usuário do banco, e a ferramenta
+  # perderia o rastro das versões já aplicadas.
+  migrate-catalogo:
+    <<: *host-postgres
+    image: migrate/migrate:v4.17.1
+    volumes: ["./catalogo/migrations:/migrations:ro"]
+    command:
+      - -path=/migrations
+      - -database=postgres://catalogo:catalogo@host.docker.internal:${PORTA_POSTGRES:-5432}/catalogo?sslmode=disable&search_path=public
+      - up
+
+  migrate-estoque:
+    <<: *host-postgres
+    image: migrate/migrate:v4.17.1
+    volumes: ["./estoque/migrations:/migrations:ro"]
+    command:
+      - -path=/migrations
+      - -database=postgres://estoque:estoque@host.docker.internal:${PORTA_POSTGRES:-5432}/estoque?sslmode=disable&search_path=public
+      - up
+
+  migrate-notificacao:
+    <<: *host-postgres
+    image: migrate/migrate:v4.17.1
+    volumes: ["./notificacao/migrations:/migrations:ro"]
+    command:
+      - -path=/migrations
+      - -database=postgres://notificacao:notificacao@host.docker.internal:${PORTA_POSTGRES:-5432}/notificacao?sslmode=disable&search_path=public
+      - up
+
+  migrate-pagamento:
+    <<: *host-postgres
+    image: migrate/migrate:v4.17.1
+    volumes: ["./pagamento/migrations:/migrations:ro"]
+    command:
+      - -path=/migrations
+      - -database=postgres://pagamento:pagamento@host.docker.internal:${PORTA_POSTGRES:-5432}/pagamento?sslmode=disable&search_path=public
+      - up
+
+  # ---------------------------------------------------------------- apis ---
+  # O catálogo fala gRPC em texto claro, enquanto o estoque real exige mTLS.
+  # Até que o cliente do catálogo aprenda a apresentar certificado, ele continua
+  # apontando para o duplo simulado. No host o simulado sai na 50052: a 50051 é
+  # do estoque real.
+  estoque-simulado:
+    build:
+      context: ./catalogo
+      dockerfile: Dockerfile.estoque-simulado
+    ports: ["${PORTA_ESTOQUE_SIMULADO:-50052}:50051"]
+
+  catalogo:
+    <<: *host-postgres
+    build:
+      context: ./catalogo
+    environment:
+      DATABASE_URL: postgres://catalogo:catalogo@host.docker.internal:${PORTA_POSTGRES:-5432}/catalogo?sslmode=disable
+      KEYCLOAK_ISSUER_URL: http://keycloak:8081/realms/cinema
+      KEYCLOAK_AUDIENCE: cinema-app
+      ESTOQUE_GRPC_ADDR: estoque-simulado:50051
+      LOG_LEVEL: info
+    ports: ["${PORTA_CATALOGO:-8082}:8080"]
+    depends_on:
+      migrate-catalogo:
+        condition: service_completed_successfully
+      keycloak:
+        condition: service_healthy
+      estoque-simulado:
+        condition: service_started
+
+  estoque:
+    <<: *host-postgres
+    build:
+      context: ./estoque
+    environment:
+      DATABASE_URL: postgres://estoque:estoque@host.docker.internal:${PORTA_POSTGRES:-5432}/estoque?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      GRPC_ADDR: ":50051"
+      ADMIN_ADDR: ":8090"
+      TLS_CERT_FILE: /certs/servidor.pem
+      TLS_KEY_FILE: /certs/servidor-key.pem
+      TLS_CLIENT_CA_FILE: /certs/ca.pem
+      TLS_CLIENT_AUTH: require
+      RESERVA_TTL: 10m
+      POLTRONAS_MAX_POR_BLOQUEIO: "10"
+      VARREDURA_EXPIRACAO_INTERVALO: 10s
+      AMQP_PREFETCH: "32"
+      LOG_LEVEL: info
+    volumes: ["./estoque/certs:/certs:ro"]
+    ports:
+      - "${PORTA_ESTOQUE_GRPC:-50051}:50051"
+      - "${PORTA_ESTOQUE_ADMIN:-8090}:8090"
+    depends_on:
+      migrate-estoque:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  pagamento:
+    <<: *host-postgres
+    build:
+      context: ./pagamento
+    environment:
+      DATABASE_URL: postgres://pagamento:pagamento@host.docker.internal:${PORTA_POSTGRES:-5432}/pagamento?sslmode=disable
+      AMQP_URL: amqp://guest:guest@rabbitmq:5672/
+      JWKS_URL: http://keycloak:8081/realms/cinema/protocol/openid-connect/certs
+      JWT_ISSUER: http://keycloak:8081/realms/cinema
+      JWT_AUDIENCE: cinema-app
+      NIVEL_LOG: info
+    ports: ["${PORTA_PAGAMENTO:-8083}:8080"]
+    depends_on:
+      migrate-pagamento:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+
+  notificacao:
+    <<: *host-postgres
+    build:
+      context: ./notificacao
+    environment:
+      DATABASE_URL: postgres://notificacao:notificacao@host.docker.internal:${PORTA_POSTGRES:-5432}/notificacao?sslmode=disable
+      AMQP_URL: amqp://guest:guest@rabbitmq:5672/
+      JWKS_URL: http://keycloak:8081/realms/cinema/protocol/openid-connect/certs
+      JWT_ISSUER: http://keycloak:8081/realms/cinema
+      JWT_AUDIENCE: cinema-app
+      # Segredos de desenvolvimento: sobreponha-os fora deste arquivo.
+      INGRESSO_QR_SEGREDO: ${INGRESSO_QR_SEGREDO:-segredo-de-desenvolvimento-nao-usar-em-producao}
+      PORTARIA_API_KEY: ${PORTARIA_API_KEY:-chave-de-portaria-de-teste}
+      NOTIFICADOR_MODO: enviar
+      NIVEL_LOG: info
+    ports: ["${PORTA_NOTIFICACAO:-8084}:8080"]
+    depends_on:
+      migrate-notificacao:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy

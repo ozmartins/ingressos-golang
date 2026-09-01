@@ -14,12 +14,17 @@ services:
 
   # Aplica as migrações e sai. O catálogo só sobe depois que este passo termina
   # com sucesso, então o serviço nunca encontra um esquema pela metade.
+  #
+  # O `search_path=public` fixa onde vive a tabela de controle do migrate. Sem
+  # ele o padrão `"$$user", public` a moveria de lugar assim que a primeira
+  # migração criasse o schema `catalogo` (o usuário do banco tem o mesmo nome),
+  # e a ferramenta perderia o rastro das versões já aplicadas.
   migrate:
     image: migrate/migrate:v4.17.1
     volumes: ["./migrations:/migrations:ro"]
     command:
       - -path=/migrations
-      - -database=postgres://catalogo:catalogo@postgres:5432/catalogo?sslmode=disable
+      - -database=postgres://catalogo:catalogo@postgres:5432/catalogo?sslmode=disable&search_path=public
       - up
     depends_on:
       postgres:

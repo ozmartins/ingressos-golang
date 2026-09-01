@@ -26,11 +26,18 @@ CONTRATO := specs/001-catalogo-sessoes-reserva/contracts/openapi.yaml
 openapi-sync:
 	cp $(CONTRATO) internal/adapter/http/openapi/openapi.yaml
 
+# A tabela de controle do migrate fica em `public`, fixada pelo `search_path`.
+# O padrão (`"$$user", public`) a moveria para o schema `catalogo` assim que a
+# primeira migração o criasse — o usuário do banco tem o mesmo nome —, e as
+# versões já aplicadas sumiriam do rastro. As migrações em si qualificam cada
+# objeto, então não dependem do `search_path`.
+MIGRATE_URL ?= $(DATABASE_URL)&search_path=public
+
 migrate-up:
-	migrate -path migrations -database "$(DATABASE_URL)" up
+	migrate -path migrations -database "$(MIGRATE_URL)" up
 
 migrate-down:
-	migrate -path migrations -database "$(DATABASE_URL)" down 1
+	migrate -path migrations -database "$(MIGRATE_URL)" down 1
 
 run: build
 	./bin/catalogo

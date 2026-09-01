@@ -17,13 +17,17 @@ e os de dados em [`data-model.md`](./data-model.md) — este guia não os repete
 
 ```bash
 docker compose up -d          # postgres, keycloak, estoque simulado
-migrate -path migrations -database "$DATABASE_URL" up
+make migrate-up               # aplica as migrações (cria o schema `catalogo`)
 go run ./cmd/catalogo
 ```
 
 O processo **falha ao subir** se faltar variável obrigatória — comportamento esperado (FR-032).
 Variáveis mínimas: `DATABASE_URL`, `KEYCLOAK_ISSUER_URL`, `KEYCLOAK_AUDIENCE`, `ESTOQUE_GRPC_ADDR`.
 A lista completa, com padrões, está em `research.md` (D10).
+
+As migrações criam o schema `catalogo` e todas as tabelas dentro dele; o serviço
+fixa o `search_path` nesse schema, então nada do catálogo fica em `public` além
+da tabela de controle do próprio golang-migrate.
 
 Carregar o catálogo de exemplo:
 

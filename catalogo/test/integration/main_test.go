@@ -93,3 +93,32 @@ func carregarFixtures(t *testing.T) {
 		t.Fatalf("carregando fixtures: %v", err)
 	}
 }
+
+// TestSchemaProprio prova que o serviço não usa `public`: as consultas dos
+// repositórios não qualificam a tabela, então é o `search_path` do pool que
+// decide onde elas caem. Se alguém remover essa configuração ou desqualificar
+// as migrações, as tabelas voltam para `public` e este teste falha.
+func TestSchemaProprio(t *testing.T) {
+	ctx := context.Background()
+
+	// O `search_path` efetivo, não o schema resolvido: como o usuário do banco
+	// também se chama `catalogo`, o padrão `"$user", public` acertaria o schema
+	// por coincidência de nome e esconderia a falta da configuração no pool.
+	var searchPath string
+	if err := pool.QueryRow(ctx, `SELECT current_setting('search_path')`).Scan(&searchPath); err != nil {
+		t.Fatalf("consultando search_path: %v", err)
+	}
+	if searchPath != "catalogo" {
+		t.Errorf("search_path = %q, esperado \"catalogo\"", searchPath)
+	}
+
+	for _, tabela := range []string{"filmes", "cinemas", "salas", "sessoes"} {
+		var emPublic *string
+		if err := pool.QueryRow(ctx, `SELECT to_regclass('public.'|| $1)::text`, tabela).Scan(&emPublic); err != nil {
+			t.Fatalf("consultando public.%s: %v", tabela, err)
+		}
+		if emPublic != nil {
+			t.Errorf("tabela %q existe em public (%s); deveria existir só em catalogo", tabela, *emPublic)
+		}
+	}
+}

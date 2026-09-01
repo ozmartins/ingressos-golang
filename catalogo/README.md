@@ -46,6 +46,13 @@ A API fica em `http://localhost:8082`. As migrações rodam num serviço própri
 (`migrate`) que precisa terminar com sucesso antes de o catálogo subir, então o
 serviço nunca encontra um esquema pela metade.
 
+As tabelas do catálogo vivem no schema `catalogo`, não em `public`: as migrações
+criam o schema e qualificam cada objeto, e o serviço fixa o `search_path` no
+pool de conexões. Para inspecionar o banco com `psql`, aponte o `search_path`
+antes (`SET search_path TO catalogo;`) ou qualifique as tabelas. Só a tabela de
+controle do golang-migrate (`schema_migrations`) segue em `public` — ela é do
+ferramental, não do domínio.
+
 ### Documentação da API
 
 | Recurso | Endereço |
@@ -81,7 +88,7 @@ verificação. O console de admin continua em `http://localhost:8081` (admin/adm
 ```bash
 docker compose up -d postgres keycloak estoque-simulado migrate
 echo "127.0.0.1 keycloak" | sudo tee -a /etc/hosts   # uma vez, pelo emissor fixo
-export DATABASE_URL="postgres://catalogo:catalogo@localhost:5432/catalogo?sslmode=disable"
+export DATABASE_URL="postgres://catalogo:catalogo@localhost:5432/catalogo?sslmode=disable"   # precisa da query string: `make migrate-up` anexa `&search_path=public`
 export KEYCLOAK_ISSUER_URL="http://keycloak:8081/realms/cinema"
 export KEYCLOAK_AUDIENCE="cinema-app"
 export ESTOQUE_GRPC_ADDR="localhost:50051"
@@ -112,7 +119,7 @@ malformada, e a mensagem lista todas as pendências de uma vez:
 
 | Variável | Descrição |
 |---|---|
-| `DATABASE_URL` | Conexão com o PostgreSQL |
+| `DATABASE_URL` | Conexão com o PostgreSQL (o `search_path` é fixado no código, no schema `catalogo`) |
 | `KEYCLOAK_ISSUER_URL` | Emissor OIDC das credenciais |
 | `KEYCLOAK_AUDIENCE` | Audiência esperada no token |
 | `ESTOQUE_GRPC_ADDR` | Endereço gRPC do `Servico-Estoque` |

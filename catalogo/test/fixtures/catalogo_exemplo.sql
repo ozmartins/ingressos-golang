@@ -1,6 +1,10 @@
 -- Catálogo de exemplo para desenvolvimento e testes.
 -- Inclui casos de borda: filme sem sinopse/imagem, sessões canceladas e
 -- finalizadas, e volume suficiente para exercitar paginação.
+--
+-- As tabelas vivem no schema `catalogo`, então o arquivo aponta o `search_path`
+-- para ele: assim `psql -f` funciona sem qualificar cada INSERT.
+SET search_path TO catalogo;
 
 INSERT INTO filmes (id, titulo, sinopse, duracao_minutos, classificacao_etaria, genero, imagem_url, status) VALUES
  ('c394c8b3-76a1-4328-b803-02f5923b7a15','Duna: Parte 2','Paul Atreides se une a Chani e aos Fremen...',166,'14 anos','Ficção Científica','https://cdn.cinema.com/posters/duna2.jpg','EM_CARTAZ'),

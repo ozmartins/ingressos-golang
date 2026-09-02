@@ -24,13 +24,10 @@ const (
 	teto       = 10
 )
 
-// T041 / SC-004 e SC-005: mil intenções em um minuto são todas processadas, o
-// teto de cobranças simultâneas é respeitado, e as consultas continuam
-// respondendo abaixo de um segundo durante o pico.
 func TestRajadaRespeitaTetoEMantemConsultasRapidas(t *testing.T) {
 	a := subirAmbiente(t)
 	adq := novoAdquirente(usecase.ResultadoCobranca{Desfecho: usecase.Aprovada, Codigo: "gw"})
-	adq.demora = 5 * time.Millisecond // trabalho real, para o teto ter o que limitar
+	adq.demora = 5 * time.Millisecond
 	consumidor, parar := a.consumidorDe(t, adq, teto)
 	defer parar()
 
@@ -41,10 +38,8 @@ func TestRajadaRespeitaTetoEMantemConsultasRapidas(t *testing.T) {
 		a.publicarIntencao(t, intencao(reservas[i], "84.00", "PIX", 30*time.Minute))
 	}
 
-	// Consultas concorrentes durante o pico (SC-005).
 	latencias := medirConsultasDuranteOPico(t, a, reservas)
 
-	// Espera a rajada drenar.
 	limite := time.Now().Add(3 * time.Minute)
 	var processadas int
 	for time.Now().Before(limite) {
@@ -68,7 +63,6 @@ func TestRajadaRespeitaTetoEMantemConsultasRapidas(t *testing.T) {
 	t.Logf("rajada: %d intenções em %s, pico de concorrência %d",
 		processadas, decorrido.Round(time.Millisecond), consumidor.EmAndamento.Maximo())
 
-	// SC-005: 95% das consultas abaixo de um segundo.
 	sort.Slice(latencias, func(i, j int) bool { return latencias[i] < latencias[j] })
 	p95 := latencias[int(float64(len(latencias))*0.95)]
 	t.Logf("consultas durante o pico: n=%d p95=%s", len(latencias), p95.Round(time.Millisecond))
@@ -77,8 +71,6 @@ func TestRajadaRespeitaTetoEMantemConsultasRapidas(t *testing.T) {
 	}
 }
 
-// medirConsultasDuranteOPico dispara consultas concorrentes enquanto a rajada é
-// processada e devolve as latências observadas.
 func medirConsultasDuranteOPico(t *testing.T, a *ambiente, reservas []string) []time.Duration {
 	t.Helper()
 
@@ -112,10 +104,6 @@ func medirConsultasDuranteOPico(t *testing.T, a *ambiente, reservas []string) []
 				reserva := reservas[i%len(reservas)]
 				i += 7
 
-				// O token precisa ser da dona; como cada intenção gera um usuário
-				// aleatório, consultamos com o dono real quando já existe, e com um
-				// sub qualquer quando ainda não — os dois caminhos exercitam a
-				// consulta sob carga.
 				sub := uuid.NewString()
 				if tr, err := a.Repo.BuscarPorReserva(context.Background(), reserva); err == nil {
 					sub = tr.UsuarioID

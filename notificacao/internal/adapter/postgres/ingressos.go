@@ -12,15 +12,10 @@ import (
 	"github.com/oseias/ingressos-golang/notificacao/internal/usecase"
 )
 
-// Ingressos implementa a porta de persistência do ingresso.
 type Ingressos struct{ Pool *pgxpool.Pool }
 
 const colunas = `id, reserva_id, usuario_id, codigo_qr, status, utilizado_em, criado_em`
 
-// CriarSeAusente é a idempotência da FR-004, e o mecanismo é a restrição
-// UNIQUE (reserva_id): o ON CONFLICT decide, sob entregas simultâneas, qual
-// delas emite. Não há verificação separada, logo não há janela entre verificar
-// e inserir (research.md D2).
 func (r Ingressos) CriarSeAusente(ctx context.Context, i ingresso.Ingresso) (bool, ingresso.Ingresso, error) {
 	const sql = `
 		INSERT INTO ingressos_emitidos (` + colunas + `)
@@ -39,7 +34,6 @@ func (r Ingressos) CriarSeAusente(ctx context.Context, i ingresso.Ingresso) (boo
 		return false, ingresso.Ingresso{}, fmt.Errorf("inserir ingresso: %w", err)
 	}
 
-	// Zero linhas: outra entrega chegou primeiro. Devolve a que já existe.
 	atual, err := r.buscarPorReserva(ctx, i.ReservaID)
 	if err != nil {
 		return false, ingresso.Ingresso{}, err
@@ -47,11 +41,6 @@ func (r Ingressos) CriarSeAusente(ctx context.Context, i ingresso.Ingresso) (boo
 	return false, atual, nil
 }
 
-// Utilizar é a escrita condicionada da D4. Uma linha afetada é a autorização;
-// zero linhas significa que o ingresso não estava VALIDO — e não diz por quê.
-//
-// O SET toca apenas status e utilizado_em: nenhuma outra coluna é escrita
-// depois da emissão (FR-020).
 func (r Ingressos) Utilizar(ctx context.Context, id string, agora time.Time) (bool, error) {
 	const sql = `
 		UPDATE ingressos_emitidos
@@ -65,7 +54,6 @@ func (r Ingressos) Utilizar(ctx context.Context, id string, agora time.Time) (bo
 	return tag.RowsAffected() == 1, nil
 }
 
-// BuscarPorID devolve usecase.ErrNaoEncontrado quando não há ingresso.
 func (r Ingressos) BuscarPorID(ctx context.Context, id string) (ingresso.Ingresso, error) {
 	const sql = `SELECT ` + colunas + ` FROM ingressos_emitidos WHERE id = $1`
 	i, err := ler(r.Pool.QueryRow(ctx, sql, id))
@@ -78,9 +66,6 @@ func (r Ingressos) BuscarPorID(ctx context.Context, id string) (ingresso.Ingress
 	return i, nil
 }
 
-// ListarPorUsuario aplica o recorte pelo dono, o filtro opcional e a ordenação
-// da FR-023. O id entra no ORDER BY como desempate: dois ingressos podem nascer
-// no mesmo instante, e sem desempate a ordem varia entre execuções.
 func (r Ingressos) ListarPorUsuario(ctx context.Context, usuarioID string, filtro ingresso.Status) ([]ingresso.Ingresso, error) {
 	const sql = `
 		SELECT ` + colunas + `
@@ -118,7 +103,6 @@ func (r Ingressos) buscarPorReserva(ctx context.Context, reservaID string) (ingr
 	return i, nil
 }
 
-// escaneavel cobre pgx.Row e pgx.Rows, que expõem Scan com a mesma assinatura.
 type escaneavel interface{ Scan(dest ...any) error }
 
 func ler(s escaneavel) (ingresso.Ingresso, error) {

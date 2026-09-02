@@ -10,8 +10,6 @@ import (
 	"github.com/oseias/ingressos-golang/notificacao/internal/domain/ingresso"
 )
 
-// Uma asserção por linha de contracts/erros.md §3.
-
 func chaveOK() map[string]string { return map[string]string{"X-API-Key": chaveAPI} }
 
 func TestValidarIngressoValido(t *testing.T) {
@@ -63,8 +61,6 @@ func TestValidarIngressoCancelado(t *testing.T) {
 	}
 }
 
-// FR-010: as três recusas são a MESMA resposta, byte a byte. A diferença que
-// vaza costuma ser uma palavra na mensagem, não o código de status.
 func TestRecusasDe404SaoIdenticasByteAByte(t *testing.T) {
 	a := montarAmbiente(t)
 	a.repo.semear(t, "ing-1", usuario1, ingresso.Valido, instanteFixo)
@@ -96,8 +92,6 @@ func TestRecusasDe404SaoIdenticasByteAByte(t *testing.T) {
 	}
 }
 
-// FR-012: chave ausente e chave errada — 401 idêntico, e o ingresso nem é
-// consultado.
 func TestValidarRecusaCredencial(t *testing.T) {
 	a := montarAmbiente(t)
 	i := a.repo.semear(t, "ing-1", usuario1, ingresso.Valido, instanteFixo)
@@ -123,7 +117,6 @@ func TestValidarRecusaCredencial(t *testing.T) {
 		}
 	}
 
-	// O ingresso continua VALIDO: nenhuma das tentativas o consumiu.
 	depois, err := a.repo.BuscarPorID(t.Context(), "ing-1")
 	if err != nil {
 		t.Fatalf("buscar: %v", err)
@@ -154,7 +147,6 @@ func TestValidarCorpoInvalido(t *testing.T) {
 	}
 }
 
-// FR-011 no contrato: leituras simultâneas, exatamente uma autorização.
 func TestValidacoesSimultaneasAutorizamUmaSo(t *testing.T) {
 	a := montarAmbiente(t)
 	i := a.repo.semear(t, "ing-1", usuario1, ingresso.Valido, instanteFixo)

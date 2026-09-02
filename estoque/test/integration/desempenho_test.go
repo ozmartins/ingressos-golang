@@ -11,7 +11,6 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/poltrona"
 )
 
-// percentil devolve o valor no percentil p (0..1) de uma amostra já coletada.
 func percentil(amostras []time.Duration, p float64) time.Duration {
 	if len(amostras) == 0 {
 		return 0
@@ -22,16 +21,10 @@ func percentil(amostras []time.Duration, p float64) time.Duration {
 	return ordenadas[indice]
 }
 
-// TestDesempenhoDoBloqueio cobre SC-001: 99% das solicitações de bloqueio
-// concluem em menos de 100 ms, com a sessão carregada.
-//
-// Medido dentro do serviço, sem rede: é o orçamento do serviço, não do trecho
-// de rede do chamador.
 func TestDesempenhoDoBloqueio(t *testing.T) {
 	c := montarCenario(t, false)
 	ctx := context.Background()
 
-	// Sala de 500 lugares: 25 fileiras de 20.
 	fileiras := make([]string, 0, 25)
 	for i := 0; i < 25; i++ {
 		fileiras = append(fileiras, string(rune('A'+i)))
@@ -67,8 +60,6 @@ func TestDesempenhoDoBloqueio(t *testing.T) {
 	}
 }
 
-// TestDesempenhoDaConsulta cobre SC-013: a consulta ao mapa de uma sala de 500
-// lugares responde em menos de 200 ms no p99.
 func TestDesempenhoDaConsulta(t *testing.T) {
 	c := montarCenario(t, false)
 	ctx := context.Background()
@@ -79,7 +70,6 @@ func TestDesempenhoDaConsulta(t *testing.T) {
 	}
 	sessao := c.novaSessao(t, fileiras, 20)
 
-	// Metade reservada, para que a consulta não leia uma sala trivial.
 	for i := 0; i < 250; i++ {
 		rotulo := poltrona.MontarRotulo(fileiras[i/20], i%20+1)
 		if _, err := c.Bloquear.Executar(ctx, sessao, usuario, []string{rotulo}); err != nil {

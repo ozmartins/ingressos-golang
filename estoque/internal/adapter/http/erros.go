@@ -12,15 +12,8 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/shared"
 )
 
-// prefixoTipo é o espaço de nomes dos `type` de erro, como no Servico-Catalogo.
 const prefixoTipo = "https://cinema.example/errors/"
 
-// Sufixos de `type`. São o contrato estável que o cliente inspeciona; `title` e
-// `detail` são texto humano e podem mudar de redação sem quebrar ninguém.
-//
-// Cada um corresponde a uma razão já publicada no contrato gRPC
-// (contracts/erros.md): a superfície HTTP não inventa categorias de erro novas,
-// só as reapresenta com o status equivalente em HTTP.
 const (
 	tipoNaoAutenticado        = "nao-autenticado"
 	tipoCorpoInvalido         = "corpo-invalido"
@@ -34,7 +27,6 @@ const (
 	tipoInterno               = "erro-interno"
 )
 
-// problem é o corpo de erro da RFC 9457.
 type problem struct {
 	Type     string            `json:"type"`
 	Title    string            `json:"title"`
@@ -44,10 +36,6 @@ type problem struct {
 	Metadata map[string]string `json:"metadata,omitempty"`
 }
 
-// escreverProblem responde no formato problem+json.
-//
-// `instance` carrega o trace_id da requisição para que quem reporta um problema
-// traga consigo a chave que localiza o rastro no log.
 func escreverProblem(w http.ResponseWriter, r *http.Request, status int, tipo, title, detail string, metadata map[string]string) {
 	corpo := problem{
 		Type:     prefixoTipo + tipo,
@@ -67,13 +55,6 @@ func escreverProblem(w http.ResponseWriter, r *http.Request, status int, tipo, t
 	}
 }
 
-// responderErroDeDominio traduz um erro do núcleo na resposta HTTP equivalente.
-//
-// Os status espelham o mapa de contracts/erros.md, trocando o código gRPC pelo
-// seu correspondente em HTTP: InvalidArgument→400, FailedPrecondition→422,
-// NotFound→404, Unavailable→503, Internal→500. Nenhum detalhe interno atravessa
-// esta função — mensagem de driver, SQL ou endereço de dependência ficam no log,
-// correlacionados pelo trace_id (princípio IV).
 func responderErroDeDominio(w http.ResponseWriter, r *http.Request, err error, limitePoltronas int) {
 	switch {
 	case errors.Is(err, shared.ErrLimiteExcedido):
@@ -101,7 +82,6 @@ func responderErroDeDominio(w http.ResponseWriter, r *http.Request, err error, l
 			"Sessão desconhecida", "sessão desconhecida", nil)
 
 	case errors.Is(err, shared.ErrDependenciaIndisponivel):
-		// O cliente só precisa saber que não foi possível decidir agora.
 		escreverProblem(w, r, http.StatusServiceUnavailable, tipoDependencia,
 			"Serviço temporariamente indisponível",
 			"serviço temporariamente indisponível", nil)

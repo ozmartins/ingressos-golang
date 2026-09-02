@@ -1,9 +1,3 @@
-// Package test verifica mecanicamente a regra estrutural que a constituição
-// exige (princípio I): o núcleo não conhece infraestrutura.
-//
-// Existe porque revisão humana falha em detectar um import errado, e um teste
-// não. É o teste negativo deliberado: ele falha no instante em que alguém
-// importar um adaptador de dentro do domínio.
 package test
 
 import (

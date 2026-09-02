@@ -13,22 +13,15 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/platform/observability"
 )
 
-// ErroDefinitivo marca a mensagem que não deve voltar para a fila: corpo
-// inválido, campo obrigatório ausente. Vai para a DLQ (FR-023).
 type ErroDefinitivo struct{ Err error }
 
 func (e ErroDefinitivo) Error() string { return e.Err.Error() }
 func (e ErroDefinitivo) Unwrap() error { return e.Err }
 
-// Definitivo embrulha um erro como definitivo.
 func Definitivo(err error) error { return ErroDefinitivo{Err: err} }
 
-// Manipulador processa uma mensagem. Devolver ErroDefinitivo manda para a DLQ;
-// qualquer outro erro devolve a mensagem à fila para nova tentativa; nil
-// confirma o consumo.
 type Manipulador func(ctx context.Context, msg amqp.Delivery) (desfecho string, err error)
 
-// Consumidor roda o laço genérico de consumo de uma fila.
 type Consumidor struct {
 	Conexao  *Conexao
 	Fila     string
@@ -40,7 +33,6 @@ type Consumidor struct {
 	duracao metric.Float64Histogram
 }
 
-// Iniciar começa a consumir até que o contexto seja cancelado.
 func (c *Consumidor) Iniciar(ctx context.Context) error {
 	if err := c.prepararMetricas(); err != nil {
 		return err
@@ -55,8 +47,6 @@ func (c *Consumidor) Iniciar(ctx context.Context) error {
 		return err
 	}
 
-	// Ack manual: a mensagem só é confirmada depois que o efeito está durável
-	// (FR-024).
 	entregas, err := canal.Consume(c.Fila, "", false, false, false, false, nil)
 	if err != nil {
 		canal.Close()
@@ -87,8 +77,6 @@ func (c *Consumidor) Iniciar(ctx context.Context) error {
 func (c *Consumidor) processar(ctx context.Context, msg amqp.Delivery) {
 	inicio := time.Now()
 
-	// O contexto de rastreamento vem nos headers: o span de consumo é filho do
-	// span que produziu o fato, ligando bloqueio e desfecho (FR-044, SC-009).
 	ctxMsg := c.Obs.Propagador.Extract(ctx, carregadorDeHeaders(msg.Headers))
 	ctxMsg, span := c.Obs.Tracer.Start(ctxMsg, "consumir "+c.Fila, trace.WithSpanKind(trace.SpanKindConsumer))
 	defer span.End()
@@ -102,7 +90,6 @@ func (c *Consumidor) processar(ctx context.Context, msg amqp.Delivery) {
 		}
 
 	case errors.As(err, &ErroDefinitivo{}):
-		// Sem retentativa infinita: sai do fluxo normal para inspeção.
 		desfecho = "dlq"
 		c.Obs.Log.Warn("mensagem descartada para a fila-morta",
 			"fila", c.Fila, "message_id", msg.MessageId, "motivo", err.Error())
@@ -111,8 +98,6 @@ func (c *Consumidor) processar(ctx context.Context, msg amqp.Delivery) {
 		}
 
 	default:
-		// Falha transitória (banco fora): devolve à fila depois de um respiro,
-		// para não girar em vazio contra uma dependência indisponível.
 		desfecho = "requeue"
 		c.Obs.Log.Warn("mensagem devolvida à fila",
 			"fila", c.Fila, "message_id", msg.MessageId, "motivo", err.Error())
@@ -148,7 +133,6 @@ func (c *Consumidor) prepararMetricas() error {
 	return nil
 }
 
-// carregadorDeHeaders adapta os headers AMQP ao propagador do OpenTelemetry.
 type carregadorDeHeaders amqp.Table
 
 var _ propagation.TextMapCarrier = carregadorDeHeaders{}

@@ -1,4 +1,3 @@
-// Package observability configura logs, rastreamento e métricas.
 package observability
 
 import (
@@ -24,36 +23,20 @@ import (
 
 const NomeServico = "servico-catalogo"
 
-// init instala a propagação W3C assim que o pacote é carregado.
-//
-// Fica aqui, e não em Iniciar, porque propagar o contexto recebido é uma
-// obrigação do serviço (FR-036) que não depende de haver coletor configurado —
-// e porque um teste que não chama Iniciar ainda assim exercita a propagação
-// real, em vez de passar por engano contra um propagador nulo.
 func init() {
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{}, propagation.Baggage{},
 	))
 }
 
-// Desfechos das chamadas ao estoque, usados como rótulo da métrica
-// estoque.bloqueio.total (FR-035).
 const (
-	// DesfechoSucesso: o estoque respondeu e concedeu o bloqueio.
-	DesfechoSucesso = "sucesso"
-	// DesfechoIndisponivel: o estoque não foi alcançado (erro de transporte).
-	DesfechoIndisponivel = "indisponivel"
-	// DesfechoTimeout: a chamada excedeu o tempo máximo de espera.
-	DesfechoTimeout = "timeout"
-	// DesfechoRecusaRapida: a chamada nem foi feita, por recusa rápida ativa.
-	DesfechoRecusaRapida = "recusa_rapida"
-	// DesfechoPoltronasIndisponiveis: o estoque respondeu e negou. É desfecho de
-	// negócio, não falha de integração — separá-lo evita que uma disputa normal
-	// por assentos pareça degradação do parceiro nos painéis.
+	DesfechoSucesso                = "sucesso"
+	DesfechoIndisponivel           = "indisponivel"
+	DesfechoTimeout                = "timeout"
+	DesfechoRecusaRapida           = "recusa_rapida"
 	DesfechoPoltronasIndisponiveis = "poltronas_indisponiveis"
 )
 
-// Metricas reúne os instrumentos nomeados pelo plano.
 type Metricas struct {
 	EstoqueDuracao metric.Float64Histogram
 	EstoqueTotal   metric.Int64Counter
@@ -61,10 +44,8 @@ type Metricas struct {
 	HTTPDuracao    metric.Float64Histogram
 }
 
-// Encerrar libera os provedores; devolvido por Iniciar.
 type Encerrar func(context.Context) error
 
-// ConfigurarLogger instala o logger estruturado em JSON como padrão do processo.
 func ConfigurarLogger(nivel string) *slog.Logger {
 	var l slog.Level
 	if err := l.UnmarshalText([]byte(strings.ToLower(nivel))); err != nil {
@@ -77,8 +58,6 @@ func ConfigurarLogger(nivel string) *slog.Logger {
 	return logger
 }
 
-// manipuladorComRastro injeta trace_id e span_id em todo registro emitido dentro
-// de um span ativo. É o que permite ligar um log a um rastro (SC-011).
 type manipuladorComRastro struct{ slog.Handler }
 
 func (h *manipuladorComRastro) Handle(ctx context.Context, r slog.Record) error {
@@ -99,13 +78,7 @@ func (h *manipuladorComRastro) WithGroup(name string) slog.Handler {
 	return &manipuladorComRastro{Handler: h.Handler.WithGroup(name)}
 }
 
-// Iniciar configura rastreamento e métricas. Sem endpoint OTLP configurado, os
-// provedores ficam sem exportador: o serviço continua funcionando e apenas não
-// envia sinais — a ausência de coletor não é motivo para derrubar o processo.
 func Iniciar(ctx context.Context, endpointOTLP string) (*Metricas, Encerrar, error) {
-	// A versão do semconv precisa acompanhar a do SDK: resource.Merge recusa
-	// juntar descrições com URLs de esquema diferentes, e a falha só aparece na
-	// inicialização do processo — não em teste que não chame Iniciar.
 	res, err := resource.Merge(resource.Default(), resource.NewWithAttributes(
 		semconv.SchemaURL,
 		semconv.ServiceName(NomeServico),
@@ -156,7 +129,6 @@ func Iniciar(ctx context.Context, endpointOTLP string) (*Metricas, Encerrar, err
 	return m, encerrar, nil
 }
 
-// NovasMetricas registra os instrumentos no provedor corrente.
 func NovasMetricas() (*Metricas, error) {
 	meter := otel.Meter(NomeServico)
 
@@ -190,7 +162,6 @@ func NovasMetricas() (*Metricas, error) {
 	}, nil
 }
 
-// RotuloDesfecho monta o atributo de desfecho da chamada ao estoque.
 func RotuloDesfecho(desfecho string) attribute.KeyValue {
 	return attribute.String("desfecho", desfecho)
 }

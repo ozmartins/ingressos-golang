@@ -1,9 +1,3 @@
-// Command estoque é o binário do Servico-Estoque.
-//
-// Este é o único ponto de composição do serviço (constituição, princípio I):
-// aqui a configuração vira adaptadores, os adaptadores viram casos de uso e os
-// casos de uso são ligados ao servidor gRPC, aos consumidores e às rotinas de
-// fundo. Nenhuma outra parte do código conhece essa montagem.
 package main
 
 import (
@@ -39,7 +33,6 @@ func main() {
 }
 
 func executar() error {
-	// 1. Configuração: lida e validada uma vez. Falha aqui aborta a largada.
 	cfg, err := config.Carregar()
 	if err != nil {
 		return err
@@ -48,7 +41,6 @@ func executar() error {
 	ctx, encerrar := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer encerrar()
 
-	// 2. Observabilidade.
 	obs, err := observability.Iniciar(ctx, cfg.LogLevel, cfg.OTLPEndpoint)
 	if err != nil {
 		return fmt.Errorf("iniciar observabilidade: %w", err)
@@ -59,7 +51,6 @@ func executar() error {
 		obs.Desligar(ctxDesligar)
 	}()
 
-	// 3. Adaptadores de saída.
 	banco, err := postgres.Abrir(ctx, cfg.DatabaseURL)
 	if err != nil {
 		return err
@@ -76,8 +67,6 @@ func executar() error {
 	if cfg.RedisURL != "" {
 		prazo, err = adaptadorredis.Abrir(ctx, cfg.RedisURL, obs)
 		if err != nil {
-			// O índice de prazo é conveniência, não correção: sem ele a
-			// varredura continua liberando as reservas (research D2/D4).
 			obs.Log.Warn("índice de prazo indisponível na largada",
 				"erro", err.Error(), "efeito", "expiração fica só com a varredura")
 			prazo = nil
@@ -97,7 +86,6 @@ func executar() error {
 		indiceDePrazo = prazo
 	}
 
-	// 4. Casos de uso.
 	bloquear := usecase.BloquearPoltronas{
 		Reservas:       reservas,
 		Prazo:          indiceDePrazo,
@@ -113,7 +101,6 @@ func executar() error {
 	expirar := usecase.ExpirarReservas{Reservas: reservas, Prazo: indiceDePrazo, Relogio: relogio, Log: obs.Log}
 	provisionar := usecase.ProvisionarSessao{Poltronas: poltronas, Log: obs.Log}
 
-	// 5. Consumidores.
 	if err := adaptadoramqp.ConsumirPagamentoSucesso(ctx, broker, cfg.AMQPPrefetch, obs, confirmar); err != nil {
 		return fmt.Errorf("consumidor de pagamento aprovado: %w", err)
 	}
@@ -124,7 +111,6 @@ func executar() error {
 		return fmt.Errorf("consumidor de sessão criada: %w", err)
 	}
 
-	// 6. Rotinas de fundo.
 	publicador := &adaptadoramqp.Publicador{Conexao: broker, Banco: banco, Obs: obs, Intervalo: time.Second}
 	publicador.Iniciar(ctx)
 
@@ -153,7 +139,6 @@ func executar() error {
 		})
 	}
 
-	// 7. Porta de administração (saúde e métricas).
 	verificacoes := []health.Verificacao{
 		{Nome: "postgres", Essencial: true, Checar: banco.Verificar},
 		{Nome: "rabbitmq", Essencial: true, Checar: func(context.Context) error { return broker.Verificar() }},
@@ -177,9 +162,6 @@ func executar() error {
 		_ = admin.Shutdown(ctxDesligar)
 	}()
 
-	// 8. API REST: as mesmas operações do gRPC, para o cliente final. Fica em
-	// porta própria porque a de administração é outra audiência — operação, não
-	// negócio — e porque o gRPC exige mTLS, que o navegador não apresenta.
 	autenticador, err := adaptadorhttp.NovoAutenticador(cfg.JWKSURL, cfg.JWTIssuer, cfg.JWTAudience)
 	if err != nil {
 		return fmt.Errorf("autenticador da API REST: %w", err)
@@ -206,7 +188,6 @@ func executar() error {
 		_ = rest.Shutdown(ctxDesligar)
 	}()
 
-	// 9. Canal síncrono.
 	servidor, err := adaptadorgrpc.NovoServidor(adaptadorgrpc.Opcoes{
 		Bloqueio: bloquear, Mapa: consultar, Obs: obs, Config: cfg,
 	})
@@ -229,7 +210,6 @@ func executar() error {
 	case <-ctx.Done():
 		obs.Log.Info("encerrando")
 		servidor.Encerrar()
-		// Última tentativa de drenar a caixa de saída antes de sair.
 		ctxDreno, cancelarDreno := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancelarDreno()
 		if n, err := publicador.Drenar(ctxDreno, 500); err != nil {
@@ -241,8 +221,6 @@ func executar() error {
 	}
 }
 
-// contextoDeRastreamento serializa o contexto corrente para viajar com o fato
-// até a publicação, que acontece fora desta requisição (FR-044, SC-009).
 func contextoDeRastreamento(ctx context.Context) map[string]string {
 	portador := propagation.MapCarrier{}
 	otel.GetTextMapPropagator().Inject(ctx, portador)

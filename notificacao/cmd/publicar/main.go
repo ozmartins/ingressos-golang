@@ -1,6 +1,3 @@
-// Command publicar publica manualmente um fato pagamento.sucesso, para o
-// roteiro de quickstart.md. Existe porque subir o Servico-Pagamento inteiro
-// só para exercitar um cenário do consumidor não se paga.
 package main
 
 import (
@@ -48,8 +45,6 @@ func montar(reserva, usuario, transacao, cru string) ([]byte, error) {
 		transacao = "e402a129-8812-4211-b123-000129381293"
 	}
 	agora := time.Now().UTC().Format(time.RFC3339)
-	// Mesma forma que o Servico-Pagamento publica hoje, verificada em
-	// pagamento/internal/usecase/fatos.go (research.md D1).
 	return json.Marshal(map[string]any{
 		"evento": "PAGAMENTO_SUCESSO", "versao": 1, "ocorrido_em": agora,
 		"transacao_id": transacao, "reserva_id": reserva, "usuario_id": usuario,

@@ -11,15 +11,12 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/shared"
 )
 
-// estoqueFalso implementa RepositorioReservas e RepositorioPoltronas em memória,
-// com a MESMA semântica de guarda de estado do adaptador real: transição só a
-// partir de PENDENTE, idempotência por (fila, message_id).
 type estoqueFalso struct {
 	mu          sync.Mutex
-	poltronas   map[string]map[string]*poltrona.Poltrona // sessão → rótulo → poltrona
+	poltronas   map[string]map[string]*poltrona.Poltrona
 	reservas    map[string]*reserva.Reserva
-	vinculos    map[string][]string // reserva → rótulos
-	sessaoDe    map[string]string   // reserva → sessão
+	vinculos    map[string][]string
+	sessaoDe    map[string]string
 	processadas map[string]bool
 	fatos       []FatoPendente
 
@@ -231,7 +228,7 @@ func (e *estoqueFalso) ProvisionarMatriz(_ context.Context, fila, messageID, ses
 	criadas := 0
 	for _, item := range matriz {
 		if _, existe := e.poltronas[sessaoID][item.Rotulo]; existe {
-			continue // nunca reinicia o estado de poltrona existente
+			continue
 		}
 		copia := item
 		e.poltronas[sessaoID][item.Rotulo] = &copia
@@ -243,7 +240,6 @@ func (e *estoqueFalso) ProvisionarMatriz(_ context.Context, fila, messageID, ses
 	return TransicaoAplicada, nil
 }
 
-// prazoFalso registra as marcações do índice de prazo.
 type prazoFalso struct {
 	mu        sync.Mutex
 	marcados  map[string]time.Time
@@ -275,7 +271,6 @@ func (p *prazoFalso) Liberar(_ context.Context, reservaID string) error {
 	return nil
 }
 
-// logFalso captura o que foi registrado, para verificar auditoria de divergência.
 type logFalso struct {
 	mu     sync.Mutex
 	avisos []string

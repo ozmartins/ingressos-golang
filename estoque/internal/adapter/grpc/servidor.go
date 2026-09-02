@@ -19,7 +19,6 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/platform/observability"
 )
 
-// Servidor expõe o contrato estoque.ServicoEstoque.
 type Servidor struct {
 	pb.UnimplementedServicoEstoqueServer
 
@@ -31,7 +30,6 @@ type Servidor struct {
 	grpc     *grpc.Server
 }
 
-// Opcoes reúne o que o servidor precisa para ser construído.
 type Opcoes struct {
 	Bloqueio CasoDeUsoBloqueio
 	Mapa     CasoDeUsoMapa
@@ -39,7 +37,6 @@ type Opcoes struct {
 	Config   *config.Config
 }
 
-// NovoServidor monta o servidor gRPC com mTLS e instrumentação.
 func NovoServidor(opts Opcoes) (*Servidor, error) {
 	m, err := novasMetricas(opts.Obs)
 	if err != nil {
@@ -75,9 +72,6 @@ func NovoServidor(opts Opcoes) (*Servidor, error) {
 	return s, nil
 }
 
-// credenciaisMTLS monta o TLS que exige identidade de serviço válida do
-// chamador. A recusa de handshake é registrada aqui: ela acontece abaixo dos
-// interceptores gRPC, que nunca a veriam (FR-039).
 func credenciaisMTLS(cfg *config.Config, obs *observability.Observabilidade) (credentials.TransportCredentials, error) {
 	par, err := tls.LoadX509KeyPair(cfg.TLSCertFile, cfg.TLSKeyFile)
 	if err != nil {
@@ -98,8 +92,6 @@ func credenciaisMTLS(cfg *config.Config, obs *observability.Observabilidade) (cr
 		ClientAuth:   tls.RequireAndVerifyClientCert,
 		MinVersion:   tls.VersionTLS13,
 		VerifyConnection: func(cs tls.ConnectionState) error {
-			// Chegou aqui com cadeia verificada: registra quem entrou, para que
-			// a auditoria consiga distinguir chamadores.
 			if len(cs.PeerCertificates) > 0 {
 				obs.Log.Debug("chamador autenticado", "subject", cs.PeerCertificates[0].Subject.CommonName)
 			}
@@ -107,16 +99,12 @@ func credenciaisMTLS(cfg *config.Config, obs *observability.Observabilidade) (cr
 		},
 	}
 
-	// GetConfigForClient é o único ponto que vê a tentativa antes da verificação;
-	// o registro da recusa em si vem do wrapper abaixo.
 	return &credenciaisAuditadas{
 		TransportCredentials: credentials.NewTLS(conf),
 		obs:                  obs,
 	}, nil
 }
 
-// credenciaisAuditadas registra toda recusa de handshake sem gravar material
-// criptográfico — apenas endereço de origem e o motivo da recusa (FR-039).
 type credenciaisAuditadas struct {
 	credentials.TransportCredentials
 	obs *observability.Observabilidade
@@ -146,7 +134,6 @@ func (c *credenciaisAuditadas) Clone() credentials.TransportCredentials {
 	return &credenciaisAuditadas{TransportCredentials: c.TransportCredentials.Clone(), obs: c.obs}
 }
 
-// Servir bloqueia atendendo no endereço informado.
 func (s *Servidor) Servir(addr string) error {
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -156,13 +143,10 @@ func (s *Servidor) Servir(addr string) error {
 	return s.grpc.Serve(lis)
 }
 
-// ServirEm atende em um listener já criado (usado pelos testes com bufconn).
 func (s *Servidor) ServirEm(lis net.Listener) error { return s.grpc.Serve(lis) }
 
-// Encerrar para o servidor de forma graciosa.
 func (s *Servidor) Encerrar() { s.grpc.GracefulStop() }
 
-// subjectDoChamador extrai o CommonName do certificado apresentado, quando há.
 func subjectDoChamador(ctx context.Context) string {
 	p, ok := peer.FromContext(ctx)
 	if !ok {

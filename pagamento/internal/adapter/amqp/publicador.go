@@ -10,9 +10,6 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 )
 
-// Publicador publica fatos com confirmação do broker. Publicar só retorna sem
-// erro depois de o broker confirmar — é o que permite ao chamador tratar
-// "publicado" como fato consumado antes de marcar e confirmar (FR-014).
 type Publicador struct {
 	mu         sync.Mutex
 	ch         *amqp.Channel
@@ -28,8 +25,6 @@ func NovoPublicador(ch *amqp.Channel, exchange string, p propagation.TextMapProp
 }
 
 func (p *Publicador) Publicar(ctx context.Context, f usecase.Fato) error {
-	// Reinjeta o contexto de rastreamento para que o desfecho do pagamento fique
-	// no mesmo rastro do bloqueio que o originou (research.md D11).
 	cabecalhos := amqp.Table{}
 	if p.propagador != nil {
 		p.propagador.Inject(ctx, portadorAMQP(cabecalhos))
@@ -59,7 +54,6 @@ func (p *Publicador) Publicar(ctx context.Context, f usecase.Fato) error {
 	return nil
 }
 
-// portadorAMQP adapta os cabeçalhos AMQP ao propagador W3C.
 type portadorAMQP amqp.Table
 
 func (c portadorAMQP) Get(k string) string {

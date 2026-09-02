@@ -10,9 +10,6 @@ import (
 	"github.com/oseias/ingressos-golang/notificacao/internal/domain/ingresso"
 )
 
-// Dobras das portas. Existem para que os testes de caso de uso rodem sem banco,
-// sem broker e sem rede, como o princípio II exige.
-
 var instanteFixo = time.Date(2026, 8, 29, 21, 35, 12, 0, time.UTC)
 
 type relogioFixo struct{ t time.Time }
@@ -36,8 +33,6 @@ func (g *idsSequenciais) Novo() string {
 	return canonico(g.n)
 }
 
-// canonico devolve um UUID de forma válida, para que o teste não dependa de
-// identificadores que o próprio validador recusaria.
 func canonico(n int) string {
 	hex := "0123456789abcdef"
 	b := []byte("00000000-0000-4000-8000-000000000000")
@@ -67,7 +62,6 @@ func (assinadorFalso) Verificar(c string) (string, error) {
 
 var errBanco = errors.New("banco indisponível")
 
-// ingressosFalsos é um repositório em memória com falhas injetáveis.
 type ingressosFalsos struct {
 	mu           sync.Mutex
 	porReserva   map[string]ingresso.Ingresso
@@ -147,7 +141,6 @@ func (r *ingressosFalsos) semear(i ingresso.Ingresso) {
 	r.porReserva[i.ReservaID] = i
 }
 
-// avisosFalsos guarda os registros gravados.
 type avisosFalsos struct {
 	mu         sync.Mutex
 	registros  []aviso.Registro
@@ -172,8 +165,6 @@ func (a *avisosFalsos) todos() []aviso.Registro {
 
 var errCanal = errors.New("servidor de e-mail recusou a conexão")
 
-// notificadorFalso pode ser mandado a falhar, que é o que sustenta o teste da
-// FR-025.
 type notificadorFalso struct {
 	mu      sync.Mutex
 	falhar  bool

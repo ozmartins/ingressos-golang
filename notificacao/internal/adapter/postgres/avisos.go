@@ -8,12 +8,8 @@ import (
 	"github.com/oseias/ingressos-golang/notificacao/internal/domain/aviso"
 )
 
-// Avisos implementa a porta de persistência do registro de notificação.
 type Avisos struct{ Pool *pgxpool.Pool }
 
-// Registrar grava a tentativa de aviso. Vários registros por ingresso são
-// possíveis: é o que permitirá a uma feature futura de reenvio acrescentar
-// tentativas sem apagar o histórico (data-model.md §3).
 func (r Avisos) Registrar(ctx context.Context, reg aviso.Registro) error {
 	const sql = `
 		INSERT INTO registros_notificacao

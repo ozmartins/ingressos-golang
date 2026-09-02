@@ -10,9 +10,6 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/platform/observability"
 )
 
-// Publicador drena a caixa de saída. Roda fora do caminho da requisição: a
-// resposta do bloqueio não espera a publicação (FR-009), e o fato sobrevive a um
-// broker indisponível no instante da concessão (SC-005).
 type Publicador struct {
 	Conexao   *Conexao
 	Banco     *postgres.Banco
@@ -21,7 +18,6 @@ type Publicador struct {
 	Lote      int
 }
 
-// Iniciar roda o laço de publicação até o contexto ser cancelado.
 func (p *Publicador) Iniciar(ctx context.Context) {
 	intervalo := p.Intervalo
 	if intervalo <= 0 {
@@ -47,8 +43,6 @@ func (p *Publicador) Iniciar(ctx context.Context) {
 	}()
 }
 
-// Drenar publica um lote imediatamente. Exposto para os testes e para o
-// encerramento gracioso.
 func (p *Publicador) Drenar(ctx context.Context, lote int) (int, error) {
 	return p.Banco.PendentesParaPublicar(ctx, lote, func(fato postgres.FatoNaCaixa) error {
 		return p.publicar(ctx, fato)
@@ -67,8 +61,6 @@ func (p *Publicador) drenar(ctx context.Context, lote int) {
 }
 
 func (p *Publicador) publicar(ctx context.Context, fato postgres.FatoNaCaixa) error {
-	// Reinjeta o contexto capturado quando o fato ocorreu — não o do instante
-	// da publicação, que seria um span solto (FR-044).
 	headers := amqp.Table{}
 	for chave, valor := range fato.TraceContext {
 		headers[chave] = valor
@@ -91,7 +83,6 @@ func (p *Publicador) publicar(ctx context.Context, fato postgres.FatoNaCaixa) er
 		return err
 	}
 
-	// Só consideramos publicado depois do confirm do broker.
 	select {
 	case confirmacao := <-p.Conexao.confirmacoes:
 		if !confirmacao.Ack {

@@ -12,24 +12,17 @@ import (
 	"github.com/oseias/ingressos-golang/catalogo/internal/usecase"
 )
 
-// FR-010 e SC-002: toda consulta reflete o estado atual.
-//
-// É um requisito negativo — a ausência de cache não se manifesta sozinha. Sem
-// este teste, alguém poderia introduzir um cache de leitura amanhã e nenhuma
-// suíte acusaria.
 func TestConsultasRefletemAlteracaoImediatamente(t *testing.T) {
 	carregarFixtures(t)
 	ctx := context.Background()
 
 	filmes := usecase.ListarFilmes{Repo: pgadapter.NovoFilmeRepository(pool)}
 
-	// Primeira leitura: aquece qualquer cache que porventura exista.
 	antes, err := filmes.Executar(ctx, usecase.FiltroFilmes{}, pagina(t, 1, 20))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// O processo administrativo altera o título de um filme.
 	if _, err := pool.Exec(ctx,
 		`UPDATE filmes SET titulo = 'Duna: Parte 2 (Reestreia)' WHERE id = $1`, filmeDuna); err != nil {
 		t.Fatal(err)
@@ -46,7 +39,6 @@ func TestConsultasRefletemAlteracaoImediatamente(t *testing.T) {
 		t.Fatal("teste inválido: o título já estava alterado antes do UPDATE")
 	}
 
-	// Mesma verificação na grade, que é a consulta com junções.
 	antesGrade := consultar(t, usecase.FiltroSessoes{}, pagina(t, 1, 20))
 	if _, err := pool.Exec(ctx,
 		`UPDATE sessoes SET status = 'CANCELADA' WHERE id = 'e1b2c3d4-0000-4000-8000-000000000001'`); err != nil {

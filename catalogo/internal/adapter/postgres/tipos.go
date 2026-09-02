@@ -9,8 +9,6 @@ import (
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/catalogo"
 )
 
-// dinheiroDeNumeric converte NUMERIC(10,2) para o tipo monetário exato do
-// domínio, sem passar por ponto flutuante em momento algum.
 func dinheiroDeNumeric(n pgtype.Numeric) (catalogo.Dinheiro, error) {
 	if !n.Valid {
 		return catalogo.Dinheiro{}, fmt.Errorf("preco_base nulo")
@@ -18,7 +16,6 @@ func dinheiroDeNumeric(n pgtype.Numeric) (catalogo.Dinheiro, error) {
 	if n.NaN || n.InfinityModifier != pgtype.Finite {
 		return catalogo.Dinheiro{}, fmt.Errorf("preco_base não é um número finito")
 	}
-	// valor = Int * 10^Exp, exato.
 	r := new(big.Rat).SetInt(n.Int)
 	dez := big.NewInt(10)
 	if n.Exp >= 0 {

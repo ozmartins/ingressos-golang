@@ -11,8 +11,6 @@ import (
 	"github.com/oseias/ingressos-golang/pagamento/internal/usecase"
 )
 
-// T024 / US1: reserva.criada publicado leva a PAGO e a um pagamento.sucesso com
-// o payload do contrato.
 func TestCobrancaPontaAPonta(t *testing.T) {
 	a := subirAmbiente(t)
 	adq := novoAdquirente(usecase.ResultadoCobranca{Desfecho: usecase.Aprovada, Codigo: "gw-integr"})
@@ -51,7 +49,6 @@ func TestCobrancaPontaAPonta(t *testing.T) {
 	}
 }
 
-// FR-005: reserva vencida não chega ao adquirente e é anunciada como recusa.
 func TestReservaExpiradaNaoCobraPontaAPonta(t *testing.T) {
 	a := subirAmbiente(t)
 	adq := novoAdquirente(usecase.ResultadoCobranca{Desfecho: usecase.Aprovada})

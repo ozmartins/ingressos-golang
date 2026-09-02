@@ -67,7 +67,6 @@ func TestListarFiltraPorEstado(t *testing.T) {
 	}
 }
 
-// FR-024: estado desconhecido é recusa, nunca ausência de filtro.
 func TestFiltroDesconhecidoERecusado(t *testing.T) {
 	repo := novosIngressos()
 	semearVarios(t, repo)

@@ -16,8 +16,6 @@ import (
 
 var errSempreFora = errors.New("dependência fora do ar")
 
-// adquirenteQueVolta falha as N primeiras chamadas e depois aprova — simula uma
-// dependência que cai e volta.
 type adquirenteQueVolta struct {
 	mu              sync.Mutex
 	falhasRestantes int
@@ -35,8 +33,6 @@ func (a *adquirenteQueVolta) Cobrar(context.Context, usecase.Cobranca) (usecase.
 	return usecase.ResultadoCobranca{Desfecho: usecase.Aprovada, Codigo: "gw-depois-da-volta"}, nil
 }
 
-// T040 / FR-020: falha transitória devolve a intenção à fila sem anunciar nada,
-// e o processamento se completa quando a dependência volta.
 func TestFalhaTransitoriaDevolveAFilaEDepoisCompleta(t *testing.T) {
 	a := subirAmbiente(t)
 	adq := &adquirenteQueVolta{falhasRestantes: 2}
@@ -60,7 +56,6 @@ func TestFalhaTransitoriaDevolveAFilaEDepoisCompleta(t *testing.T) {
 	}
 }
 
-// FR-020: nada é anunciado enquanto não há desfecho.
 func TestNadaEAnunciadoEnquantoAInfraEstaFora(t *testing.T) {
 	a := subirAmbiente(t)
 	adq := novoAdquirente(usecase.ResultadoCobranca{})

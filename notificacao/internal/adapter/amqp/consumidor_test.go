@@ -16,9 +16,6 @@ import (
 	"github.com/oseias/ingressos-golang/notificacao/internal/usecase"
 )
 
-// Este teste percorre a tabela de desfechos de contracts/eventos.md §3: cada
-// situação mapeada ao gesto AMQP correto, sem broker nenhum.
-
 const (
 	reserva1 = "9982a1b3-44c1-4221-a123-902183120192"
 	usuario1 = "c394c8b3-76a1-4328-b803-02f5923b7a15"
@@ -163,7 +160,6 @@ func TestDesfechosDoConsumo(t *testing.T) {
 		}
 	})
 
-	// A linha mais importante da tabela (FR-025).
 	t.Run("canal de aviso com erro → ack, não reprocessa", func(t *testing.T) {
 		c, _ := montar(t, semLog())
 		c.Caso.Notificador = notificadorFalso{falhar: true}
@@ -173,7 +169,6 @@ func TestDesfechosDoConsumo(t *testing.T) {
 	})
 }
 
-// FR-021, metade (a): o desfecho de cada processamento é registrado.
 func TestLogRegistraDesfechoDaEmissao(t *testing.T) {
 	var buf bytes.Buffer
 	log := slog.New(slog.NewJSONHandler(&buf, nil))
@@ -193,7 +188,6 @@ func TestLogRegistraDesfechoDaEmissao(t *testing.T) {
 	}
 }
 
-// FR-021, metade (b): o código de acesso nunca aparece no log.
 func TestLogNaoVazaCodigoDeAcesso(t *testing.T) {
 	casos := map[string]func(*Consumidor){
 		"emissão bem-sucedida": func(*Consumidor) {},

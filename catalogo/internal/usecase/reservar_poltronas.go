@@ -11,7 +11,6 @@ import (
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/shared"
 )
 
-// Relogio permite fixar o tempo nos testes sem esperar o mundo real.
 type Relogio func() time.Time
 
 type ReservarPoltronas struct {
@@ -20,13 +19,6 @@ type ReservarPoltronas struct {
 	Agora   Relogio
 }
 
-// Executar traduz a intenção de compra em um bloqueio no Servico-Estoque.
-//
-// A ordem importa e é deliberada: validar a entrada, buscar a sessão, checar se
-// ela ainda aceita reserva e só então sair para a rede. Cada recusa que acontece
-// antes da chamada é uma ida ao estoque que não foi feita — e, no caso de
-// credencial inválida, é também uma solicitação anônima que nunca alcança um
-// serviço interno.
 func (uc ReservarPoltronas) Executar(ctx context.Context, s reserva.SolicitacaoReserva) (reserva.ResultadoReserva, error) {
 	if err := s.Validar(); err != nil {
 		return reserva.ResultadoReserva{}, err
@@ -56,10 +48,6 @@ func (uc ReservarPoltronas) Executar(ctx context.Context, s reserva.SolicitacaoR
 	return resultado, nil
 }
 
-// auditar registra quem pediu o quê e o que aconteceu (FR-033).
-//
-// Registra a identidade já extraída, nunca a credencial: o token não entra em
-// log em nenhuma forma, nem truncado.
 func (uc ReservarPoltronas) auditar(ctx context.Context, s reserva.SolicitacaoReserva, r reserva.ResultadoReserva, err error) {
 	attrs := []any{
 		slog.String("evento", "solicitacao_reserva"),

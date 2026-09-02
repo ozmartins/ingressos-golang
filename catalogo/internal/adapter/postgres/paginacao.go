@@ -9,20 +9,6 @@ import (
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/shared"
 )
 
-// consultarPaginado executa a consulta da página e a contagem do total.
-//
-// São duas idas ao banco, e isso é deliberado. A alternativa aparentemente mais
-// barata — `COUNT(*) OVER ()` na mesma consulta — obriga o planejador a montar
-// uma janela sobre todo o conjunto filtrado antes de ordenar, o que descarta o
-// índice de ordenação e transforma toda listagem em varredura completa. Medido
-// com EXPLAIN ANALYZE: com a janela, `Seq Scan + WindowAgg + Sort`; sem ela,
-// `Index Scan` com LIMIT. A segunda consulta é uma contagem indexada barata; a
-// primeira passa a ser proporcional ao tamanho da página, não ao do acervo.
-//
-// As duas consultas não compartilham transação: uma escrita entre elas pode
-// fazer o total divergir da página em um registro. Para navegação de catálogo
-// isso é irrelevante, e abrir transação em toda listagem custaria mais do que
-// resolve.
 func consultarPaginado[T any](
 	ctx context.Context,
 	pool *pgxpool.Pool,

@@ -1,5 +1,3 @@
-// Package contract verifica que as respostas HTTP obedecem ao contrato
-// publicado em contracts/openapi.yaml e contracts/errors.md.
 package contract
 
 import (
@@ -17,8 +15,6 @@ import (
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/shared"
 	"github.com/oseias/ingressos-golang/catalogo/internal/usecase"
 )
-
-// --- dublês ------------------------------------------------------------------
 
 type filmesFalsos struct{ itens []catalogo.Filme }
 
@@ -107,8 +103,6 @@ func recortar[T any](todos []T, req shared.PageRequest) shared.Page[T] {
 	return shared.NovaPage(todos[inicio:fim], len(todos), req)
 }
 
-// --- montagem ----------------------------------------------------------------
-
 type ambiente struct {
 	servidor *httptest.Server
 	estoque  *estoqueContado
@@ -174,8 +168,6 @@ func montarComFilmes(t *testing.T, itens []catalogo.Filme) *httptest.Server {
 	t.Cleanup(s.Close)
 	return s
 }
-
-// --- utilitários de asserção -------------------------------------------------
 
 type envelopeGenerico struct {
 	Itens  []map[string]any `json:"itens"`

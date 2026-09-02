@@ -34,8 +34,6 @@ func conectarBroker(t *testing.T) *adaptadoramqp.Conexao {
 	return conexao
 }
 
-// espiao assina reserva.criada em uma fila temporária, para ver o que foi
-// realmente publicado.
 func espiao(t *testing.T) <-chan amqp091.Delivery {
 	t.Helper()
 
@@ -66,16 +64,11 @@ func espiao(t *testing.T) <-chan amqp091.Delivery {
 	return entregas
 }
 
-// TestFatoSobreviveABrokerIndisponivel cobre SC-005: o bloqueio é concedido com
-// o broker fora do ar e o fato é entregue quando ele volta — sem duplicar a
-// reserva e sem invalidar o bloqueio.
 func TestFatoSobreviveABrokerIndisponivel(t *testing.T) {
 	c := montarCenario(t, false)
 	ctx := context.Background()
 	entregas := espiao(t)
 
-	// Publicador apontando para uma conexão que será fechada: é o equivalente
-	// funcional do broker fora do ar no instante da concessão.
 	conexaoCaida, err := adaptadoramqp.Conectar(ambiente.RabbitURL)
 	if err != nil {
 		t.Fatalf("conectar: %v", err)
@@ -87,7 +80,6 @@ func TestFatoSobreviveABrokerIndisponivel(t *testing.T) {
 	sessao, reservaID := reservaPendente(t, c)
 	_ = sessao
 
-	// O bloqueio já está concedido; a publicação falha.
 	if n, _ := publicadorCaido.Drenar(ctx, 10); n != 0 {
 		t.Fatalf("publicou %d fatos com o broker fora do ar", n)
 	}
@@ -101,14 +93,10 @@ func TestFatoSobreviveABrokerIndisponivel(t *testing.T) {
 	if pendentes != 1 {
 		t.Fatalf("fato pendente = %d, esperado 1", pendentes)
 	}
-	// O bloqueio permanece válido apesar da falha de publicação.
 	if got := c.statusReserva(t, reservaID); got != "PENDENTE" {
 		t.Errorf("reserva = %s — falha de publicação invalidou o bloqueio", got)
 	}
 
-	// O broker volta.
-	// A caixa de saída é compartilhada com os outros testes da suíte, então a
-	// asserção é sobre ESTE fato, não sobre a contagem do lote.
 	publicador := &adaptadoramqp.Publicador{Conexao: conectarBroker(t), Banco: c.Banco, Obs: observabilidade(t)}
 	if _, err := publicador.Drenar(ctx, 200); err != nil {
 		t.Fatalf("drenar após retorno: %v", err)
@@ -123,8 +111,6 @@ func TestFatoSobreviveABrokerIndisponivel(t *testing.T) {
 		t.Fatal("o fato continuou pendente depois do retorno do broker")
 	}
 
-	// A fila do espião recebe todo reserva.criada da suíte; procuramos o fato
-	// desta reserva, sem supor que ele seja o primeiro.
 	prazo := time.After(15 * time.Second)
 	for {
 		select {
@@ -134,12 +120,11 @@ func TestFatoSobreviveABrokerIndisponivel(t *testing.T) {
 				t.Fatalf("payload inválido: %v", err)
 			}
 			if evento.ReservaID != reservaID {
-				continue // fato de outro teste
+				continue
 			}
 			if msg.MessageId != reservaID {
 				t.Errorf("message_id = %q, esperado o id da reserva (chave de deduplicação)", msg.MessageId)
 			}
-			// SC-009: o contexto capturado na concessão viaja com o fato.
 			if msg.Headers["traceparent"] == nil {
 				t.Error("fato publicado sem traceparent — rastro quebra no broker")
 			}
@@ -150,7 +135,6 @@ func TestFatoSobreviveABrokerIndisponivel(t *testing.T) {
 	}
 entregue:
 
-	// Publicar de novo não pode reenviar o que já foi confirmado.
 	var pendenteDepois int
 	if err := c.Pool.QueryRow(ctx,
 		`SELECT count(*) FROM outbox_eventos WHERE message_id = $1 AND publicado_em IS NULL`,
@@ -162,8 +146,6 @@ entregue:
 	}
 }
 
-// TestConsumoAplicaEfeitoEConfirma exercita o laço real de consumo: publica um
-// desfecho de pagamento e verifica que o efeito chega ao banco.
 func TestConsumoAplicaEfeitoEConfirma(t *testing.T) {
 	c := montarCenario(t, false)
 	ctx, cancelar := context.WithCancel(context.Background())
@@ -186,8 +168,6 @@ func TestConsumoAplicaEfeitoEConfirma(t *testing.T) {
 	}
 }
 
-// TestMensagemInvalidaVaiParaDLQ cobre FR-023: erro definitivo sai do fluxo
-// normal para inspeção, sem travar o processamento das demais.
 func TestMensagemInvalidaVaiParaDLQ(t *testing.T) {
 	c := montarCenario(t, false)
 	ctx, cancelar := context.WithCancel(context.Background())
@@ -201,7 +181,6 @@ func TestMensagemInvalidaVaiParaDLQ(t *testing.T) {
 	dlq := adaptadoramqp.NomeDLQ(adaptadoramqp.FilaPagamentoFalhou)
 	antes := profundidade(t, dlq)
 
-	// Corpo que não é JSON e corpo sem reserva_id: ambos definitivos.
 	publicarBruto(t, "pagamento.falhou", []byte(`{{{ nao sou json`), "")
 	publicarBruto(t, "pagamento.falhou", []byte(`{"evento":"PAGAMENTO_FALHOU"}`), "")
 
@@ -209,7 +188,6 @@ func TestMensagemInvalidaVaiParaDLQ(t *testing.T) {
 		return profundidade(t, dlq) >= antes+2
 	}, "mensagens inválidas não chegaram à fila-morta")
 
-	// E o consumo das mensagens boas continua funcionando.
 	sessao, reservaID := reservaPendente(t, c)
 	publicarDesfecho(t, "pagamento.falhou", reservaID, "PAGAMENTO_FALHOU")
 
@@ -222,7 +200,6 @@ func TestMensagemInvalidaVaiParaDLQ(t *testing.T) {
 	}
 }
 
-// TestSessaoCriadaProvisionaPeloConsumo liga o fato do catálogo ao estoque.
 func TestSessaoCriadaProvisionaPeloConsumo(t *testing.T) {
 	c := montarCenario(t, false)
 	ctx, cancelar := context.WithCancel(context.Background())
@@ -249,8 +226,6 @@ func TestSessaoCriadaProvisionaPeloConsumo(t *testing.T) {
 		t.Fatalf("sessão provisionada por evento devia aceitar bloqueio: %v", err)
 	}
 }
-
-// --- utilitários ---
 
 func publicarDesfecho(t *testing.T, routingKey, reservaID, evento string) {
 	t.Helper()
@@ -320,8 +295,6 @@ func aguardar(t *testing.T, limite time.Duration, condicao func() bool, mensagem
 	t.Fatal(mensagem)
 }
 
-// publicarBrutoComHeader publica um desfecho de pagamento com um traceparent
-// específico, para exercitar a propagação de contexto pelo broker.
 func publicarBrutoComHeader(t *testing.T, routingKey, reservaID, traceparent string) {
 	t.Helper()
 

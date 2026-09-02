@@ -15,8 +15,6 @@ import (
 	"github.com/oseias/ingressos-golang/catalogo/internal/usecase"
 )
 
-// Handlers traduz requisições em casos de uso. Nenhuma regra de negócio aqui:
-// handler fino é o que mantém a regra testável sem servidor HTTP.
 type Handlers struct {
 	ListarFilmes      usecase.ListarFilmes
 	ListarCinemas     usecase.ListarCinemas
@@ -153,7 +151,6 @@ func (h Handlers) PostReservar(w http.ResponseWriter, r *http.Request) {
 
 	resultado, err := h.ReservarPoltronas.Executar(r.Context(), solicitacao)
 	if err != nil {
-		// Validação da solicitação é problema de corpo, não de parâmetro.
 		if errors.Is(err, shared.ErrValidacao) {
 			EscreverProblem(w, r, catCorpoInvalido, mensagemLimpa(err))
 			return
@@ -164,8 +161,6 @@ func (h Handlers) PostReservar(w http.ResponseWriter, r *http.Request) {
 	escreverJSON(w, http.StatusCreated, paraReservaDTO(resultado))
 }
 
-// validarUUID checa a forma antes de ir ao banco: identificador malformado é
-// entrada inválida (400), não recurso ausente (404).
 func validarUUID(v, campo string) error {
 	if len(v) != 36 {
 		return fmt.Errorf("%w: %s deve ser um UUID", shared.ErrValidacao, campo)
@@ -190,8 +185,6 @@ func parseData(v string) (*usecase.DataDoDia, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: data deve estar no formato YYYY-MM-DD", shared.ErrValidacao)
 	}
-	// time.Parse aceita 2026-02-31 normalizando para março; a comparação textual
-	// rejeita datas que não existem.
 	if t.Format("2006-01-02") != v {
 		return nil, fmt.Errorf("%w: data %q não existe no calendário", shared.ErrValidacao, v)
 	}

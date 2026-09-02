@@ -16,7 +16,6 @@ const (
 	filaFalhou  = "estoque.pagamento-falhou"
 )
 
-// reservaPendente cria uma sessão e bloqueia A1 e A2.
 func reservaPendente(t *testing.T, c *Cenario) (sessao, reservaID string) {
 	t.Helper()
 	sessao = c.novaSessao(t, []string{"A"}, 5)
@@ -45,7 +44,6 @@ func TestConfirmacaoTornaPosseDefinitiva(t *testing.T) {
 		}
 	}
 
-	// FR-014: o prazo passa e as poltronas continuam ocupadas.
 	c.Relogio.Avancar(time.Hour)
 	if n, err := c.Expirar.Varrer(context.Background()); err != nil {
 		t.Fatalf("varredura: %v", err)
@@ -80,7 +78,6 @@ func TestCancelamentoDevolvePoltronasEPermiteNovoBloqueio(t *testing.T) {
 	}
 }
 
-// TestReentregaProduzMesmoEstadoFinal cobre SC-004.
 func TestReentregaProduzMesmoEstadoFinal(t *testing.T) {
 	c := montarCenario(t, false)
 	sessao, reservaID := reservaPendente(t, c)
@@ -106,7 +103,6 @@ func TestReentregaProduzMesmoEstadoFinal(t *testing.T) {
 	}
 }
 
-// TestPrimeiroDesfechoPrevalece cobre a chegada fora de ordem (FR-022).
 func TestPrimeiroDesfechoPrevalece(t *testing.T) {
 	t.Run("recusa depois de aprovada", func(t *testing.T) {
 		c := montarCenario(t, false)
@@ -143,8 +139,6 @@ func TestPrimeiroDesfechoPrevalece(t *testing.T) {
 		if res != usecase.TransicaoIgnoradaEstadoFinal {
 			t.Errorf("resultado = %s, esperado ignorada-estado-final", res)
 		}
-		// A poltrona já pode ter sido retomada por outra pessoa; a aprovação
-		// tardia não pode sobrescrever o estado atual.
 		if got := c.statusPoltrona(t, sessao, "A1"); got != poltrona.Livre {
 			t.Errorf("A1 = %s, esperado LIVRE", got)
 		}

@@ -92,7 +92,6 @@ func chamar(t *testing.T, api *API, reservaID, bearer string) *httptest.Response
 	return w
 }
 
-// 200 para a dona, em cada um dos cinco estados possíveis.
 func TestConsultaDaDonaEmCadaEstado(t *testing.T) {
 	estados := []transacao.Status{
 		transacao.Processando, transacao.Pago, transacao.Recusado,
@@ -114,7 +113,6 @@ func TestConsultaDaDonaEmCadaEstado(t *testing.T) {
 			if corpo["status"] != string(s) {
 				t.Fatalf("estado errado: %v", corpo["status"])
 			}
-			// O contrato não expõe motivo nem referência do adquirente.
 			for _, proibido := range []string{"motivo_falha", "codigo_transacao_gateway"} {
 				if _, presente := corpo[proibido]; presente {
 					t.Fatalf("%q não deve ser exposto na API", proibido)
@@ -124,8 +122,6 @@ func TestConsultaDaDonaEmCadaEstado(t *testing.T) {
 	}
 }
 
-// SC-007 / FR-017: terceiro recebe resposta indistinguível de inexistente, em
-// TODOS os estados — inclusive naqueles em que a transação claramente existe.
 func TestTerceiroEInexistenteSaoIndistinguiveis(t *testing.T) {
 	estados := []transacao.Status{
 		transacao.Processando, transacao.Pago, transacao.Recusado,
@@ -150,7 +146,6 @@ func TestTerceiroEInexistenteSaoIndistinguiveis(t *testing.T) {
 				t.Fatalf("terceiro devia receber 404, veio %d", w.Code)
 			}
 			corpo, _ := io.ReadAll(w.Body)
-			// Byte a byte: qualquer diferença revelaria que a reserva existe.
 			if string(corpo) != string(corpoAusente) {
 				t.Fatalf("corpos diferentes revelam existência da reserva:\n terceiro: %s\ninexistente: %s",
 					corpo, corpoAusente)
@@ -196,7 +191,6 @@ func TestCredencialInvalida(t *testing.T) {
 	}
 }
 
-// A credencial é verificada ANTES de qualquer leitura de dados (FR-016).
 func TestCredencialVerificadaAntesDeLerDados(t *testing.T) {
 	api := apiCom(repoStub{err: usecase.ErrNaoEncontrada})
 	w := chamar(t, api, "nem-e-uuid", "")
@@ -257,7 +251,6 @@ func TestProntidaoFalhaQuandoDependenciaCai(t *testing.T) {
 	}
 }
 
-// chamarURL emite uma requisição para uma URL absoluta já montada.
 func chamarURL(t *testing.T, api *API, url, bearer string) *httptest.ResponseRecorder {
 	t.Helper()
 	r := httptest.NewRequest(http.MethodGet, url, nil)

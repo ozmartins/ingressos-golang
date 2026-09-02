@@ -16,7 +16,6 @@ func TestNovoPageRequestAplicaPadroes(t *testing.T) {
 }
 
 func TestNovoPageRequestRecusaTamanhoAcimaDoTeto(t *testing.T) {
-	// SC-008: o teto é recusado, nunca reduzido em silêncio.
 	_, err := NovoPageRequest(1, 500, 20, 100)
 	if !errors.Is(err, ErrValidacao) {
 		t.Fatalf("esperava ErrValidacao, obteve %v", err)
@@ -43,7 +42,6 @@ func TestNovaPageCalculaTemProxima(t *testing.T) {
 }
 
 func TestNovaPageAlemDoFimEhVaziaNaoErro(t *testing.T) {
-	// FR-005: posição além do fim devolve página vazia com o total correto.
 	req, _ := NovoPageRequest(9999, 20, 20, 100)
 	p := NovaPage[string](nil, 137, req)
 	if len(p.Itens) != 0 {

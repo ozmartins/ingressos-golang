@@ -5,13 +5,8 @@ import (
 	"testing"
 )
 
-// caminhoContrato é a fonte da verdade do contrato: o artefato versionado do
-// spec-kit. O arquivo embutido neste pacote é uma cópia de runtime, exigida
-// porque go:embed não alcança diretórios acima do pacote.
 const caminhoContrato = "../../../../specs/001-emissao-ingressos/contracts/openapi.yaml"
 
-// Uma cópia que ninguém verifica é uma cópia que diverge. Este teste é o que
-// mantém o documento servido em /openapi.yaml igual ao contrato acordado.
 func TestCopiaEmbutidaEstaSincronizadaComOContrato(t *testing.T) {
 	origem, err := os.ReadFile(caminhoContrato)
 	if err != nil {

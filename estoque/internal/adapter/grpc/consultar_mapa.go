@@ -8,12 +8,10 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/poltrona"
 )
 
-// CasoDeUsoMapa é a porta de leitura do mapa de poltronas.
 type CasoDeUsoMapa interface {
 	Executar(ctx context.Context, sessaoID string) ([]poltrona.Poltrona, error)
 }
 
-// ConsultarMapaPoltronas atende a RPC de consulta.
 func (s *Servidor) ConsultarMapaPoltronas(ctx context.Context, req *pb.SolicitacaoMapa) (*pb.RespostaMapa, error) {
 	inicio := time.Now()
 

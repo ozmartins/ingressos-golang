@@ -14,9 +14,6 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 )
 
-// Consumidor consome reserva.criada e aplica o caso de uso. O prefetch é o teto
-// de cobranças simultâneas: com a confirmação acontecendo só ao fim do trabalho,
-// o broker nunca entrega mais do que o teto ao mesmo tempo (FR-019, D6).
 type Consumidor struct {
 	Canal      *amqp.Channel
 	Fila       string
@@ -25,12 +22,9 @@ type Consumidor struct {
 	Log        *slog.Logger
 	Propagador propagation.TextMapPropagator
 
-	// EmAndamento é o medidor de cobranças simultâneas, exposto para o teste de
-	// vazão poder afirmar que o teto foi respeitado (SC-004).
 	EmAndamento *Medidor
 }
 
-// Medidor acompanha o pico de trabalho concorrente.
 type Medidor struct {
 	mu     sync.Mutex
 	atual  int
@@ -51,14 +45,12 @@ func (m *Medidor) sair() {
 	m.atual--
 }
 
-// Maximo devolve o maior número de processamentos simultâneos observado.
 func (m *Medidor) Maximo() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.maximo
 }
 
-// Consumir bloqueia até o contexto ser cancelado ou o canal fechar.
 func (c *Consumidor) Consumir(ctx context.Context) error {
 	if err := c.Canal.Qos(c.Prefetch, 0, false); err != nil {
 		return err
@@ -88,14 +80,12 @@ func (c *Consumidor) tratar(ctx context.Context, d amqp.Delivery) {
 		defer c.EmAndamento.sair()
 	}
 
-	// Abre o processamento como continuação do rastro do bloqueio.
 	if c.Propagador != nil {
 		ctx = c.Propagador.Extract(ctx, portadorAMQP(d.Headers))
 	}
 
 	var i usecase.Intencao
 	if err := json.Unmarshal(d.Body, &i); err != nil {
-		// JSON quebrado é falha definitiva: nunca vai melhorar na reentrega.
 		c.Log.Error("anúncio ilegível, indo para a quarentena", "erro", err)
 		_ = d.Nack(false, false)
 		return
@@ -127,10 +117,8 @@ func (c *Consumidor) tratar(ctx context.Context, d amqp.Delivery) {
 	case usecase.Quarentena:
 		log.Warn("intenção encaminhada para a quarentena", "erro", err)
 		_ = d.Nack(false, false)
-	default: // Requeue
+	default:
 		log.Warn("intenção devolvida para nova tentativa", "erro", err)
-		// Pequena espera antes de devolver, para não girar em falso enquanto a
-		// dependência não volta. O limite de entregas da fila continua valendo.
 		select {
 		case <-time.After(200 * time.Millisecond):
 		case <-ctx.Done():

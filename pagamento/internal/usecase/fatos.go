@@ -8,15 +8,12 @@ import (
 	"github.com/oseias/ingressos-golang/pagamento/internal/domain/transacao"
 )
 
-// Chaves de roteamento dos fatos publicados (contracts/eventos.md §2 e §3).
 const (
 	RoutingKeySucesso = "pagamento.sucesso"
 	RoutingKeyFalhou  = "pagamento.falhou"
 	VersaoFato        = 1
 )
 
-// FatoPagamentoSucesso é o payload de pagamento.sucesso. A forma é o contrato e
-// só muda com versão nova.
 type FatoPagamentoSucesso struct {
 	Evento      string      `json:"evento"`
 	Versao      int         `json:"versao"`
@@ -28,7 +25,6 @@ type FatoPagamentoSucesso struct {
 	PagoEm      string      `json:"pago_em"`
 }
 
-// FatoPagamentoFalhou é o payload de pagamento.falhou.
 type FatoPagamentoFalhou struct {
 	Evento      string `json:"evento"`
 	Versao      int    `json:"versao"`
@@ -39,10 +35,6 @@ type FatoPagamentoFalhou struct {
 	Motivo      string `json:"motivo"`
 }
 
-// MontarFato deriva o anúncio inteiramente da transação gravada — é o que torna
-// a republicação da FR-014 possível sem guardar o payload em lugar nenhum.
-//
-// Erra para estado não anunciável: PENDENTE_VERIFICACAO nunca vira fato.
 func MontarFato(t transacao.Transacao) (Fato, error) {
 	if !t.Status.Anunciavel() {
 		return Fato{}, fmt.Errorf("montar fato: estado %s não é anunciável", t.Status)

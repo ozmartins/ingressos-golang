@@ -1,7 +1,3 @@
-// Package config lê e valida a configuração do ambiente uma única vez, na
-// largada. Variável ausente ou malformada impede o processo de subir: subir sem
-// o segredo do QR emitiria ingressos que a portaria nunca validaria — dano
-// silencioso e difícil de desfazer (research.md D11).
 package config
 
 import (
@@ -37,7 +33,6 @@ type Config struct {
 	NivelLog     string
 }
 
-// Modos do notificador simulado (research.md D6).
 const (
 	NotificarEnviar = "enviar"
 	NotificarFalhar = "falhar"
@@ -45,8 +40,6 @@ const (
 
 type faltando []string
 
-// Carregar lê o ambiente e devolve erro listando TODAS as chaves problemáticas
-// de uma vez — descobrir uma por vez, reiniciando o processo, é desperdício.
 func Carregar() (Config, error) {
 	var f faltando
 	c := Config{
@@ -100,9 +93,6 @@ func obrigatoria(chave string, f *faltando) string {
 	return v
 }
 
-// inteiro trata valor malformado como erro de largada, e não como queda
-// silenciosa no padrão: AMQP_LIMITE_ENTREGAS=abc virando 3 sem ninguém saber é
-// pior do que não subir.
 func inteiro(chave string, padrao int, f *faltando) int {
 	v := os.Getenv(chave)
 	if v == "" {

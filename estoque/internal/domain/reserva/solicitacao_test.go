@@ -57,7 +57,6 @@ func TestNovaSolicitacaoAplicaLimiteConfiguravel(t *testing.T) {
 		t.Fatalf("erro = %v, esperado ErrLimiteExcedido", err)
 	}
 
-	// O limite é configurável: com teto de 2, três poltronas já estouram.
 	if _, err := NovaSolicitacao("sessao", "usuario", []string{"A1", "A2", "A3"}, 2); !errors.Is(err, shared.ErrLimiteExcedido) {
 		t.Errorf("erro = %v, esperado ErrLimiteExcedido com limite 2", err)
 	}

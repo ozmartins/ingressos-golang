@@ -1,5 +1,3 @@
-// Package poltrona modela o assento de uma sessão e as transições de estado que
-// ele admite. Não conhece banco, rede nem contrato de transporte.
 package poltrona
 
 import (
@@ -12,28 +10,22 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/shared"
 )
 
-// Status é o estado de ocupação de uma poltrona.
 type Status string
 
-// Estados possíveis (FR-010).
 const (
 	Livre     Status = "LIVRE"
 	Reservada Status = "RESERVADA"
 	Ocupada   Status = "OCUPADA"
 )
 
-// Tipo é a categoria física do assento.
 type Tipo string
 
-// Tipos possíveis.
 const (
 	Normal      Tipo = "NORMAL"
 	PCD         Tipo = "PCD"
 	Namoradeira Tipo = "NAMORADEIRA"
 )
 
-// TipoValido diz se t é um tipo reconhecido. Layout com tipo desconhecido
-// invalida a mensagem inteira (FR-035).
 func TipoValido(t Tipo) bool {
 	switch t {
 	case Normal, PCD, Namoradeira:
@@ -43,11 +35,8 @@ func TipoValido(t Tipo) bool {
 	}
 }
 
-// namespacePoltrona é o namespace UUID v5 do serviço. Fixo por definição: mudar
-// este valor mudaria a identidade de toda poltrona já provisionada.
 var namespacePoltrona = uuid.MustParse("6f9619ff-8b86-d011-b42d-00c04fc964ff")
 
-// Poltrona é um assento de uma sessão.
 type Poltrona struct {
 	ID       string
 	SessaoID string
@@ -58,10 +47,6 @@ type Poltrona struct {
 	Status   Status
 }
 
-// Nova monta uma poltrona no estado livre, derivando rótulo e identificador de
-// forma determinística a partir de sessão, fileira e número (research D6). É
-// isso que torna o provisionamento idempotente: reprocessar o mesmo fato
-// recalcula o mesmo identificador e colide na chave.
 func Nova(sessaoID, fileira string, numero int, tipo Tipo) (Poltrona, error) {
 	fileira = strings.ToUpper(strings.TrimSpace(fileira))
 	if sessaoID == "" {
@@ -88,19 +73,15 @@ func Nova(sessaoID, fileira string, numero int, tipo Tipo) (Poltrona, error) {
 	}, nil
 }
 
-// DerivarID devolve o UUID v5 determinístico de sessao|fileira|numero.
 func DerivarID(sessaoID, fileira string, numero int) string {
 	chave := fmt.Sprintf("%s|%s|%d", sessaoID, strings.ToUpper(fileira), numero)
 	return uuid.NewSHA1(namespacePoltrona, []byte(chave)).String()
 }
 
-// MontarRotulo devolve a identidade de negócio da poltrona ("A1").
 func MontarRotulo(fileira string, numero int) string {
 	return strings.ToUpper(strings.TrimSpace(fileira)) + strconv.Itoa(numero)
 }
 
-// LerRotulo decompõe "A1" em fileira e número. O contrato aceita rótulos com
-// fileira de uma ou mais letras seguida de dígitos.
 func LerRotulo(rotulo string) (fileira string, numero int, err error) {
 	r := strings.ToUpper(strings.TrimSpace(rotulo))
 	if r == "" {
@@ -132,11 +113,8 @@ func LerRotulo(rotulo string) (fileira string, numero int, err error) {
 	return fileira, numero, nil
 }
 
-// PodeSerBloqueada diz se a poltrona está disponível para um novo bloqueio.
 func (p Poltrona) PodeSerBloqueada() bool { return p.Status == Livre }
 
-// Transicionar aplica a mudança de estado, recusando as que o domínio não
-// admite (FR-010). A poltrona ocupada é terminal nesta feature.
 func (p Poltrona) Transicionar(novo Status) (Poltrona, error) {
 	permitido := map[Status][]Status{
 		Livre:     {Reservada},

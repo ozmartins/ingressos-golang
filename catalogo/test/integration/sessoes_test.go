@@ -29,18 +29,15 @@ func consultar(t *testing.T, filtro usecase.FiltroSessoes, req shared.PageReques
 	return p
 }
 
-// US2, cenário 6 — canceladas e finalizadas não aparecem.
 func TestGradeExcluiCanceladasEFinalizadas(t *testing.T) {
 	carregarFixtures(t)
 	p := consultar(t, usecase.FiltroSessoes{}, pagina(t, 1, 20))
 
-	// 7 sessões nas fixtures, menos 1 cancelada e 1 finalizada.
 	if p.Total != 5 {
 		t.Fatalf("esperava 5 sessões visíveis, obteve %d", p.Total)
 	}
 }
 
-// US2, cenário 1 — dados consolidados vindos das quatro tabelas.
 func TestGradeConsolidaFilmeCinemaESala(t *testing.T) {
 	carregarFixtures(t)
 	p := consultar(t, usecase.FiltroSessoes{FilmeID: filmeDuna}, pagina(t, 1, 20))
@@ -55,7 +52,6 @@ func TestGradeConsolidaFilmeCinemaESala(t *testing.T) {
 	}
 }
 
-// US2, cenário 2.
 func TestGradeFiltraPorData(t *testing.T) {
 	carregarFixtures(t)
 	p := consultar(t, usecase.FiltroSessoes{Data: &usecase.DataDoDia{Ano: 2026, Mes: 9, Dia: 2}}, pagina(t, 1, 20))
@@ -70,7 +66,6 @@ func TestGradeFiltraPorData(t *testing.T) {
 	}
 }
 
-// US2, cenário 3 — o filtro por cinema alcança as sessões através das salas.
 func TestGradeCombinaFiltros(t *testing.T) {
 	carregarFixtures(t)
 
@@ -80,14 +75,12 @@ func TestGradeCombinaFiltros(t *testing.T) {
 		t.Fatalf("esperava 2 sessões, obteve %d", p.Total)
 	}
 
-	// Combinação sem resultado devolve página vazia, não erro (FR-017).
 	vazia := consultar(t, usecase.FiltroSessoes{FilmeID: filmeDuna, CinemaID: cinemaBeiramar}, pagina(t, 1, 20))
 	if vazia.Total != 0 || len(vazia.Itens) != 0 {
 		t.Fatalf("esperava página vazia, obteve %+v", vazia)
 	}
 }
 
-// US2, cenário 4 — estabilidade entre páginas consecutivas.
 func TestGradePaginacaoEstavel(t *testing.T) {
 	carregarFixtures(t)
 
@@ -110,7 +103,6 @@ func TestGradePaginacaoEstavel(t *testing.T) {
 	if len(vistos) != 5 {
 		t.Fatalf("as três páginas cobriram %d de 5 sessões", len(vistos))
 	}
-	// Ordenação crescente por início.
 	for i := 1; i < len(p1.Itens); i++ {
 		if p1.Itens[i-1].DataHoraInicio.After(p1.Itens[i].DataHoraInicio) {
 			t.Error("ordem por data_hora_inicio quebrada")
@@ -118,7 +110,6 @@ func TestGradePaginacaoEstavel(t *testing.T) {
 	}
 }
 
-// O tipo decimal sobrevive à ida e volta ao banco.
 func TestPrecoBasePreservaExatidao(t *testing.T) {
 	carregarFixtures(t)
 	p := consultar(t, usecase.FiltroSessoes{}, pagina(t, 1, 20))
@@ -137,14 +128,10 @@ func TestPrecoBasePreservaExatidao(t *testing.T) {
 	}
 }
 
-// Caso de borda: sessão apontando para filme inexistente é omitida, sem derrubar
-// a consulta inteira.
 func TestSessaoOrfaEhOmitidaSemDerrubarAGrade(t *testing.T) {
 	carregarFixtures(t)
 	ctx := context.Background()
 
-	// Remove a chave estrangeira para poder criar a inconsistência que o mundo
-	// real produz quando o processo administrativo apaga um filme.
 	if _, err := pool.Exec(ctx, `ALTER TABLE sessoes DROP CONSTRAINT sessoes_filme_id_fkey`); err != nil {
 		t.Fatal(err)
 	}
@@ -169,8 +156,6 @@ func TestSessaoOrfaEhOmitidaSemDerrubarAGrade(t *testing.T) {
 		}
 	}
 }
-
-// --- busca por id, usada pela reserva ---------------------------------------
 
 func TestBuscarSessaoPorID(t *testing.T) {
 	carregarFixtures(t)

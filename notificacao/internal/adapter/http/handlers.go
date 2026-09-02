@@ -1,8 +1,3 @@
-// Package http expõe as duas operações síncronas do serviço — a listagem dos
-// ingressos da pessoa e a validação na portaria — mais as sondas de saúde.
-//
-// Dois esquemas de credencial, sem hierarquia entre eles: cada rota aceita
-// somente o seu. Apresentar o outro é recusa, não promoção (research.md D7).
 package http
 
 import (
@@ -18,7 +13,6 @@ import (
 	"github.com/oseias/ingressos-golang/notificacao/internal/usecase"
 )
 
-// API reúne as dependências das rotas.
 type API struct {
 	Listagem  usecase.ListarIngressos
 	Validacao usecase.ValidarIngresso
@@ -28,8 +22,6 @@ type API struct {
 	Log       *slog.Logger
 }
 
-// Rotas monta o roteador. São quatro caminhos: net/http basta, e um roteador de
-// terceiro não se pagaria aqui (princípio I).
 func (a *API) Rotas() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/ingressos/meus-ingressos", a.listar)
@@ -37,15 +29,11 @@ func (a *API) Rotas() http.Handler {
 	mux.HandleFunc("GET /health/live", a.vivo)
 	mux.HandleFunc("GET /health/ready", a.pronto)
 
-	// /docs e /openapi.yaml servem o contrato, não fazem parte dele.
 	mux.Handle("GET /openapi.yaml", openapi.HandlerEspecificacao())
 	mux.Handle("GET /docs", openapi.HandlerUI("/openapi.yaml"))
-	// A variante com barra evita um 404 confuso para quem digita a URL à mão.
 	mux.Handle("GET /docs/", openapi.HandlerUI("/openapi.yaml"))
 	return mux
 }
-
-// --- Cliente ---
 
 type ingressoResposta struct {
 	IngressoID string `json:"ingresso_id"`
@@ -56,7 +44,6 @@ type ingressoResposta struct {
 }
 
 func (a *API) listar(w http.ResponseWriter, r *http.Request) {
-	// A rota do cliente não olha X-API-Key: chave de portaria aqui é 401.
 	sub, err := a.Auth.Identificar(r)
 	if err != nil {
 		problema(w, http.StatusUnauthorized, "credencial-invalida",
@@ -88,14 +75,10 @@ func (a *API) listar(w http.ResponseWriter, r *http.Request) {
 	responderJSON(w, http.StatusOK, corpo)
 }
 
-// --- Portaria ---
-
 type validarPedido struct {
 	CodigoQR *string `json:"codigo_qr"`
 }
 
-// vereditoResposta é a forma da ERS — deliberadamente NÃO é RFC 9457. É o
-// contrato com o dispositivo de catraca (contracts/erros.md §1).
 type vereditoResposta struct {
 	Valido      bool   `json:"valido"`
 	Mensagem    string `json:"mensagem"`
@@ -104,8 +87,6 @@ type vereditoResposta struct {
 }
 
 func (a *API) validar(w http.ResponseWriter, r *http.Request) {
-	// A recusa por credencial acontece ANTES de qualquer consulta ao ingresso:
-	// sem chave válida, não se descobre nem que o código existe (FR-012).
 	if err := a.Chave.Autorizar(r); err != nil {
 		problema(w, http.StatusUnauthorized, "credencial-invalida",
 			"Credencial inválida", "A chave do dispositivo de portaria está ausente ou não confere.")
@@ -146,15 +127,11 @@ func (a *API) validar(w http.ResponseWriter, r *http.Request) {
 			Valido: false, Mensagem: "Ingresso não está válido.",
 		})
 	default:
-		// Malformado, assinatura inválida e inexistente: MESMA resposta, para
-		// que nenhuma delas seja distinguível das outras (FR-010).
 		responderJSON(w, http.StatusNotFound, vereditoResposta{
 			Valido: false, Mensagem: "Ingresso não encontrado.",
 		})
 	}
 }
-
-// --- Saúde ---
 
 func (a *API) vivo(w http.ResponseWriter, _ *http.Request) {
 	responderJSON(w, http.StatusOK, map[string]string{"status": "vivo"})
@@ -169,8 +146,6 @@ func (a *API) pronto(w http.ResponseWriter, r *http.Request) {
 	}
 	responderJSON(w, http.StatusOK, map[string]string{"status": "pronto"})
 }
-
-// --- Auxiliares ---
 
 func (a *API) log() *slog.Logger {
 	if a.Log != nil {
@@ -192,8 +167,6 @@ type problemaResposta struct {
 	Detail string `json:"detail,omitempty"`
 }
 
-// problema responde no formato RFC 9457, usado para erro de protocolo. A recusa
-// da portaria não passa por aqui: ela tem forma própria (contracts/erros.md §1).
 func problema(w http.ResponseWriter, status int, tipo, titulo, detalhe string) {
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(status)

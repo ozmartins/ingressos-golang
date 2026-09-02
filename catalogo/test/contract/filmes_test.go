@@ -21,7 +21,6 @@ func catalogoDeTeste() []catalogo.Filme {
 	}
 }
 
-// US1, cenário 1 — envelope e campos obrigatórios do contrato.
 func TestGetFilmesRespondeEnvelopeDePaginacao(t *testing.T) {
 	s := montarComFilmes(t, catalogoDeTeste())
 	resp, corpo := obter(t, s, "/api/v1/filmes")
@@ -31,7 +30,6 @@ func TestGetFilmesRespondeEnvelopeDePaginacao(t *testing.T) {
 	}
 	e := decodificarEnvelope(t, corpo)
 
-	// Fora de cartaz não aparece sem filtro explícito (FR-008).
 	if e.Pagina.Total != 2 {
 		t.Fatalf("esperava 2 filmes públicos, obteve %d", e.Pagina.Total)
 	}
@@ -49,7 +47,6 @@ func TestGetFilmesRespondeEnvelopeDePaginacao(t *testing.T) {
 	}
 }
 
-// Campos opcionais ausentes são omitidos, não viram string vazia.
 func TestGetFilmesOmiteCamposOpcionaisAusentes(t *testing.T) {
 	s := montarComFilmes(t, catalogoDeTeste())
 	_, corpo := obter(t, s, "/api/v1/filmes")
@@ -67,7 +64,6 @@ func TestGetFilmesOmiteCamposOpcionaisAusentes(t *testing.T) {
 	}
 }
 
-// US1, cenário 2.
 func TestGetFilmesFiltraPorStatus(t *testing.T) {
 	s := montarComFilmes(t, catalogoDeTeste())
 	_, corpo := obter(t, s, "/api/v1/filmes?status=EM_CARTAZ")
@@ -78,7 +74,6 @@ func TestGetFilmesFiltraPorStatus(t *testing.T) {
 	}
 }
 
-// US1, cenário 3 — página vazia, não erro.
 func TestGetFilmesSemResultadosDevolvePaginaVazia(t *testing.T) {
 	s := montarComFilmes(t, nil)
 	resp, corpo := obter(t, s, "/api/v1/filmes")
@@ -95,7 +90,6 @@ func TestGetFilmesSemResultadosDevolvePaginaVazia(t *testing.T) {
 	}
 }
 
-// US1, cenário 4 — filtro inválido nomeia os valores aceitos.
 func TestGetFilmesRecusaStatusDesconhecido(t *testing.T) {
 	s := montarComFilmes(t, catalogoDeTeste())
 	resp, corpo := obter(t, s, "/api/v1/filmes?status=EM_BREVE")
@@ -114,7 +108,6 @@ func TestGetFilmesRecusaStatusDesconhecido(t *testing.T) {
 	}
 }
 
-// SC-008 — o teto de página é recusado, não reduzido em silêncio.
 func TestGetFilmesRecusaPageSizeAcimaDoTeto(t *testing.T) {
 	s := montarComFilmes(t, catalogoDeTeste())
 	resp, corpo := obter(t, s, "/api/v1/filmes?page_size=500")
@@ -123,7 +116,6 @@ func TestGetFilmesRecusaPageSizeAcimaDoTeto(t *testing.T) {
 		t.Fatalf("esperava 400, obteve %d", resp.StatusCode)
 	}
 	p := decodificarProblem(t, resp, corpo)
-	// O teto vigente é informação de tempo de execução e vai no detalhe.
 	if !contemString(p.Detail, "100") {
 		t.Errorf("detail deveria informar o máximo aceito: %s", p.Detail)
 	}
@@ -139,7 +131,6 @@ func TestGetFilmesRecusaPaginacaoMalformada(t *testing.T) {
 	}
 }
 
-// FR-005 — posição além do fim é página vazia com total correto.
 func TestGetFilmesPaginaAlemDoFim(t *testing.T) {
 	s := montarComFilmes(t, catalogoDeTeste())
 	resp, corpo := obter(t, s, "/api/v1/filmes?page=9999")

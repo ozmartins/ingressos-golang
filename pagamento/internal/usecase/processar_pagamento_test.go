@@ -12,8 +12,6 @@ import (
 	"github.com/oseias/ingressos-golang/pagamento/internal/domain/transacao"
 )
 
-// ---------- T021: caminho feliz e as recusas ----------
-
 func TestCobrancaAprovada(t *testing.T) {
 	uc, repo, adq, pub := cenario(ResultadoCobranca{Desfecho: Aprovada, Codigo: "gw-9"})
 
@@ -51,7 +49,6 @@ func TestCobrancaRecusada(t *testing.T) {
 	}
 }
 
-// Recusa sem motivo mapeado cai no motivo genérico do vocabulário fechado.
 func TestRecusaSemMotivoUsaGenerico(t *testing.T) {
 	uc, repo, _, _ := cenario(ResultadoCobranca{Desfecho: Recusada})
 	if _, err := uc.Executar(context.Background(), intencaoValida()); err != nil {
@@ -63,7 +60,6 @@ func TestRecusaSemMotivoUsaGenerico(t *testing.T) {
 	}
 }
 
-// FR-005 / clarificação Q5: reserva vencida não chega ao adquirente.
 func TestReservaExpiradaNaoCobra(t *testing.T) {
 	uc, repo, adq, pub := cenario(ResultadoCobranca{Desfecho: Aprovada})
 	i := intencaoValida()
@@ -84,8 +80,6 @@ func TestReservaExpiradaNaoCobra(t *testing.T) {
 	}
 }
 
-// FR-003 / FR-004: cada forma de anúncio inválido vai para a quarentena sem
-// criar transação e sem tocar no adquirente.
 func TestAnuncioInvalidoVaiParaQuarentena(t *testing.T) {
 	casos := map[string]func(*Intencao){
 		"sem reserva":        func(i *Intencao) { i.ReservaID = "" },
@@ -124,7 +118,6 @@ func TestAnuncioInvalidoVaiParaQuarentena(t *testing.T) {
 	}
 }
 
-// A ordem invariável: gravar o estado final ANTES de publicar (FR-014).
 func TestOrdemGravarPublicarMarcar(t *testing.T) {
 	uc, repo, _, pub := cenario(ResultadoCobranca{Desfecho: Aprovada, Codigo: "gw"})
 	pub.erro = errInfra
@@ -142,7 +135,6 @@ func TestOrdemGravarPublicarMarcar(t *testing.T) {
 	}
 }
 
-// Falha de infraestrutura do adquirente: nada decidido, mensagem volta à fila.
 func TestAdquirenteIndisponivelDevolveAFila(t *testing.T) {
 	uc, repo, _, pub := cenario(ResultadoCobranca{})
 	uc.Adquirente = &adquirenteFalso{erro: errInfra}
@@ -159,8 +151,6 @@ func TestAdquirenteIndisponivelDevolveAFila(t *testing.T) {
 		t.Fatal("nada pode ser anunciado sem desfecho")
 	}
 }
-
-// ---------- T038: o desfecho indeterminado (FR-022, SC-009) ----------
 
 func TestDesfechoIndeterminadoNaoAnunciaEVaiParaQuarentena(t *testing.T) {
 	uc, repo, adq, pub := cenario(ResultadoCobranca{Desfecho: Indeterminada})
@@ -187,11 +177,6 @@ func TestDesfechoIndeterminadoNaoAnunciaEVaiParaQuarentena(t *testing.T) {
 	}
 }
 
-// O prazo do adquirente precisa ser exercido de verdade: um adquirente LENTO
-// (não um que devolve Indeterminada de mão beijada) tem de produzir o desfecho
-// indeterminado. Este teste existe porque a versão anterior tratava o desfecho
-// sem nunca aplicar o prazo que o gera — e todos os testes passavam, porque
-// todos injetavam Indeterminada diretamente.
 func TestPrazoDoAdquirenteProduzDesfechoIndeterminado(t *testing.T) {
 	repo, pub := novoRepo(), &publicadorFalso{}
 	uc := ProcessarPagamento{
@@ -211,8 +196,6 @@ func TestPrazoDoAdquirenteProduzDesfechoIndeterminado(t *testing.T) {
 	if tr.Status != transacao.PendenteVerificacao {
 		t.Fatalf("esperava PENDENTE_VERIFICACAO, veio %s", tr.Status)
 	}
-	// A marca de cobrança emitida NÃO pode ser liberada: não se sabe se houve
-	// débito, e liberar permitiria uma recobrança (FR-008).
 	if !tr.CobrancaEmitida {
 		t.Fatal("prazo estourado não pode liberar o direito de cobrar")
 	}
@@ -221,7 +204,6 @@ func TestPrazoDoAdquirenteProduzDesfechoIndeterminado(t *testing.T) {
 	}
 }
 
-// Sem prazo configurado, o caso de uso não impõe deadline algum.
 func TestSemPrazoConfiguradoNaoHaDeadline(t *testing.T) {
 	repo := novoRepo()
 	uc := ProcessarPagamento{
@@ -237,8 +219,6 @@ func TestSemPrazoConfiguradoNaoHaDeadline(t *testing.T) {
 	}
 }
 
-// ---------- T026: o ramo de conflito, estado a estado (FR-007, FR-008, FR-014) ----------
-
 func TestReentregaEmCadaEstado(t *testing.T) {
 	base := func() transacao.Transacao {
 		return transacao.Nova("t-existente", "r-1", "u-1", "84.00", transacao.PIX, instante)
@@ -248,14 +228,9 @@ func TestReentregaEmCadaEstado(t *testing.T) {
 		preparar  func() transacao.Transacao
 		desfecho  Desfecho
 		republica bool
-		// cobrancas é quantas vezes o adquirente pode ser chamado. Zero em quase
-		// todos os casos: reentrega não recobra. A exceção é a retomada segura.
 		cobrancas int
 	}{
 		{
-			// A execução anterior morreu antes de emitir a cobrança, ou o
-			// adquirente devolveu erro. Nada foi cobrado: retomar é seguro, e é
-			// o que faz uma falha transitória se completar (FR-020).
 			nome:      "processando sem cobranca emitida: retoma com seguranca",
 			preparar:  base,
 			desfecho:  Confirmar,
@@ -263,8 +238,6 @@ func TestReentregaEmCadaEstado(t *testing.T) {
 			cobrancas: 1,
 		},
 		{
-			// Cobrança emitida sem resposta conclusiva: não se sabe se houve
-			// débito. Não se recobra nem se decide (FR-008).
 			nome: "processando com cobranca emitida: nao recobra, volta para a fila",
 			preparar: func() transacao.Transacao {
 				t := base()
@@ -340,8 +313,6 @@ func TestReentregaEmCadaEstado(t *testing.T) {
 			if d != c.desfecho {
 				t.Fatalf("esperava %v, veio %v", c.desfecho, d)
 			}
-			// A garantia central: reentrega só chega ao adquirente quando é
-			// comprovadamente seguro, e nunca mais de uma vez.
 			if adq.Cobrancas != c.cobrancas {
 				t.Fatalf("esperava %d cobranças, houve %d", c.cobrancas, adq.Cobrancas)
 			}
@@ -355,15 +326,6 @@ func TestReentregaEmCadaEstado(t *testing.T) {
 	}
 }
 
-// SC-002 no nível do caso de uso: entregas simultâneas cobram uma única vez.
-//
-// A asserção sobre anúncios é deliberadamente "um ou mais, todos idênticos", e
-// não "exatamente um". Duas execuções concorrentes da mesma reserva podem ambas
-// observar o estado final com anúncio pendente e publicar — é a contrapartida
-// declarada de garantir que nenhum resultado se perca (FR-014, research.md D3),
-// e o contrato promete entrega ao menos uma vez, com deduplicação por reserva_id
-// no consumidor (contracts/eventos.md §4). O que NÃO pode variar é o dinheiro:
-// uma cobrança, uma transação, e todo anúncio referindo a mesma transação.
 func TestEntregasSimultaneasCobramUmaVez(t *testing.T) {
 	uc, repo, adq, pub := cenario(ResultadoCobranca{Desfecho: Aprovada, Codigo: "gw"})
 
@@ -393,8 +355,6 @@ func TestEntregasSimultaneasCobramUmaVez(t *testing.T) {
 	}
 }
 
-// ---------- T022: conformidade dos fatos com contracts/eventos.md ----------
-
 func TestFatoSucessoConformeContrato(t *testing.T) {
 	tr := transacao.Nova("t-1", "r-1", "u-1", "84.00", transacao.PIX, instante)
 	if err := tr.Aprovar("gw-1", instante); err != nil {
@@ -421,7 +381,6 @@ func TestFatoSucessoConformeContrato(t *testing.T) {
 	if m["evento"] != "PAGAMENTO_SUCESSO" {
 		t.Fatalf("evento errado: %v", m["evento"])
 	}
-	// valor_total é número no contrato, não texto.
 	if !strings.Contains(string(f.Payload), `"valor_total":84.00`) {
 		t.Fatalf("valor_total deve ser numérico e preservar centavos: %s", f.Payload)
 	}
@@ -449,7 +408,6 @@ func TestFatoFalhouConformeContrato(t *testing.T) {
 	if m["evento"] != "PAGAMENTO_FALHOU" || m["motivo"] != "SALDO_INSUFICIENTE" {
 		t.Fatalf("payload fora do contrato: %v", m)
 	}
-	// Compatibilidade com o consumidor real: o estoque lê reserva_id.
 	if m["reserva_id"] != "r-1" {
 		t.Fatalf("reserva_id é o que o Servico-Estoque consome: %v", m["reserva_id"])
 	}

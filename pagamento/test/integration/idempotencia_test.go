@@ -11,8 +11,6 @@ import (
 	"github.com/oseias/ingressos-golang/pagamento/internal/usecase"
 )
 
-// T027 / SC-002: vinte entregas simultâneas da mesma reserva produzem uma
-// transação e uma única cobrança. É a garantia que envolve dinheiro real.
 func TestVinteEntregasSimultaneasCobramUmaVez(t *testing.T) {
 	a := subirAmbiente(t)
 	adq := novoAdquirente(usecase.ResultadoCobranca{Desfecho: usecase.Aprovada, Codigo: "gw"})
@@ -26,7 +24,6 @@ func TestVinteEntregasSimultaneasCobramUmaVez(t *testing.T) {
 	}
 
 	a.esperarStatus(t, reserva, transacao.Pago, 60*time.Second)
-	// Deixa as reentregas restantes serem drenadas antes de contar.
 	time.Sleep(5 * time.Second)
 
 	if n := adq.total(); n != 1 {
@@ -42,8 +39,6 @@ func TestVinteEntregasSimultaneasCobramUmaVez(t *testing.T) {
 		t.Fatalf("esperava 1 transação, veio %d", linhas)
 	}
 
-	// Anúncios podem ser mais de um (entrega ao menos uma vez, contracts/eventos.md
-	// §4), mas todos precisam se referir à mesma transação.
 	fatos := a.fatosEspiados(t)
 	if len(fatos) == 0 {
 		t.Fatal("o resultado precisa ser anunciado ao menos uma vez")

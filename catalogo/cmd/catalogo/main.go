@@ -1,7 +1,3 @@
-// Command catalogo é o ponto de entrada do Servico-Catalogo.
-//
-// Este é o único lugar onde o núcleo encontra a infraestrutura: a composição
-// acontece aqui e em nenhum outro ponto (constituição, princípio I).
 package main
 
 import (
@@ -27,8 +23,6 @@ import (
 
 func main() {
 	if err := executar(); err != nil {
-		// Falhar aqui é falhar antes de atender qualquer requisição — que é
-		// exatamente onde uma configuração incompleta deve doer.
 		fmt.Fprintf(os.Stderr, "não foi possível iniciar o serviço: %v\n", err)
 		os.Exit(1)
 	}
@@ -36,6 +30,7 @@ func main() {
 
 func executar() error {
 	cfg, err := config.Carregar()
+
 	if err != nil {
 		return err
 	}
@@ -46,9 +41,11 @@ func executar() error {
 	defer pararSinais()
 
 	metricas, encerrarTelemetria, err := observability.Iniciar(ctx, cfg.OTLPEndpoint)
+
 	if err != nil {
 		return fmt.Errorf("iniciando telemetria: %w", err)
 	}
+
 	defer func() {
 		ctxEncerramento, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -58,12 +55,15 @@ func executar() error {
 	}()
 
 	pool, err := postgres.NovoPool(ctx, cfg.DatabaseURL)
+
 	if err != nil {
 		return err
 	}
+
 	defer pool.Close()
 
 	verificador, err := identidade.NovoVerificador(ctx, cfg.KeycloakIssuerURL, cfg.KeycloakAudience)
+
 	if err != nil {
 		return err
 	}
@@ -75,9 +75,11 @@ func executar() error {
 		IntervaloAberto: cfg.BreakerIntervaloAberto,
 		Metricas:        metricas,
 	})
+
 	if err != nil {
 		return err
 	}
+
 	defer func() { _ = clienteEstoque.Fechar() }()
 
 	filmes := postgres.NovoFilmeRepository(pool)
@@ -113,6 +115,7 @@ func executar() error {
 	}
 
 	erros := make(chan error, 1)
+
 	go func() {
 		logger.Info("servidor iniciado", slog.String("porta", cfg.HTTPPort))
 		if err := servidor.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {

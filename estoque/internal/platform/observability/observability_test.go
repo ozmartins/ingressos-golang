@@ -10,8 +10,6 @@ import (
 	"time"
 )
 
-// capturar troca o logger por um que escreve em memória, para inspecionar o que
-// realmente vai para o registro.
 func capturar(t *testing.T) (*Observabilidade, *bytes.Buffer) {
 	t.Helper()
 	var buffer bytes.Buffer
@@ -24,8 +22,6 @@ func capturar(t *testing.T) (*Observabilidade, *bytes.Buffer) {
 	return obs, &buffer
 }
 
-// TestLogOperacaoTemOsCamposExigidos verifica FR-042: correlação, operação,
-// desfecho e duração em todo registro de operação e de consumo.
 func TestLogOperacaoTemOsCamposExigidos(t *testing.T) {
 	obs, buffer := capturar(t)
 
@@ -46,11 +42,6 @@ func TestLogOperacaoTemOsCamposExigidos(t *testing.T) {
 	}
 }
 
-// TestLogNaoGravaDadosSensiveis é a guarda da constituição (Restrições
-// Técnicas): segredos e material criptográfico não aparecem em registro.
-//
-// O teste é deliberadamente ingênuo — procura marcadores óbvios — porque seu
-// papel é falhar quando alguém acrescentar um campo sensível por descuido.
 func TestLogNaoGravaDadosSensiveis(t *testing.T) {
 	obs, buffer := capturar(t)
 

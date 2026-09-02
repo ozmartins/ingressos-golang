@@ -12,23 +12,12 @@ import (
 	"github.com/oseias/ingressos-golang/notificacao/internal/usecase"
 )
 
-// leiturasDePico é o volume que este teste toma por "horário de pico".
-//
-// A spec (SC-003) não quantifica o pico, e a T052 mandou fixar o valor aqui e
-// registrar a escolha. 60 leituras simultâneas correspondem a uma sala grande
-// esvaziando a fila de entrada em poucos minutos, com várias catracas
-// disparando ao mesmo tempo. Se a operação real for maior, é este número que
-// muda — e o teste passa a cobrar o novo patamar.
 const leiturasDePico = 60
 
-// SC-003: a portaria recebe o veredito em menos de 1 s no percentil 99, com o
-// cinema em pico.
 func TestVeredictoDaPortariaSobPico(t *testing.T) {
 	a := subirAmbiente(t)
 	u := a.validador()
 
-	// Cada leitura tem o próprio ingresso: medimos o caminho de autorização,
-	// que é o mais caro (verifica assinatura, grava a baixa e relê a linha).
 	codigos := make([]string, 0, leiturasDePico)
 	for k := 0; k < leiturasDePico; k++ {
 		codigos = append(codigos, a.emitir(t).CodigoQR)
@@ -63,12 +52,6 @@ func TestVeredictoDaPortariaSobPico(t *testing.T) {
 	}
 }
 
-// SC-002: o ingresso fica consultável em menos de 5 s da confirmação do
-// pagamento, no percentil 95.
-//
-// A medição vai do instante da publicação do anúncio até o ingresso aparecer na
-// listagem da pessoa — que é o que a spec promete, e não o tempo interno da
-// gravação.
 func TestIngressoFicaConsultavelDentroDoPrazo(t *testing.T) {
 	a := subirAmbiente(t)
 	c := a.consumidor(t, false)

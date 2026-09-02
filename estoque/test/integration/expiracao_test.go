@@ -11,13 +11,11 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/usecase"
 )
 
-// TestExpiracaoLiberaPoltronas cobre SC-003.
 func TestExpiracaoLiberaPoltronas(t *testing.T) {
 	c := montarCenario(t, false)
 	sessao, reservaID := reservaPendente(t, c)
 	ctx := context.Background()
 
-	// Antes do prazo, nada acontece.
 	c.Relogio.Avancar(9 * time.Minute)
 	if _, err := c.Expirar.Varrer(ctx); err != nil {
 		t.Fatalf("varredura: %v", err)
@@ -46,10 +44,6 @@ func TestExpiracaoLiberaPoltronas(t *testing.T) {
 	}
 }
 
-// TestExpiracaoRecuperaReservasVencidasDuranteParada cobre SC-008: o serviço
-// ficou fora do ar durante o prazo de várias reservas e precisa invalidá-las no
-// retorno. É por isso que a varredura, e não a notificação do Redis, é a
-// autoridade da expiração (research D4).
 func TestExpiracaoRecuperaReservasVencidasDuranteParada(t *testing.T) {
 	c := montarCenario(t, false)
 	sessao := c.novaSessao(t, []string{"A", "B"}, 5)
@@ -64,10 +58,8 @@ func TestExpiracaoRecuperaReservasVencidasDuranteParada(t *testing.T) {
 		reservas = append(reservas, resultado.Reserva.ID)
 	}
 
-	// O serviço "cai": ninguém varre enquanto os prazos vencem.
 	c.Relogio.Avancar(15 * time.Minute)
 
-	// Ao voltar, a primeira passada precisa recuperar tudo.
 	n, err := c.Expirar.Varrer(ctx)
 	if err != nil {
 		t.Fatalf("varredura: %v", err)
@@ -86,10 +78,8 @@ func TestExpiracaoRecuperaReservasVencidasDuranteParada(t *testing.T) {
 	}
 }
 
-// TestExpiracaoFuncionaSemRedis é a verificação de research D2/D4: o índice de
-// prazo é conveniência. Sem ele, a liberação continua acontecendo.
 func TestExpiracaoFuncionaSemRedis(t *testing.T) {
-	c := montarCenario(t, false) // montado deliberadamente sem índice de prazo
+	c := montarCenario(t, false)
 	sessao, reservaID := reservaPendente(t, c)
 
 	c.Relogio.Avancar(11 * time.Minute)
@@ -105,8 +95,6 @@ func TestExpiracaoFuncionaSemRedis(t *testing.T) {
 	}
 }
 
-// TestExpiracaoComIndiceDePrazo verifica o caminho pronto: a reserva marcada no
-// Redis é expirada pelo gatilho por identificador.
 func TestExpiracaoComIndiceDePrazo(t *testing.T) {
 	c := montarCenario(t, true)
 	sessao, reservaID := reservaPendente(t, c)
@@ -124,8 +112,6 @@ func TestExpiracaoComIndiceDePrazo(t *testing.T) {
 	}
 }
 
-// TestCorridaEntreExpiracaoEConfirmacao cobre FR-014: os dois caminhos disputam
-// a mesma reserva e apenas um estado final pode prevalecer.
 func TestCorridaEntreExpiracaoEConfirmacao(t *testing.T) {
 	for i := 0; i < 20; i++ {
 		c := montarCenario(t, false)
@@ -159,8 +145,6 @@ func TestCorridaEntreExpiracaoEConfirmacao(t *testing.T) {
 		<-resultados
 		<-resultados
 
-		// Qualquer que seja o vencedor, a reserva termina em UM estado final e
-		// as poltronas ficam coerentes com ele.
 		status := c.statusReserva(t, reservaID)
 		if status != "CONFIRMADA" && status != "EXPIRADA" {
 			t.Fatalf("iteração %d: reserva terminou em %s", i, status)

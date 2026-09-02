@@ -20,9 +20,6 @@ import (
 	"github.com/oseias/ingressos-golang/notificacao/internal/usecase"
 )
 
-// Ambiente de teste do contrato: servidor real sobre httptest, com o token
-// assinado por chave própria e as portas de persistência em memória.
-
 const (
 	emissor  = "http://localhost:8081/realms/cinema"
 	publico  = "conta-cinema"
@@ -37,8 +34,6 @@ type relogioFixo struct{}
 
 func (relogioFixo) Agora() time.Time { return instanteFixo }
 
-// assinadorFalso mantém a mesma forma de três partes do adaptador real, para
-// que os testes de código malformado e assinatura inválida sejam fiéis.
 type assinadorFalso struct{}
 
 func (assinadorFalso) Gerar(id string) string { return "CIN1." + id + ".assinatura" }
@@ -96,7 +91,6 @@ func (r *repoMemoria) ListarPorUsuario(_ context.Context, usuarioID string, filt
 		}
 		out = append(out, i)
 	}
-	// Ordem do contrato: do mais recente para o mais antigo, id como desempate.
 	for a := 1; a < len(out); a++ {
 		for b := a; b > 0 && menor(out[b-1], out[b]); b-- {
 			out[b-1], out[b] = out[b], out[b-1]

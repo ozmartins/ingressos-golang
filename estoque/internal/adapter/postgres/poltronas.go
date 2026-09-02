@@ -9,14 +9,10 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/usecase"
 )
 
-// Poltronas implementa usecase.RepositorioPoltronas.
 type Poltronas struct{ banco *Banco }
 
-// NovoRepositorioPoltronas monta o repositório de poltronas.
 func NovoRepositorioPoltronas(b *Banco) *Poltronas { return &Poltronas{banco: b} }
 
-// MapaDaSessao devolve todas as poltronas da sessão, na ordem em que a sala é
-// desenhada. Leitura pura: não altera estado (FR-030).
 func (p *Poltronas) MapaDaSessao(ctx context.Context, sessaoID string) ([]poltrona.Poltrona, error) {
 	linhas, err := p.banco.pool.Query(ctx, `
 		SELECT id, sessao_id, fileira, numero, rotulo, tipo, status
@@ -43,13 +39,6 @@ func (p *Poltronas) MapaDaSessao(ctx context.Context, sessaoID string) ([]poltro
 	return mapa, nil
 }
 
-// ProvisionarMatriz cria as poltronas da sessão de forma indivisível e
-// idempotente.
-//
-// ON CONFLICT DO NOTHING é a segunda linha de defesa: o registro de mensagem
-// processada já barra o reanúncio, mas se ele tiver sido limpo pela retenção, a
-// chave única impede duplicata e — crucialmente — não reinicia o estado de uma
-// poltrona que já esteja RESERVADA ou OCUPADA (FR-034).
 func (p *Poltronas) ProvisionarMatriz(ctx context.Context, fila, messageID, sessaoID string, matriz []poltrona.Poltrona) (usecase.ResultadoTransicao, error) {
 	resultado := usecase.TransicaoAplicada
 
@@ -79,8 +68,6 @@ func (p *Poltronas) ProvisionarMatriz(ctx context.Context, fila, messageID, sess
 		}
 
 		if criadas == 0 {
-			// A matriz já existia por inteiro: reanúncio após limpeza do
-			// registro de idempotência.
 			resultado = usecase.TransicaoIgnoradaDuplicata
 		}
 		return nil

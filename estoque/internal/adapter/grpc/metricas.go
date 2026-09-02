@@ -9,7 +9,6 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/platform/observability"
 )
 
-// Desfechos observáveis do bloqueio (FR-043).
 const (
 	desfechoConcedido    = "concedido"
 	desfechoIndisponivel = "indisponivel"
@@ -18,7 +17,6 @@ const (
 	desfechoOK           = "ok"
 )
 
-// metricas agrupa os instrumentos das operações síncronas.
 type metricas struct {
 	total   metric.Int64Counter
 	duracao metric.Float64Histogram

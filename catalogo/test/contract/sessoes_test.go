@@ -28,7 +28,6 @@ func gradeDeTeste(n int) []catalogo.SessaoDetalhada {
 	return g
 }
 
-// US2, cenário 1 — todos os campos consolidados do contrato.
 func TestGetSessoesRetornaCamposConsolidados(t *testing.T) {
 	amb := montar(t, func(a *ambiente) { a.sessoes.grade = gradeDeTeste(3) })
 	resp, corpo := obter(t, amb.servidor, "/api/v1/sessoes")
@@ -49,7 +48,6 @@ func TestGetSessoesRetornaCamposConsolidados(t *testing.T) {
 	}
 }
 
-// preco_base é texto: em JSON, número vira float64 e 42.00 deixa de ser exato.
 func TestGetSessoesPrecoBaseEhTextoExato(t *testing.T) {
 	amb := montar(t, func(a *ambiente) { a.sessoes.grade = gradeDeTeste(1) })
 	_, corpo := obter(t, amb.servidor, "/api/v1/sessoes")
@@ -64,7 +62,6 @@ func TestGetSessoesPrecoBaseEhTextoExato(t *testing.T) {
 	}
 }
 
-// US2, cenário 4 — páginas consecutivas não repetem nem omitem.
 func TestGetSessoesPaginacaoNaoRepeteNemOmite(t *testing.T) {
 	amb := montar(t, func(a *ambiente) { a.sessoes.grade = gradeDeTeste(5) })
 
@@ -91,7 +88,6 @@ func TestGetSessoesPaginacaoNaoRepeteNemOmite(t *testing.T) {
 	}
 }
 
-// US2, cenário 5 — data malformada informa o formato esperado.
 func TestGetSessoesRecusaDataInvalida(t *testing.T) {
 	amb := montar(t, func(a *ambiente) { a.sessoes.grade = gradeDeTeste(1) })
 	for _, data := range []string{"01-09-2026", "2026/09/01", "amanha", "2026-02-31"} {

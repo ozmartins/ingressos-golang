@@ -25,7 +25,6 @@ func TestNovaNasceEmProcessando(t *testing.T) {
 	}
 }
 
-// Cada transição permitida a partir de PROCESSANDO.
 func TestTransicoesPermitidas(t *testing.T) {
 	casos := []struct {
 		nome     string
@@ -53,8 +52,6 @@ func TestTransicoesPermitidas(t *testing.T) {
 	}
 }
 
-// Nenhuma transição parte de estado terminal — a guarda que torna reentrega e
-// ordem invertida inofensivas (data-model.md §2).
 func TestNenhumaTransicaoPartindoDeEstadoTerminal(t *testing.T) {
 	terminais := []func(*Transacao) error{
 		func(tr *Transacao) error { return tr.Aprovar("gw", agora) },
@@ -107,7 +104,6 @@ func TestAnunciabilidadePorEstado(t *testing.T) {
 	}
 }
 
-// A invariante que o SC-009 depende: o estado indeterminado nunca é anunciado.
 func TestPendenteVerificacaoNuncaEAnunciada(t *testing.T) {
 	tr := nova()
 	if err := tr.MarcarPendenteVerificacao(agora); err != nil {
@@ -143,7 +139,6 @@ func TestAnuncioPendenteSoEnquantoNaoAnunciado(t *testing.T) {
 	}
 }
 
-// Expiração no limite e além dele (FR-005, sem folga — clarificação Q5).
 func TestExpiracao(t *testing.T) {
 	prazo := agora
 	casos := []struct {

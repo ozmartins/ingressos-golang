@@ -22,8 +22,6 @@ func pagina(t *testing.T, numero, tamanho int) shared.PageRequest {
 	return p
 }
 
-// --- US1 ---------------------------------------------------------------------
-
 func TestListarFilmesRecortePublico(t *testing.T) {
 	carregarFixtures(t)
 	uc := usecase.ListarFilmes{Repo: pgadapter.NovoFilmeRepository(pool)}
@@ -120,14 +118,10 @@ func TestListarFilmesAlemDoFim(t *testing.T) {
 	if len(p.Itens) != 0 {
 		t.Fatalf("esperava página vazia, obteve %d itens", len(p.Itens))
 	}
-	// O total sai de COUNT(*) OVER (), que não retorna linhas quando o recorte
-	// é vazio — comportamento conhecido e aceito para posições além do fim.
 	if p.TemProxima {
 		t.Error("página além do fim não pode indicar próxima")
 	}
 }
-
-// --- US4 ---------------------------------------------------------------------
 
 func TestListarCinemasESalas(t *testing.T) {
 	carregarFixtures(t)

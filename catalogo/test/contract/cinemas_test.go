@@ -9,7 +9,6 @@ import (
 
 const cinemaID = "b1b2c3d4-0000-4000-8000-000000000001"
 
-// US4, cenário 1.
 func TestGetCinemasRetornaLocalizacao(t *testing.T) {
 	amb := montar(t, func(a *ambiente) {
 		a.cinemas.itens = []catalogo.Cinema{
@@ -31,7 +30,6 @@ func TestGetCinemasRetornaLocalizacao(t *testing.T) {
 	}
 }
 
-// US4, cenário 3 — cinema inexistente é distinguível de cinema sem salas.
 func TestGetSalasDeCinemaInexistenteDevolve404(t *testing.T) {
 	amb := montar(t, func(a *ambiente) { a.cinemas.existe = false })
 	resp, corpo := obter(t, amb.servidor, "/api/v1/cinemas/00000000-0000-0000-0000-000000000000/salas")
@@ -45,7 +43,6 @@ func TestGetSalasDeCinemaInexistenteDevolve404(t *testing.T) {
 	}
 }
 
-// Cinema existente sem salas devolve 200 com página vazia — o contrário do 404.
 func TestGetSalasDeCinemaSemSalasDevolve200Vazio(t *testing.T) {
 	amb := montar(t, func(a *ambiente) { a.cinemas.existe = true })
 	resp, corpo := obter(t, amb.servidor, "/api/v1/cinemas/"+cinemaID+"/salas")

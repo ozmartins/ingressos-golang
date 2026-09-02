@@ -6,7 +6,6 @@ import (
 	"time"
 )
 
-// relógio fixo: o domínio nunca chama time.Now, então o teste não espera nada.
 var (
 	t0 = time.Date(2026, 8, 29, 21, 35, 12, 0, time.UTC)
 	t1 = time.Date(2026, 8, 29, 22, 0, 0, 0, time.UTC)
@@ -70,7 +69,6 @@ func TestUtilizarGravaInstanteEMantemInvariante(t *testing.T) {
 	}
 }
 
-// FR-020: a transição não pode tocar em nada além de status e instante.
 func TestUtilizarNaoAlteraCamposImutaveis(t *testing.T) {
 	i := novoValido(t)
 	u, err := i.Utilizar(t1)
@@ -112,7 +110,6 @@ func TestCancelarNaoAlteraCamposImutaveis(t *testing.T) {
 	}
 }
 
-// FR-019: nenhuma saída de estado terminal, em nenhuma direção.
 func TestEstadoTerminalNaoTransiciona(t *testing.T) {
 	utilizado, err := novoValido(t).Utilizar(t1)
 	if err != nil {

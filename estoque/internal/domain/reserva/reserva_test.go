@@ -30,7 +30,6 @@ func TestExpirou(t *testing.T) {
 	if r.Expirou(instante.Add(9*time.Minute + 59*time.Second)) {
 		t.Error("não devia expirar antes do prazo")
 	}
-	// O vencimento é inclusivo: no instante exato, a reserva já venceu.
 	if !r.Expirou(instante.Add(10 * time.Minute)) {
 		t.Error("devia expirar no instante do prazo")
 	}
@@ -38,7 +37,6 @@ func TestExpirou(t *testing.T) {
 		t.Error("devia expirar depois do prazo")
 	}
 
-	// FR-014: reserva confirmada nunca expira, por mais que o prazo passe.
 	confirmada, err := r.Transicionar(Confirmada)
 	if err != nil {
 		t.Fatalf("erro inesperado: %v", err)
@@ -61,7 +59,6 @@ func TestTransicaoSoAceitaAPartirDePendente(t *testing.T) {
 				t.Fatalf("status = %s, esperado %s", finalizada.Status, destino)
 			}
 
-			// Estado final é imutável: o segundo desfecho é ignorado (FR-011).
 			for _, outro := range []Status{Confirmada, Cancelada, Expirada} {
 				novamente, err := finalizada.Transicionar(outro)
 				if err == nil {

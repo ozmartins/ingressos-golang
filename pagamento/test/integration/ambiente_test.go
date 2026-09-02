@@ -1,8 +1,5 @@
 //go:build integration
 
-// Package integration exercita o serviço contra PostgreSQL e RabbitMQ reais.
-// É a única camada que precisa de Docker, e é onde as garantias de concorrência,
-// reentrega e quarentena podem ser provadas de verdade (research.md D12).
 package integration
 
 import (
@@ -54,8 +51,6 @@ type idsReais struct{}
 
 func (idsReais) Novo() string { return uuid.NewString() }
 
-// subirAmbiente cria Postgres e RabbitMQ reais, aplica a migração e declara a
-// topologia — exatamente a mesma declaração que o serviço usa na largada.
 func subirAmbiente(t *testing.T) *ambiente {
 	t.Helper()
 	ctx := context.Background()
@@ -114,8 +109,6 @@ func subirAmbiente(t *testing.T) *ambiente {
 		t.Fatalf("declarar topologia: %v", err)
 	}
 
-	// Fila espiã: captura os fatos publicados pelo serviço, para os testes
-	// afirmarem o que foi (e o que não foi) anunciado.
 	if _, err := canal.QueueDeclare(filaEspiao, true, false, false, false, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +145,6 @@ func aplicarMigracao(t *testing.T, pool *pgxpool.Pool) {
 	}
 }
 
-// publicarIntencao emite um reserva.criada como o publicador manual faria.
 func (a *ambiente) publicarIntencao(t *testing.T, i map[string]any) {
 	t.Helper()
 	corpo, err := json.Marshal(i)
@@ -182,7 +174,6 @@ func intencao(reservaID, valor, forma string, expiraEm time.Duration) map[string
 	}
 }
 
-// consumidorDe monta o consumidor real sobre um adquirente controlado.
 func (a *ambiente) consumidorDe(t *testing.T, adq usecase.Adquirente, prefetch int) (*adaptamqp.Consumidor, context.CancelFunc) {
 	t.Helper()
 	canal, err := a.Conexao.Channel()
@@ -204,7 +195,6 @@ func (a *ambiente) consumidorDe(t *testing.T, adq usecase.Adquirente, prefetch i
 	return c, cancelar
 }
 
-// esperarStatus aguarda a transação chegar ao estado pedido.
 func (a *ambiente) esperarStatus(t *testing.T, reservaID string, querido transacao.Status, prazo time.Duration) transacao.Transacao {
 	t.Helper()
 	limite := time.Now().Add(prazo)
@@ -223,7 +213,6 @@ func (a *ambiente) esperarStatus(t *testing.T, reservaID string, querido transac
 	return ultima
 }
 
-// contarFila devolve quantas mensagens há na fila.
 func (a *ambiente) contarFila(t *testing.T, nome string) int {
 	t.Helper()
 	canal, err := a.Conexao.Channel()
@@ -238,7 +227,6 @@ func (a *ambiente) contarFila(t *testing.T, nome string) int {
 	return q.Messages
 }
 
-// fatosEspiados drena a fila espiã e devolve os fatos publicados.
 func (a *ambiente) fatosEspiados(t *testing.T) []map[string]any {
 	t.Helper()
 	canal, err := a.Conexao.Channel()
@@ -265,7 +253,6 @@ func (a *ambiente) fatosEspiados(t *testing.T) []map[string]any {
 	}
 }
 
-// adquirenteControlado permite ditar o desfecho e contar cobranças por reserva.
 type adquirenteControlado struct {
 	resultado usecase.ResultadoCobranca
 	erro      error

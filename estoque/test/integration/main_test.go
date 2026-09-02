@@ -1,9 +1,5 @@
 //go:build integration
 
-// Package integration exercita o serviço contra PostgreSQL, Redis e RabbitMQ
-// reais. Os critérios que esta suíte cobre — concorrência, idempotência,
-// expiração e recuperação — não são verificáveis com dublês: é exatamente onde
-// o comportamento real do banco e do broker decide se o desenho funciona.
 package integration
 
 import (
@@ -22,8 +18,6 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-// Ambiente guarda os endereços das dependências reais, compartilhadas por toda
-// a suíte (subir contêiner por teste custaria minutos).
 type Ambiente struct {
 	DatabaseURL string
 	RedisURL    string
@@ -48,7 +42,6 @@ func TestMain(m *testing.M) {
 	}
 
 	rd, err := redis.Run(ctx, "redis:7-alpine",
-		// A notificação de chave expirada é o gatilho pronto da liberação (D4).
 		testcontainers.WithCmd("redis-server", "--notify-keyspace-events", "Ex"))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "redis: %v\n", err)
@@ -81,8 +74,6 @@ func TestMain(m *testing.M) {
 	os.Exit(codigo)
 }
 
-// aplicarMigracoes roda os arquivos de migrations/ na ordem. Usa o mesmo SQL que
-// vai para produção: um teste contra esquema divergente não prova nada.
 func aplicarMigracoes(ctx context.Context, url string) error {
 	pool, err := pgxpool.New(ctx, url)
 	if err != nil {

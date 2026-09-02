@@ -6,7 +6,6 @@ import (
 	"time"
 )
 
-// ambiente mínimo válido, para que cada teste altere só o que lhe interessa.
 func ambienteValido(t *testing.T) {
 	t.Helper()
 	t.Setenv("DATABASE_URL", "postgres://u:p@localhost:5432/estoque")
@@ -50,8 +49,6 @@ func TestCarregarRecusaVariavelObrigatoriaAusente(t *testing.T) {
 	if err == nil {
 		t.Fatal("esperava recusa por variável obrigatória ausente")
 	}
-	// Reporta tudo de uma vez: quem sobe o serviço não deve descobrir uma
-	// variável errada por execução.
 	for _, esperado := range []string{"DATABASE_URL", "RABBITMQ_URL"} {
 		if !strings.Contains(err.Error(), esperado) {
 			t.Errorf("erro não menciona %s: %v", esperado, err)

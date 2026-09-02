@@ -25,8 +25,6 @@ const (
 	subTeste      = "11111111-1111-4111-8111-111111111111"
 )
 
-// bloqueioFalso registra o que recebeu, para que o teste verifique de onde veio
-// o usuario_id — que é justamente o que difere esta superfície do gRPC.
 type bloqueioFalso struct {
 	resultado    usecase.ResultadoBloqueio
 	err          error
@@ -85,8 +83,6 @@ func executar(t *testing.T, api *API, metodo, caminho, corpo, token string) *htt
 	return w
 }
 
-// O usuario_id não pode vir do corpo: se viesse, qualquer chamador reservaria
-// em nome de outra pessoa. Este teste é o que trava essa regressão.
 func TestBloqueioUsaOSubDoTokenComoUsuario(t *testing.T) {
 	b := &bloqueioFalso{resultado: usecase.ResultadoBloqueio{
 		Concedido: true,
@@ -133,7 +129,6 @@ func TestBloqueioSemTokenRecusa401(t *testing.T) {
 	}
 }
 
-// Em gRPC isto é OK com sucesso=false; em HTTP a categoria é o status.
 func TestPoltronasIndisponiveisRespondem409(t *testing.T) {
 	b := &bloqueioFalso{resultado: usecase.ResultadoBloqueio{
 		Concedido: false,
@@ -186,7 +181,6 @@ func TestErrosDeDominioViramOStatusEquivalente(t *testing.T) {
 	}
 }
 
-// O detalhe interno vai para o log, nunca para a resposta (princípio IV).
 func TestErroInternoNaoVazaDetalhe(t *testing.T) {
 	api := apiDeTeste(&bloqueioFalso{err: errors.New("pq: connection refused em 10.0.0.7:5432")}, &mapaFalso{})
 
@@ -258,8 +252,6 @@ func TestMapaSemTokenRecusa401(t *testing.T) {
 	}
 }
 
-// A documentação é servida sem credencial: exigir token para ler o contrato
-// impediria justamente quem ainda vai integrar.
 func TestDocumentacaoDispensaCredencial(t *testing.T) {
 	api := apiDeTeste(&bloqueioFalso{}, &mapaFalso{})
 

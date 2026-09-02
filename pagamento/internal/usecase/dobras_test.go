@@ -23,8 +23,6 @@ type idsFixos struct{ id string }
 
 func (g idsFixos) Novo() string { return g.id }
 
-// repoFalso guarda uma transação por reserva e registra as chamadas, para que os
-// testes possam afirmar o que NÃO aconteceu.
 type repoFalso struct {
 	mu            sync.Mutex
 	porReserva    map[string]transacao.Transacao
@@ -77,10 +75,6 @@ func (r *repoFalso) Finalizar(_ context.Context, t transacao.Transacao) error {
 	if atual.Status.Final() {
 		return ErrJaFinalizada
 	}
-	// Espelha o conjunto de colunas do UPDATE real (postgres.Finalizar): status,
-	// código, motivo, pago_em e atualizado_em. cobranca_emitida e
-	// resultado_anunciado NÃO são tocados aqui — têm operações próprias. Uma
-	// dobra que substituísse a linha inteira mentiria sobre a persistência.
 	atual.Status = t.Status
 	atual.CodigoTransacaoGateway = t.CodigoTransacaoGateway
 	atual.MotivoFalha = t.MotivoFalha
@@ -91,7 +85,6 @@ func (r *repoFalso) Finalizar(_ context.Context, t transacao.Transacao) error {
 	return nil
 }
 
-// ReivindicarCobranca replica a atomicidade do UPDATE condicionado do banco.
 func (r *repoFalso) ReivindicarCobranca(_ context.Context, id string, agora time.Time) (bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -138,8 +131,6 @@ func (r *repoFalso) MarcarAnunciado(_ context.Context, id string, agora time.Tim
 	return ErrNaoEncontrada
 }
 
-// adquirenteFalso conta cobranças — é assim que os testes provam que ninguém foi
-// cobrado duas vezes.
 type adquirenteFalso struct {
 	mu        sync.Mutex
 	resultado ResultadoCobranca
@@ -183,7 +174,6 @@ func (p *publicadorFalso) rotas() []string {
 
 var errInfra = errors.New("infra fora do ar")
 
-// cenario monta o caso de uso com dobras e devolve tudo para inspeção.
 func cenario(res ResultadoCobranca) (ProcessarPagamento, *repoFalso, *adquirenteFalso, *publicadorFalso) {
 	repo, adq, pub := novoRepo(), &adquirenteFalso{resultado: res}, &publicadorFalso{}
 	uc := ProcessarPagamento{
@@ -201,9 +191,6 @@ func intencaoValida() Intencao {
 	}
 }
 
-// adquirenteLento nunca responde por conta própria: só devolve quando o contexto
-// do chamador expira. É o que permite testar o prazo de verdade, em vez de
-// injetar o desfecho pronto.
 type adquirenteLento struct{}
 
 func (adquirenteLento) Cobrar(ctx context.Context, _ Cobranca) (ResultadoCobranca, error) {

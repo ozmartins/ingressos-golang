@@ -10,8 +10,6 @@ import (
 	"github.com/oseias/ingressos-golang/notificacao/internal/domain/ingresso"
 )
 
-// Uma asserção por linha de contracts/erros.md §2.
-
 const rota = "/api/v1/ingressos/meus-ingressos"
 
 func comToken(t *testing.T, a *ambiente, sub string) map[string]string {
@@ -39,14 +37,12 @@ func TestListagemDevolveTodosOsEstadosOrdenados(t *testing.T) {
 	if len(lista) != 3 {
 		t.Fatalf("%d ingressos, queria 3", len(lista))
 	}
-	// FR-023: do mais recente para o mais antigo.
 	querida := []string{"ing-novo", "ing-meio", "ing-antigo"}
 	for k, esperado := range querida {
 		if lista[k]["ingresso_id"] != esperado {
 			t.Errorf("posição %d = %v, queria %s", k, lista[k]["ingresso_id"], esperado)
 		}
 	}
-	// Campos do contrato.
 	for _, campo := range []string{"ingresso_id", "reserva_id", "codigo_qr", "status", "criado_em"} {
 		if _, ok := lista[0][campo]; !ok {
 			t.Errorf("campo %q ausente na resposta", campo)
@@ -54,7 +50,6 @@ func TestListagemDevolveTodosOsEstadosOrdenados(t *testing.T) {
 	}
 }
 
-// FR-014: nenhum parâmetro alcança ingresso de terceiro.
 func TestListagemNaoRevelaIngressoDeTerceiro(t *testing.T) {
 	a := montarAmbiente(t)
 	semearTres(t, a)
@@ -64,7 +59,6 @@ func TestListagemNaoRevelaIngressoDeTerceiro(t *testing.T) {
 		t.Error("ingresso de outra pessoa apareceu na listagem (FR-014)")
 	}
 
-	// E a pessoa dona daquele ingresso vê só o dela.
 	_, corpo2 := a.get(t, rota, comToken(t, a, usuario2))
 	lista := decodificarLista(t, corpo2)
 	if len(lista) != 1 || lista[0]["ingresso_id"] != "ing-de-outra" {
@@ -91,7 +85,6 @@ func TestListagemFiltraPorEstado(t *testing.T) {
 	}
 }
 
-// FR-024: estado desconhecido é 400, nunca a lista inteira.
 func TestFiltroDesconhecidoEQuatrocentos(t *testing.T) {
 	a := montarAmbiente(t)
 	semearTres(t, a)
@@ -120,7 +113,6 @@ func TestPessoaSemIngressosRecebeListaVaziaENao404(t *testing.T) {
 	}
 }
 
-// FR-015: toda recusa de credencial é o mesmo 401.
 func TestListagemRecusaCredencial(t *testing.T) {
 	a := montarAmbiente(t)
 	semearTres(t, a)

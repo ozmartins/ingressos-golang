@@ -1,5 +1,3 @@
-// Package http expõe a única superfície síncrona do serviço: a consulta do
-// andamento do pagamento, mais as duas sondas de saúde.
 package http
 
 import (
@@ -16,8 +14,6 @@ import (
 	"github.com/oseias/ingressos-golang/pagamento/internal/usecase"
 )
 
-// Códigos de erro do contrato (contracts/erros.md). O par status+codigo é o que
-// é contrato; a mensagem é texto humano e pode mudar de redação.
 const (
 	CodReservaIDInvalido  = "RESERVA_ID_INVALIDO"
 	CodCredencialInvalida = "CREDENCIAL_INVALIDA"
@@ -39,7 +35,6 @@ type pagamentoResposta struct {
 	CriadoEm       string      `json:"criado_em"`
 }
 
-// API reúne as dependências das rotas.
 type API struct {
 	Consulta  usecase.ConsultarPagamento
 	Auth      *Autenticador
@@ -47,11 +42,6 @@ type API struct {
 	Log       *slog.Logger
 }
 
-// Rotas monta o roteador. São poucos caminhos: net/http basta, e um roteador de
-// terceiro não se pagaria aqui (princípio I).
-//
-// /docs e /openapi.yaml ficam na raiz, e não sob /api/v1: servem o contrato,
-// não fazem parte dele, e por isso não acompanham a versão da API.
 func (a *API) Rotas() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/pagamentos/reserva/{reserva_id}", a.consultar)
@@ -60,7 +50,6 @@ func (a *API) Rotas() http.Handler {
 
 	mux.Handle("GET /openapi.yaml", openapi.HandlerEspecificacao())
 	mux.Handle("GET /docs", openapi.HandlerUI("/openapi.yaml"))
-	// A variante com barra evita um 404 confuso para quem digita a URL à mão.
 	mux.Handle("GET /docs/", openapi.HandlerUI("/openapi.yaml"))
 	return mux
 }
@@ -81,8 +70,6 @@ func (a *API) consultar(w http.ResponseWriter, r *http.Request) {
 	t, err := a.Consulta.Executar(r.Context(), reservaID, sub)
 	switch {
 	case usecase.NaoEncontrada(err):
-		// Reserva inexistente e reserva de terceiro respondem exatamente igual.
-		// A distinção fica no registro interno, nunca na resposta (FR-017).
 		a.Log.Info("consulta sem resultado visível", "reserva_id", reservaID, "sub", sub)
 		responderErro(w, http.StatusNotFound, CodNaoEncontrado, "não há pagamento para essa reserva")
 	case err != nil:
@@ -93,8 +80,6 @@ func (a *API) consultar(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// paraResposta expõe só o que o contrato declara. motivo_falha e
-// codigo_transacao_gateway ficam de fora de propósito (contracts/openapi.yaml).
 func paraResposta(t transacao.Transacao) pagamentoResposta {
 	return pagamentoResposta{
 		TransacaoID:    t.ID,

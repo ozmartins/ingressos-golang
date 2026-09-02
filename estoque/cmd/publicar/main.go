@@ -1,6 +1,3 @@
-// Command publicar envia fatos ao barramento à mão, para o roteiro de
-// quickstart.md. Não faz parte do serviço: existe porque o Servico-Catalogo
-// ainda não publica sessao.criada e o de pagamento pode não estar no ar.
 package main
 
 import (

@@ -1,5 +1,3 @@
-// Command notificacao emite ingressos digitais a partir de pagamentos
-// confirmados e os disponibiliza para a pessoa e para a portaria do cinema.
 package main
 
 import (
@@ -33,8 +31,6 @@ func main() {
 }
 
 func executar() error {
-	// Configuração primeiro: variável ausente ou malformada impede subir, e o
-	// erro lista todas de uma vez (research.md D11).
 	cfg, err := config.Carregar()
 	if err != nil {
 		return err
@@ -71,8 +67,6 @@ func executar() error {
 	}
 	defer canal.Close()
 
-	// Consumir de fila sem fila morta é perder mensagem em silêncio: se a
-	// topologia não puder ser garantida, o processo não sobe.
 	topologia := adaptamqp.Topologia{
 		Exchange: cfg.AMQPExchange, ExchangeDLX: cfg.AMQPExchangeDLX,
 		Fila: cfg.AMQPFila, FilaDLQ: cfg.AMQPFilaDLQ,

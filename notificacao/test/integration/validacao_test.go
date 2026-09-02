@@ -37,10 +37,6 @@ func (a *ambiente) validador() usecase.ValidarIngresso {
 	}
 }
 
-// SC-004 / FR-011: duas leituras simultâneas do mesmo código, uma autorização.
-//
-// A garantia mora no UPDATE condicionado contra um PostgreSQL real; em memória
-// ela não seria prova de nada.
 func TestLeiturasSimultaneasAutorizamUmaSo(t *testing.T) {
 	a := subirAmbiente(t)
 	i := a.emitir(t)
@@ -84,7 +80,6 @@ func TestLeiturasSimultaneasAutorizamUmaSo(t *testing.T) {
 	}
 }
 
-// FR-020: depois da baixa, nada além de status e instante mudou na linha.
 func TestBaixaNaoAlteraCamposImutaveis(t *testing.T) {
 	a := subirAmbiente(t)
 	antes := a.emitir(t)
@@ -114,7 +109,6 @@ func TestBaixaNaoAlteraCamposImutaveis(t *testing.T) {
 	}
 }
 
-// SC-005: código forjado não passa, e não deixa rastro no acervo.
 func TestCodigoForjadoNaoEAceito(t *testing.T) {
 	a := subirAmbiente(t)
 	i := a.emitir(t)

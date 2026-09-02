@@ -17,11 +17,6 @@ import (
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/shared"
 )
 
-// estoqueSimulado permite controlar resposta, atraso e falha por teste.
-//
-// O contador é lido pela goroutine do teste e escrito pela do servidor gRPC:
-// precisa de exclusão mútua, ou o próprio teste vira a corrida que deveria
-// detectar.
 type estoqueSimulado struct {
 	estoquepb.UnimplementedServicoEstoqueServer
 
@@ -115,7 +110,6 @@ func TestBloquearSucessoEncaminhaTodosOsCampos(t *testing.T) {
 	if r.ReservaID != "r1" || r.ExpiraEm.Unix() != expira {
 		t.Fatalf("resultado inesperado: %+v", r)
 	}
-	// FR-024: sessão, poltronas e identidade têm que chegar ao estoque.
 	got := sim.solicitacaoRecebida()
 	if got.GetSessaoId() != "s1" || got.GetUsuarioId() != "u1" || len(got.GetPoltronasIds()) != 2 {
 		t.Fatalf("solicitação encaminhada incompleta: %+v", got)
@@ -147,7 +141,6 @@ func TestBloquearSucessoIncompletoViraErroDoParceiro(t *testing.T) {
 	}
 }
 
-// SC-004: mesmo com o estoque lento, a resposta é conclusiva dentro do orçamento.
 func TestBloquearRespeitaOTimeout(t *testing.T) {
 	sim := &estoqueSimulado{atraso: 5 * time.Second, resposta: &estoquepb.RespostaBloqueio{Sucesso: true}}
 	c := clienteCom(conectar(t, sim), 300*time.Millisecond, 100, time.Second)
@@ -164,20 +157,18 @@ func TestBloquearRespeitaOTimeout(t *testing.T) {
 	}
 }
 
-// FR-029: uma solicitação do cliente resulta em no máximo uma tentativa.
 func TestBloquearNaoRetenta(t *testing.T) {
 	sim := &estoqueSimulado{atraso: 2 * time.Second, resposta: &estoquepb.RespostaBloqueio{Sucesso: true}}
 	c := clienteCom(conectar(t, sim), 200*time.Millisecond, 100, time.Second)
 
 	_, _ = c.BloquearPoltronas(context.Background(), solicitacao())
-	time.Sleep(300 * time.Millisecond) // deixa qualquer retentativa aparecer
+	time.Sleep(300 * time.Millisecond)
 
 	if sim.chamadasFeitas() != 1 {
 		t.Fatalf("o estoque recebeu %d chamadas para uma única solicitação", sim.chamadasFeitas())
 	}
 }
 
-// SC-007: após falhas seguidas, a recusa é imediata e a retomada é automática.
 func TestRecusaRapidaAbreEDepoisRetomaSozinha(t *testing.T) {
 	sim := &estoqueSimulado{atraso: time.Second, resposta: &estoquepb.RespostaBloqueio{Sucesso: true, ReservaId: "r1", ExpiraEm: time.Now().Unix()}}
 	const intervaloAberto = 400 * time.Millisecond
@@ -204,7 +195,6 @@ func TestRecusaRapidaAbreEDepoisRetomaSozinha(t *testing.T) {
 		t.Fatal("com a recusa rápida ativa, o estoque não deveria ser contatado")
 	}
 
-	// O estoque volta ao normal; a retomada tem que acontecer sem intervenção.
 	sim.mu.Lock()
 	sim.atraso = 0
 	sim.mu.Unlock()
@@ -215,8 +205,6 @@ func TestRecusaRapidaAbreEDepoisRetomaSozinha(t *testing.T) {
 	}
 }
 
-// Poltrona ocupada é resposta legítima do estoque: não pode contar como falha
-// dele, ou uma sessão concorrida abriria a recusa rápida sozinha.
 func TestPoltronaOcupadaNaoAbreRecusaRapida(t *testing.T) {
 	sim := &estoqueSimulado{resposta: &estoquepb.RespostaBloqueio{Sucesso: false}}
 	c := clienteCom(conectar(t, sim), time.Second, 2, time.Minute)

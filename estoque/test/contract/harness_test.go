@@ -1,8 +1,3 @@
-// Package contract verifica o contrato gRPC servido: cada categoria de erro de
-// contracts/erros.md e a exigência de identidade de serviço.
-//
-// Sobe o servidor REAL (com o mapeamento de erros e o mTLS de produção) sobre um
-// listener em memória ou local, com o núcleo apoiado em um estoque de teste.
 package contract
 
 import (
@@ -43,8 +38,6 @@ const (
 	usuario            = "c394c8b3-76a1-4328-b803-02f5923b7a15"
 )
 
-// estoqueDeTeste é o mínimo de repositório para exercitar o contrato: quem
-// verifica a semântica completa é a suíte de integração, com banco real.
 type estoqueDeTeste struct {
 	mu        sync.Mutex
 	poltronas map[string]poltrona.Status
@@ -125,8 +118,6 @@ func (logSilencioso) Info(string, ...any)  {}
 func (logSilencioso) Warn(string, ...any)  {}
 func (logSilencioso) Error(string, ...any) {}
 
-// servidorEmMemoria sobe o servidor real sobre bufconn, sem TLS (a exigência de
-// identidade de serviço é verificada em mtls_test.go, que precisa de TCP real).
 func servidorEmMemoria(t *testing.T, estoque *estoqueDeTeste) pb.ServicoEstoqueClient {
 	t.Helper()
 
@@ -164,8 +155,6 @@ func servidorEmMemoria(t *testing.T, estoque *estoqueDeTeste) pb.ServicoEstoqueC
 	return pb.NewServicoEstoqueClient(conn)
 }
 
-// materialTLS gera uma CA e os pares servidor/cliente para o teste de mTLS.
-// Hermético: não depende do diretório certs/ do repositório.
 type materialTLS struct {
 	dir                         string
 	caPEM                       []byte
@@ -218,8 +207,6 @@ func gerarMaterialTLS(t *testing.T) materialTLS {
 			MinVersion:   tls.VersionTLS13,
 		})
 	}
-	// Confia no servidor, mas não apresenta certificado próprio: é a recusa que
-	// interessa a SC-011, e não uma falha de verificação do servidor.
 	m.credSemCliente = credentials.NewTLS(&tls.Config{
 		RootCAs: ancoras, ServerName: "estoque", MinVersion: tls.VersionTLS13,
 	})

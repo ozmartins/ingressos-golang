@@ -1,8 +1,3 @@
-// Command estoque-simulado é um Servico-Estoque de mentira, para desenvolvimento
-// local e para o roteiro de quickstart.md.
-//
-// Não faz parte do serviço entregue: existe para que a jornada de reserva possa
-// ser exercitada de ponta a ponta sem depender do serviço real.
 package main
 
 import (
@@ -26,8 +21,6 @@ type servidor struct {
 	concedidas map[string]bool
 }
 
-// Poltronas cujo identificador começa com B são tratadas como já ocupadas, para
-// que o roteiro de validação consiga provocar o 409 de propósito.
 func (s *servidor) BloquearPoltronas(_ context.Context, req *estoquepb.SolicitacaoBloqueio) (*estoquepb.RespostaBloqueio, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

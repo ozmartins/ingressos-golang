@@ -13,7 +13,6 @@ import (
 const filaSucesso = "estoque.pagamento-sucesso"
 const filaFalhou = "estoque.pagamento-falhou"
 
-// cenario monta um estoque com uma reserva pendente sobre A1 e A2.
 func cenario(t *testing.T) (*estoqueFalso, *prazoFalso, *logFalso, string) {
 	t.Helper()
 	estoque := novoEstoqueFalso()
@@ -66,7 +65,6 @@ func TestConfirmarEhIdempotente(t *testing.T) {
 	if _, err := uc.Executar(context.Background(), filaSucesso, reservaID, reservaID); err != nil {
 		t.Fatalf("erro inesperado: %v", err)
 	}
-	// Reentrega da MESMA mensagem: sem efeito adicional e considerada sucesso.
 	res, err := uc.Executar(context.Background(), filaSucesso, reservaID, reservaID)
 	if err != nil {
 		t.Fatalf("reentrega não pode virar erro: %v", err)
@@ -117,7 +115,6 @@ func TestCancelarDevolvePoltronasAoEstoque(t *testing.T) {
 		t.Error("índice de prazo devia ser liberado após o cancelamento")
 	}
 
-	// A poltrona liberada é imediatamente bloqueável por outra pessoa.
 	novo, err := montarBloqueio(estoque, prazo, log).
 		Executar(context.Background(), sessao, "outra-pessoa", []string{"A1"})
 	if err != nil || !novo.Concedido {
@@ -139,7 +136,6 @@ func TestPrimeiroDesfechoPrevalece(t *testing.T) {
 		if res != TransicaoIgnoradaEstadoFinal {
 			t.Errorf("resultado = %s, esperado ignorada-estado-final", res)
 		}
-		// FR-022: as poltronas permanecem ocupadas.
 		if got := estoque.statusDe(sessao, "A1"); got != poltrona.Ocupada {
 			t.Errorf("A1 = %s, esperado OCUPADA", got)
 		}
@@ -177,7 +173,6 @@ func TestLerDesfechoPagamento(t *testing.T) {
 		t.Errorf("reserva_id = %q", d.ReservaID)
 	}
 
-	// Erro definitivo: vai para a DLQ, não volta para a fila (FR-023).
 	for nome, corpo := range map[string][]byte{
 		"json inválido":      []byte(`{{{`),
 		"reserva_id ausente": []byte(`{"evento":"PAGAMENTO_SUCESSO"}`),
@@ -193,7 +188,6 @@ func TestExpirarLiberaReservasVencidas(t *testing.T) {
 	relogio := shared.NovoRelogioFixo(agora)
 	uc := ExpirarReservas{Reservas: estoque, Prazo: prazo, Relogio: relogio, Log: log, LotePorVarredura: 100}
 
-	// Dentro do prazo: nada acontece.
 	relogio.Avancar(9 * time.Minute)
 	if n, err := uc.Varrer(context.Background()); err != nil || n != 0 {
 		t.Fatalf("varredura antes do prazo: n=%d err=%v", n, err)
@@ -248,8 +242,6 @@ func TestExpirarUmaEhIdempotente(t *testing.T) {
 	if err != nil || primeira != TransicaoAplicada {
 		t.Fatalf("primeira expiração: %s %v", primeira, err)
 	}
-	// Os dois gatilhos (varredura e índice de prazo) podem disparar para a
-	// mesma reserva; o segundo não pode ter efeito (D4).
 	segunda, err := uc.ExpirarUma(context.Background(), reservaID)
 	if err != nil {
 		t.Fatalf("erro inesperado: %v", err)

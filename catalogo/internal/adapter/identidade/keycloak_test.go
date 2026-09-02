@@ -15,9 +15,6 @@ import (
 	jose "github.com/go-jose/go-jose/v4"
 )
 
-// emissorDeTeste é um provedor de JWKS local. Existe para exercitar a
-// verificação sem depender de um Keycloak em pé — a lógica sob teste é a nossa,
-// não a do provedor.
 type emissorDeTeste struct {
 	chave  *rsa.PrivateKey
 	server *httptest.Server
@@ -134,7 +131,6 @@ func TestVerificarRecusaAudienciaErrada(t *testing.T) {
 	}
 }
 
-// Assinatura válida, mas sem identidade: não há a quem atribuir a reserva.
 func TestVerificarRecusaTokenSemSub(t *testing.T) {
 	e := novoEmissor(t)
 	c := claimsValidas(e.issuer)

@@ -14,18 +14,11 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-// Gesto é o que se faz com a entrega. Separá-lo da chamada ao broker é o que
-// torna a classificação testável sem RabbitMQ (contracts/eventos.md §3).
 type Gesto int
 
 const (
-	// Confirmar — Ack: trabalho concluído.
 	Confirmar Gesto = iota
-	// Quarentena — Nack(requeue=false): defeito permanente, direto para a fila
-	// morta, sem retentativa.
 	Quarentena
-	// Devolver — Nack(requeue=true): defeito transitório, volta para a fila; o
-	// broker conta a entrega e encaminha à fila morta ao esgotar o limite.
 	Devolver
 )
 
@@ -40,22 +33,16 @@ func (g Gesto) String() string {
 	}
 }
 
-// Consumidor consome pagamento.sucesso e aplica o caso de uso. O prefetch é o
-// teto de processamentos simultâneos: com a confirmação acontecendo só ao fim
-// do trabalho, o broker nunca entrega mais do que o teto ao mesmo tempo.
 type Consumidor struct {
-	Canal      *amqp.Channel
-	Fila       string
-	Prefetch   int
-	Caso       usecase.EmitirIngresso
-	Log        *slog.Logger
-	Propagador propagation.TextMapPropagator
-	// EsperaAntesDeDevolver evita girar em falso enquanto a dependência não
-	// volta. O limite de entregas da fila continua valendo.
+	Canal                 *amqp.Channel
+	Fila                  string
+	Prefetch              int
+	Caso                  usecase.EmitirIngresso
+	Log                   *slog.Logger
+	Propagador            propagation.TextMapPropagator
 	EsperaAntesDeDevolver time.Duration
 }
 
-// Consumir bloqueia até o contexto ser cancelado ou o canal fechar.
 func (c *Consumidor) Consumir(ctx context.Context) error {
 	if err := c.Canal.Qos(c.Prefetch, 0, false); err != nil {
 		return err
@@ -80,7 +67,6 @@ func (c *Consumidor) Consumir(ctx context.Context) error {
 }
 
 func (c *Consumidor) tratar(ctx context.Context, d amqp.Delivery) {
-	// Abre o processamento como continuação do rastro do pagamento.
 	if c.Propagador != nil {
 		ctx = c.Propagador.Extract(ctx, portadorAMQP(d.Headers))
 	}
@@ -105,13 +91,9 @@ func (c *Consumidor) tratar(ctx context.Context, d amqp.Delivery) {
 	}
 }
 
-// Classificar decide o gesto a partir do corpo da mensagem. É exportada para
-// que o teste de desfechos exercite a tabela de contracts/eventos.md §3 sem
-// broker nenhum.
 func (c *Consumidor) Classificar(ctx context.Context, corpo []byte, comRastro bool) Gesto {
 	a, err := usecase.DecodificarAnuncio(corpo)
 	if err != nil {
-		// JSON quebrado é falha definitiva: nunca vai melhorar na reentrega.
 		c.log().Error("anúncio ilegível, indo para a quarentena",
 			"erro", err, "gesto", Quarentena.String())
 		return Quarentena
@@ -151,7 +133,6 @@ func (c *Consumidor) log() *slog.Logger {
 	return slog.Default()
 }
 
-// portadorAMQP adapta os cabeçalhos AMQP ao carregador de contexto do OTel.
 type portadorAMQP amqp.Table
 
 func (p portadorAMQP) Get(chave string) string {
@@ -173,7 +154,6 @@ func (p portadorAMQP) Keys() []string {
 	return ks
 }
 
-// trechoAtual devolve o span corrente, ou nil quando não há rastro.
 func trechoAtual(ctx context.Context) interface {
 	SetAttributes(...attribute.KeyValue)
 } {

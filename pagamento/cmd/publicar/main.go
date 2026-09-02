@@ -1,15 +1,3 @@
-// Command publicar gera fatos reserva.criada no formato que o Servico-Pagamento
-// exige, para o roteiro de quickstart.md.
-//
-// Existe por uma razão específica e temporária: o Servico-Estoque publica
-// reserva.criada SEM valor_total e SEM forma_pagamento (ver
-// estoque/internal/usecase/bloquear_poltronas.go, EventoReservaCriada), então
-// nenhum evento real dele é processável por este serviço hoje. A divergência foi
-// decidida com o mantenedor e está registrada em research.md D1 e na caixa de
-// dependência de integração de contracts/eventos.md §1.
-//
-// Quando o estoque passar a propagar os dois campos, este comando deixa de ser
-// necessário para validar o caminho feliz.
 package main
 
 import (
@@ -132,9 +120,6 @@ func publicar(canal *amqp.Channel, exchange string, e eventoReservaCriada) error
 	return nil
 }
 
-// espiarFatos liga uma fila temporária à routing key pedida e imprime o que
-// chegar por 5 segundos. Serve ao roteiro de quickstart.md para ver os anúncios
-// sem competir com os consumidores reais.
 func espiarFatos(canal *amqp.Channel, exchange, routingKey string) error {
 	q, err := canal.QueueDeclare("", false, true, true, false, nil)
 	if err != nil {

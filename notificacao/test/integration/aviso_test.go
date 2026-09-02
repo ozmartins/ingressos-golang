@@ -12,15 +12,9 @@ import (
 	"github.com/oseias/ingressos-golang/notificacao/internal/domain/ingresso"
 )
 
-// SC-007 / FR-018 / FR-025: com o canal falhando, o ingresso continua válido, o
-// registro de falha fica com detalhe, e a MENSAGEM É CONFIRMADA — a fila
-// principal esvazia e nada vai para a quarentena.
-//
-// É a asserção sobre a fila que distingue este teste de um teste de banco: sem
-// ela, um Nack acidental passaria despercebido.
 func TestFalhaDoAvisoNaoImpedeEntradaNemReprocessa(t *testing.T) {
 	a := subirAmbiente(t)
-	c := a.consumidor(t, true) // notificador em modo de falha
+	c := a.consumidor(t, true)
 
 	ctx, parar := context.WithCancel(context.Background())
 	defer parar()
@@ -55,7 +49,6 @@ func TestFalhaDoAvisoNaoImpedeEntradaNemReprocessa(t *testing.T) {
 		t.Error("registro de falha sem detalhe (FR-017)")
 	}
 
-	// A mensagem foi confirmada: nem na fila, nem na quarentena.
 	esperar(t, 10*time.Second, "a fila principal esvaziar", func() bool {
 		return a.contarFila(t, fila) == 0
 	})

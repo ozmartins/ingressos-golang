@@ -1,6 +1,3 @@
-// Package config lê e valida a configuração do ambiente uma única vez, na
-// largada. Variável ausente ou malformada impede o processo de subir: é melhor
-// não subir do que subir cobrando errado (research.md D11).
 package config
 
 import (
@@ -36,8 +33,6 @@ type Config struct {
 
 type faltando []string
 
-// Carregar lê o ambiente e devolve erro listando TODAS as chaves problemáticas
-// de uma vez — descobrir uma por vez, reiniciando o processo, é desperdício.
 func Carregar() (Config, error) {
 	var f faltando
 	c := Config{

@@ -1,4 +1,3 @@
-// Package grpc adapta o núcleo ao contrato gRPC servido por este serviço.
 package grpc
 
 import (
@@ -12,11 +11,8 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/shared"
 )
 
-// dominioErros é o domínio declarado nos ErrorInfo. Faz parte do contrato.
 const dominioErros = "estoque.ingressos"
 
-// Razões estáveis. Constituição, princípio IV: a categoria é versionada como
-// parte do contrato; o texto humano pode mudar de redação livremente.
 const (
 	razaoSolicitacaoInvalida     = "SOLICITACAO_INVALIDA"
 	razaoLimiteExcedido          = "LIMITE_POLTRONAS_EXCEDIDO"
@@ -26,11 +22,6 @@ const (
 	razaoDependenciaIndisponivel = "DEPENDENCIA_INDISPONIVEL"
 )
 
-// paraStatus traduz um erro de domínio no status gRPC de contracts/erros.md.
-//
-// Nenhum detalhe interno atravessa esta função: a mensagem que sai é a do erro
-// de domínio, nunca a do driver, do SQL ou do endereço da dependência. O detalhe
-// vai para o log, correlacionado pelo trace_id (princípio IV).
 func paraStatus(err error, limitePoltronas int) error {
 	switch {
 	case err == nil:
@@ -55,8 +46,6 @@ func paraStatus(err error, limitePoltronas int) error {
 		return comDetalhe(codes.NotFound, "sessão desconhecida", razaoSessaoDesconhecida, nil)
 
 	case errors.Is(err, shared.ErrDependenciaIndisponivel):
-		// Detalhe interno fica de fora deliberadamente: o cliente só precisa
-		// saber que não foi possível decidir agora.
 		return comDetalhe(codes.Unavailable, "serviço temporariamente indisponível",
 			razaoDependenciaIndisponivel, nil)
 
@@ -73,7 +62,6 @@ func comDetalhe(codigo codes.Code, mensagem, razao string, metadados map[string]
 		Metadata: metadados,
 	})
 	if err != nil {
-		// Anexar detalhe nunca deve custar a resposta.
 		return st.Err()
 	}
 	return comInfo.Err()

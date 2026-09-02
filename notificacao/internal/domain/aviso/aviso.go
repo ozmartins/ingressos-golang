@@ -1,5 +1,3 @@
-// Package aviso é o domínio do registro de notificação: o comprovante de uma
-// tentativa de avisar a pessoa sobre um ingresso.
 package aviso
 
 import (
@@ -7,7 +5,6 @@ import (
 	"time"
 )
 
-// Canal é o meio pelo qual o aviso saiu. Vocabulário fechado (data-model.md §3).
 type Canal string
 
 const (
@@ -16,7 +13,6 @@ const (
 	SMS   Canal = "SMS"
 )
 
-// Desfecho é o resultado da tentativa.
 type Desfecho string
 
 const (
@@ -24,11 +20,8 @@ const (
 	Falha   Desfecho = "FALHA"
 )
 
-// ErrDetalheObrigatorio protege a razão de a tabela existir: um registro de
-// falha sem motivo não serve ao reenvio (FR-017).
 var ErrDetalheObrigatorio = errors.New("aviso: registro de falha exige detalhe")
 
-// Registro é uma tentativa de aviso.
 type Registro struct {
 	ID         string
 	IngressoID string
@@ -39,7 +32,6 @@ type Registro struct {
 	EnviadoEm  time.Time
 }
 
-// NovoEnviado registra um aviso que saiu.
 func NovoEnviado(id, ingressoID, usuarioID string, canal Canal, agora time.Time) Registro {
 	return Registro{
 		ID: id, IngressoID: ingressoID, UsuarioID: usuarioID,
@@ -47,7 +39,6 @@ func NovoEnviado(id, ingressoID, usuarioID string, canal Canal, agora time.Time)
 	}
 }
 
-// NovoFalho registra uma tentativa que não saiu. Exige detalhe.
 func NovoFalho(id, ingressoID, usuarioID string, canal Canal, detalhes string, agora time.Time) (Registro, error) {
 	if detalhes == "" {
 		return Registro{}, ErrDetalheObrigatorio
@@ -58,6 +49,4 @@ func NovoFalho(id, ingressoID, usuarioID string, canal Canal, detalhes string, a
 	}, nil
 }
 
-// PendenteDeReenvio identifica os registros que uma feature futura de reenvio
-// vai procurar (FR-018).
 func (r Registro) PendenteDeReenvio() bool { return r.Desfecho == Falha }

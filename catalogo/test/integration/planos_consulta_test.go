@@ -9,13 +9,6 @@ import (
 	"time"
 )
 
-// T075 — as listagens precisam usar os índices da migração 000002 onde há
-// volume que justifique.
-//
-// A verificação roda com dez vezes o volume base: em tabela pequena, varredura
-// sequencial é a escolha correta do planejador, e exigir índice ali testaria a
-// heurística do PostgreSQL, não o nosso esquema. O que importa provar é que o
-// custo não cresce com o acervo quando o acervo é grande.
 func TestConsultasUsamOsIndices(t *testing.T) {
 	carregarVolume(t, 10)
 	ctx := context.Background()
@@ -82,19 +75,6 @@ func TestConsultasUsamOsIndices(t *testing.T) {
 	}
 }
 
-// A contagem do total é a segunda consulta de toda listagem, e é ela que fixa o
-// limite de validade do desenho.
-//
-// Contar linhas que satisfazem um filtro pouco seletivo — quase todo filme está
-// em cartaz ou em breve — é inerentemente proporcional ao acervo. Nenhum índice
-// evita visitar cada linha que conta, e o planejador corretamente prefere
-// varredura sequencial a percorrer um índice de tamanho equivalente. Foi por
-// medir isto que SC-003 declara um teto de volume em vez de prometer que o tempo
-// de resposta não cresce.
-//
-// O que este teste protege é o orçamento: no volume declarado, a contagem custa
-// uma fração do limite. Se um dia estourar, a saída é abandonar o total exato —
-// não procurar um índice que não existe.
 func TestContagemDoTotalCabeNoOrcamento(t *testing.T) {
 	carregarVolume(t, 10)
 	ctx := context.Background()

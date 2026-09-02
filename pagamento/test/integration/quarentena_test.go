@@ -15,17 +15,12 @@ import (
 	amqp091 "github.com/rabbitmq/amqp091-go"
 )
 
-// T039 / SC-006: anúncio inválido vai para a fila morta sem criar transação.
 func TestAnuncioInvalidoVaiParaFilaMortaSemCriarTransacao(t *testing.T) {
 	a := subirAmbiente(t)
 	adq := novoAdquirente(usecase.ResultadoCobranca{Desfecho: usecase.Aprovada})
 	_, parar := a.consumidorDe(t, adq, 4)
 	defer parar()
 
-	// Exatamente a forma que o Servico-Estoque publica hoje: sem valor_total e
-	// sem forma_pagamento (research.md D1). Serve de duas coisas ao mesmo tempo —
-	// testa a FR-003 e documenta, em código executável, o efeito da dependência
-	// de integração aberta.
 	reserva := uuid.NewString()
 	a.publicarIntencao(t, map[string]any{
 		"evento": "RESERVA_CRIADA", "versao": 1,
@@ -50,9 +45,6 @@ func TestAnuncioInvalidoVaiParaFilaMortaSemCriarTransacao(t *testing.T) {
 	}
 }
 
-// T039 / SC-009: ausência de resposta do adquirente deixa a transação em
-// PENDENTE_VERIFICACAO **e** a mensagem na quarentena, sem anúncio nenhum.
-// O par é o que o SC-009 exige: estado indeterminado sempre inspecionável.
 func TestDesfechoIndeterminadoParaEstadoEQuarentenaJuntos(t *testing.T) {
 	a := subirAmbiente(t)
 	adq := novoAdquirente(usecase.ResultadoCobranca{Desfecho: usecase.Indeterminada})
@@ -77,11 +69,8 @@ func TestDesfechoIndeterminadoParaEstadoEQuarentenaJuntos(t *testing.T) {
 	}
 }
 
-// T039 / FR-021: intenção que falha repetidamente é encaminhada pelo broker à
-// fila morta ao esgotar o limite de entregas, em vez de girar para sempre.
 func TestLimiteDeEntregasEncaminhaParaFilaMorta(t *testing.T) {
 	a := subirAmbiente(t)
-	// Adquirente sempre indisponível: falha transitória, sempre devolvida à fila.
 	adq := novoAdquirente(usecase.ResultadoCobranca{})
 	adq.erro = errSempreFora
 	_, parar := a.consumidorDe(t, adq, 2)
@@ -90,8 +79,6 @@ func TestLimiteDeEntregasEncaminhaParaFilaMorta(t *testing.T) {
 	reserva := uuid.NewString()
 	a.publicarIntencao(t, intencao(reserva, "84.00", "PIX", 30*time.Minute))
 
-	// A FR-021 fala em tentativas, e o broker conta reentregas; a topologia faz a
-	// tradução. Aqui se afirma o que a spec promete: no máximo 3 TENTATIVAS.
 	esperarFila(t, a, filaDLQ, 1, 60*time.Second)
 
 	if n := adq.total(); n > 3 {
@@ -112,7 +99,6 @@ func TestLimiteDeEntregasEncaminhaParaFilaMorta(t *testing.T) {
 	}
 }
 
-// A mensagem na fila morta preserva o corpo original, para inspeção humana.
 func TestMensagemNaQuarentenaPreservaOCorpo(t *testing.T) {
 	a := subirAmbiente(t)
 	adq := novoAdquirente(usecase.ResultadoCobranca{Desfecho: usecase.Aprovada})
@@ -145,13 +131,8 @@ func TestMensagemNaQuarentenaPreservaOCorpo(t *testing.T) {
 	_ = amqp091.Persistent
 }
 
-// O prazo do adquirente aplicado de verdade, com o adaptador simulado real —
-// não com um desfecho injetado. É o caminho que o roteiro manual exercitou e
-// que revelou que o prazo não estava sendo aplicado.
 func TestPrazoDoAdquirenteRealLevaAQuarentena(t *testing.T) {
 	a := subirAmbiente(t)
-	// O simulado demora em valores terminados em .99; a demora configurada aqui
-	// é maior que o prazo de 2s do consumidor de teste.
 	_, parar := a.consumidorDe(t, simulado.Adquirente{Demora: 30 * time.Second}, 4)
 	defer parar()
 

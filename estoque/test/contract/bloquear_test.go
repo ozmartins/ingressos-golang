@@ -12,8 +12,6 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/shared"
 )
 
-// razaoDe extrai o ErrorInfo.reason da resposta de erro. É por ele que o cliente
-// distingue categorias sem interpretar texto (constituição, princípio IV).
 func razaoDe(t *testing.T, err error) (codes.Code, string) {
 	t.Helper()
 	st, ok := status.FromError(err)
@@ -48,8 +46,6 @@ func TestBloquearConcedeERecusaPorIndisponibilidade(t *testing.T) {
 		t.Errorf("motivo = %v em resposta de sucesso", resp.GetMotivo())
 	}
 
-	// Segunda tentativa sobre as mesmas poltronas: indisponibilidade é o ÚNICO
-	// desfecho que vira sucesso=false, nunca erro de status.
 	repetida, err := cliente.BloquearPoltronas(context.Background(), req)
 	if err != nil {
 		t.Fatalf("indisponibilidade não pode virar status de erro: %v", err)
@@ -126,7 +122,6 @@ func TestBloquearMapeiaCadaCategoriaDeErro(t *testing.T) {
 			if razao != caso.razao {
 				t.Errorf("reason = %q, esperado %q", razao, caso.razao)
 			}
-			// SC-007: nenhuma poltrona pode ter mudado de estado.
 			for rotulo, status := range estoque.poltronas {
 				if status != "LIVRE" {
 					t.Errorf("recusa alterou %s para %s", rotulo, status)
@@ -146,8 +141,6 @@ func TestLimiteExcedidoInformaOLimiteVigente(t *testing.T) {
 	st, _ := status.FromError(err)
 	for _, detalhe := range st.Details() {
 		if info, ok := detalhe.(*errdetails.ErrorInfo); ok {
-			// O chamador precisa poder informar a pessoa sem consultar
-			// documentação (FR-004).
 			if info.GetMetadata()["limite"] != "10" {
 				t.Errorf("metadata[limite] = %q, esperado 10", info.GetMetadata()["limite"])
 			}
@@ -174,7 +167,6 @@ func TestDependenciaIndisponivelViraUnavailableSemVazarDetalhe(t *testing.T) {
 	}
 
 	st, _ := status.FromError(err)
-	// Princípio IV: nenhum detalhe interno na resposta.
 	for _, proibido := range []string{"pgx", "SQL", "postgres", "5432", "goroutine"} {
 		if contemIgnorandoCaixa(st.Message(), proibido) {
 			t.Errorf("mensagem vazou detalhe interno (%q): %s", proibido, st.Message())
@@ -182,10 +174,6 @@ func TestDependenciaIndisponivelViraUnavailableSemVazarDetalhe(t *testing.T) {
 	}
 }
 
-// TestIdentidadeDaPessoaNaoEhValidadaPeloEstoque documenta uma decisão fácil de
-// desfazer por engano: com o chamador autenticado por identidade de serviço, o
-// usuario_id é tratado como confiável e NÃO é validado junto ao emissor de
-// identidade (FR-038). Qualquer identificador não vazio é aceito.
 func TestIdentidadeDaPessoaNaoEhValidadaPeloEstoque(t *testing.T) {
 	cliente := servidorEmMemoria(t, novoEstoqueDeTeste())
 

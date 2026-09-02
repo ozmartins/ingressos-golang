@@ -13,21 +13,15 @@ type chaveContexto string
 
 const chaveUsuario chaveContexto = "usuario_id"
 
-// UsuarioDoContexto devolve a identidade colocada pelo middleware.
 func UsuarioDoContexto(ctx context.Context) string {
 	v, _ := ctx.Value(chaveUsuario).(string)
 	return v
 }
 
-// VerificadorDeCredencial é a porta mínima que o middleware precisa.
 type VerificadorDeCredencial interface {
 	Verificar(ctx context.Context, token string) (identidade.Identidade, error)
 }
 
-// Autenticacao exige credencial válida e coloca a identidade no contexto.
-//
-// A recusa acontece antes do handler: uma requisição sem credencial nunca chega
-// ao caso de uso e, portanto, nunca alcança o Servico-Estoque.
 func Autenticacao(v VerificadorDeCredencial, aoRecusar func(http.ResponseWriter, *http.Request, string)) func(http.Handler) http.Handler {
 	return func(prox http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -38,7 +32,6 @@ func Autenticacao(v VerificadorDeCredencial, aoRecusar func(http.ResponseWriter,
 			}
 			id, err := v.Verificar(r.Context(), token)
 			if err != nil {
-				// O motivo específico fica no log; ao cliente, apenas a recusa.
 				slog.WarnContext(r.Context(), "credencial recusada", slog.Any("erro", err))
 				aoRecusar(w, r, "Credencial inválida ou expirada.")
 				return

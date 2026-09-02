@@ -1,4 +1,3 @@
-// Package health expõe o indicador de aptidão da instância.
 package health
 
 import (
@@ -9,7 +8,6 @@ import (
 	"time"
 )
 
-// Verificador testa uma dependência crítica para atender tráfego.
 type Verificador interface {
 	Ping(ctx context.Context) error
 }
@@ -19,12 +17,6 @@ type resposta struct {
 	Dependencias map[string]string `json:"dependencias,omitempty"`
 }
 
-// Handler responde 200 quando a instância pode receber tráfego e 503 quando não.
-//
-// A saúde depende apenas do banco. O Servico-Estoque fora do ar não derruba a
-// instância de propósito: a navegação continua servível (SC-012), e tirar a
-// instância de rotação por causa de um parceiro só transformaria a falha dele
-// em indisponibilidade nossa.
 func Handler(banco Verificador) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)

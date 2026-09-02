@@ -1,4 +1,3 @@
-// Package middleware reúne as camadas transversais do adaptador HTTP.
 package middleware
 
 import (
@@ -13,9 +12,6 @@ import (
 	"github.com/oseias/ingressos-golang/catalogo/internal/platform/observability"
 )
 
-// Telemetria instala a instrumentação de rastreamento na entrada. O otelhttp
-// extrai o cabeçalho traceparent quando presente e inicia um rastro novo quando
-// ausente (FR-036).
 func Telemetria(prox http.Handler) http.Handler {
 	return otelhttp.NewHandler(prox, "http.server",
 		otelhttp.WithSpanNameFormatter(func(_ string, r *http.Request) string {
@@ -27,7 +23,6 @@ func Telemetria(prox http.Handler) http.Handler {
 	)
 }
 
-// gravadorComStatus lembra o código escrito, que o ResponseWriter não expõe.
 type gravadorComStatus struct {
 	http.ResponseWriter
 	status int
@@ -45,12 +40,6 @@ func (g *gravadorComStatus) Write(b []byte) (int, error) {
 	return g.ResponseWriter.Write(b)
 }
 
-// Log emite um registro estruturado por requisição, com identificador de
-// correlação, operação, desfecho e duração (FR-034). O trace_id é injetado pelo
-// manipulador de log, a partir do span ativo.
-//
-// Nenhum cabeçalho de autorização é registrado, nem truncado: credencial não
-// entra em log (constituição, Restrições Técnicas).
 func Log(metricas *observability.Metricas) func(http.Handler) http.Handler {
 	return func(prox http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -82,7 +71,6 @@ func Log(metricas *observability.Metricas) func(http.Handler) http.Handler {
 	}
 }
 
-// Recuperacao converte pânico em 500 sem vazar a pilha para o cliente.
 func Recuperacao(prox http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
@@ -97,8 +85,6 @@ func Recuperacao(prox http.Handler) http.Handler {
 	})
 }
 
-// Encadear aplica os middlewares na ordem em que são passados: o primeiro é o
-// mais externo.
 func Encadear(h http.Handler, camadas ...func(http.Handler) http.Handler) http.Handler {
 	for i := len(camadas) - 1; i >= 0; i-- {
 		h = camadas[i](h)

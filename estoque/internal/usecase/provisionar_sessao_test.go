@@ -65,7 +65,6 @@ func TestProvisionarEhIdempotenteENaoReiniciaEstado(t *testing.T) {
 		t.Fatalf("erro inesperado: %v", err)
 	}
 
-	// Reanúncio do mesmo fato, com a mesma chave de idempotência.
 	res, err := uc.Executar(context.Background(), filaSessao, sessao, evento)
 	if err != nil {
 		t.Fatalf("reanúncio não pode virar erro: %v", err)
@@ -78,7 +77,6 @@ func TestProvisionarEhIdempotenteENaoReiniciaEstado(t *testing.T) {
 	if len(mapa) != 2 {
 		t.Errorf("poltronas = %d, esperado 2 — reanúncio duplicou a matriz", len(mapa))
 	}
-	// O ponto que mais importa: a poltrona já reservada não pode voltar a LIVRE.
 	if got := estoque.statusDe(sessao, "A1"); got != poltrona.Reservada {
 		t.Errorf("A1 = %s, esperado RESERVADA — reanúncio reiniciou estado", got)
 	}
@@ -106,7 +104,6 @@ func TestProvisionarRecusaLayoutInvalido(t *testing.T) {
 			if _, err := uc.Executar(context.Background(), filaSessao, sessao, evento); err == nil {
 				t.Fatal("esperava recusa do layout")
 			}
-			// FR-035: tudo-ou-nada — nada pode ter sido provisionado.
 			mapa, _ := estoque.MapaDaSessao(context.Background(), sessao)
 			if len(mapa) != 0 {
 				t.Errorf("layout inválido provisionou %d poltrona(s)", len(mapa))

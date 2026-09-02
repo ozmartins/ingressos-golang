@@ -2,7 +2,6 @@ package usecase
 
 import "context"
 
-// CancelarReserva reage ao pagamento recusado devolvendo as poltronas ao estoque.
 type CancelarReserva struct {
 	Reservas RepositorioReservas
 	Prazo    IndiceDePrazo
@@ -10,7 +9,6 @@ type CancelarReserva struct {
 	Log      Registrador
 }
 
-// Executar cancela a reserva e libera as poltronas, de forma idempotente.
 func (uc CancelarReserva) Executar(ctx context.Context, fila, messageID, reservaID string) (ResultadoTransicao, error) {
 	resultado, err := uc.Reservas.Cancelar(ctx, fila, messageID, reservaID, uc.Relogio.Agora())
 	if err != nil {
@@ -26,8 +24,6 @@ func (uc CancelarReserva) Executar(ctx context.Context, fila, messageID, reserva
 			}
 		}
 	case TransicaoIgnoradaEstadoFinal:
-		// Chegou recusa para reserva já confirmada: as poltronas permanecem
-		// ocupadas e a divergência fica registrada (FR-022).
 		uc.Log.Warn("pagamento recusado para reserva já finalizada",
 			"reserva_id", reservaID, "fila", fila, "acao", "ignorado")
 	case TransicaoIgnoradaInexistente:

@@ -1,5 +1,3 @@
-// Package amqp adapta o serviço ao RabbitMQ: declara a topologia, consome os
-// três fatos de entrada e publica o fato de saída a partir da caixa de saída.
 package amqp
 
 import (
@@ -8,7 +6,6 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-// Nomes da topologia. São contrato (contracts/eventos.md) e só mudam com versão.
 const (
 	Exchange    = "cinema.eventos"
 	ExchangeDLX = "cinema.eventos.dlx"
@@ -22,17 +19,14 @@ const (
 	BindingSessaoCriada     = "sessao.criada"
 )
 
-// filas relaciona cada fila ao binding que a alimenta.
 var filas = map[string]string{
 	FilaPagamentoSucesso: BindingPagamentoSucesso,
 	FilaPagamentoFalhou:  BindingPagamentoFalhou,
 	FilaSessaoCriada:     BindingSessaoCriada,
 }
 
-// NomeDLQ devolve a fila-morta correspondente a uma fila de origem.
 func NomeDLQ(fila string) string { return fila + ".dlq" }
 
-// Conexao agrupa a conexão e o canal de publicação.
 type Conexao struct {
 	conn         *amqp.Connection
 	canalPublica *amqp.Channel
@@ -40,8 +34,6 @@ type Conexao struct {
 	url          string
 }
 
-// Conectar abre a conexão e declara a topologia. O processo recusa subir se a
-// topologia não puder ser garantida — falhar na largada é barato.
 func Conectar(url string) (*Conexao, error) {
 	conn, err := amqp.Dial(url)
 	if err != nil {
@@ -58,8 +50,6 @@ func Conectar(url string) (*Conexao, error) {
 		return nil, err
 	}
 
-	// Publisher confirms: só marcamos o fato como publicado depois que o broker
-	// confirma tê-lo aceitado (FR-018).
 	if err := canal.Confirm(false); err != nil {
 		conn.Close()
 		return nil, fmt.Errorf("habilitar confirmações de publicação: %w", err)
@@ -102,7 +92,6 @@ func declararTopologia(canal *amqp.Channel) error {
 	return nil
 }
 
-// Verificar diz se a conexão continua de pé (usado pela prontidão).
 func (c *Conexao) Verificar() error {
 	if c.conn == nil || c.conn.IsClosed() {
 		return fmt.Errorf("conexão com o broker fechada")
@@ -110,12 +99,10 @@ func (c *Conexao) Verificar() error {
 	return nil
 }
 
-// Fechar encerra a conexão.
 func (c *Conexao) Fechar() {
 	if c.conn != nil && !c.conn.IsClosed() {
 		_ = c.conn.Close()
 	}
 }
 
-// Canal abre um canal novo, para consumidores.
 func (c *Conexao) Canal() (*amqp.Channel, error) { return c.conn.Channel() }

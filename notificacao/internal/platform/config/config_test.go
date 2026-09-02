@@ -5,7 +5,6 @@ import (
 	"testing"
 )
 
-// obrigatorias é o conjunto que o processo exige para subir (contracts/erros.md §5).
 var obrigatorias = map[string]string{
 	"DATABASE_URL":        "postgres://u:p@localhost:5432/n?sslmode=disable",
 	"AMQP_URL":            "amqp://guest:guest@localhost:5672/",
@@ -29,7 +28,6 @@ func TestCarregarComAmbienteCompleto(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Carregar devolveu erro: %v", err)
 	}
-	// Padrões documentados no plano.
 	if c.PortaHTTP != "8080" || c.AMQPExchange != "cinema.eventos" ||
 		c.AMQPFila != "notificacao.pagamento-sucesso" ||
 		c.AMQPPrefetch != 10 || c.AMQPLimiteEntregas != 3 ||
@@ -41,7 +39,6 @@ func TestCarregarComAmbienteCompleto(t *testing.T) {
 	}
 }
 
-// A ausência do segredo do QR sozinha já impede o processo de subir (D11).
 func TestSegredoDoQRAusenteImpedeSubir(t *testing.T) {
 	ambienteCompleto(t)
 	t.Setenv("INGRESSO_QR_SEGREDO", "")
@@ -55,7 +52,6 @@ func TestSegredoDoQRAusenteImpedeSubir(t *testing.T) {
 	}
 }
 
-// O erro lista TODAS as chaves de uma vez, e não a primeira que falhou.
 func TestErroListaTodasAsChavesFaltantes(t *testing.T) {
 	for k := range obrigatorias {
 		t.Setenv(k, "")

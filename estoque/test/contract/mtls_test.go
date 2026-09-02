@@ -18,8 +18,6 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/usecase"
 )
 
-// servidorComMTLS sobe o servidor exigindo identidade de serviço, sobre TCP real
-// (bufconn não exercita o handshake).
 func servidorComMTLS(t *testing.T, estoque *estoqueDeTeste, material materialTLS) string {
 	t.Helper()
 
@@ -76,8 +74,6 @@ func tentarBloqueio(t *testing.T, endereco string, cred credentials.TransportCre
 	return err
 }
 
-// TestMTLSRecusaChamadorSemIdentidadeValida cobre SC-011: nenhuma solicitação de
-// chamador não autenticado altera estado.
 func TestMTLSRecusaChamadorSemIdentidadeValida(t *testing.T) {
 	material := gerarMaterialTLS(t)
 
@@ -96,7 +92,6 @@ func TestMTLSRecusaChamadorSemIdentidadeValida(t *testing.T) {
 			if err := tentarBloqueio(t, endereco, cred); err == nil {
 				t.Fatal("esperava recusa do chamador")
 			}
-			// A recusa acontece no transporte, antes de qualquer alteração.
 			for rotulo, status := range estoque.poltronas {
 				if status != "LIVRE" {
 					t.Errorf("chamador recusado alterou %s para %s", rotulo, status)

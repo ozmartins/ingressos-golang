@@ -43,7 +43,6 @@ func reservar(t *testing.T, amb *ambiente, token, sessao string, corpo any) (*ht
 	return resp, dados
 }
 
-// US3, cenário 1.
 func TestReservarConfirmada(t *testing.T) {
 	expira := agora().Add(10 * time.Minute)
 	amb := montar(t, func(a *ambiente) {
@@ -71,7 +70,6 @@ func TestReservarConfirmada(t *testing.T) {
 	}
 }
 
-// US3, cenário 2.
 func TestReservarPoltronaOcupadaDevolve409(t *testing.T) {
 	amb := montar(t, func(a *ambiente) {
 		a.sessoes.sessao = sessaoReservavel()
@@ -88,7 +86,6 @@ func TestReservarPoltronaOcupadaDevolve409(t *testing.T) {
 	}
 }
 
-// US3, cenário 3 — e a prova de que o estoque não é contatado.
 func TestReservarSemCredencialNaoContataOEstoque(t *testing.T) {
 	for _, token := range []string{"", "token-ruim"} {
 		amb := montar(t, func(a *ambiente) { a.sessoes.sessao = sessaoReservavel() })
@@ -107,7 +104,6 @@ func TestReservarSemCredencialNaoContataOEstoque(t *testing.T) {
 	}
 }
 
-// US3, cenário 4 — indisponibilidade temporária, sem vazar o motivo.
 func TestReservarEstoqueIndisponivelDevolve503(t *testing.T) {
 	amb := montar(t, func(a *ambiente) {
 		a.sessoes.sessao = sessaoReservavel()
@@ -129,7 +125,6 @@ func TestReservarEstoqueIndisponivelDevolve503(t *testing.T) {
 	}
 }
 
-// US3, cenário 5 — sessão inexistente, sem contatar o estoque.
 func TestReservarSessaoInexistenteNaoContataOEstoque(t *testing.T) {
 	amb := montar(t, func(a *ambiente) { a.sessoes.erro = shared.ErrNaoEncontrado })
 	resp, corpo := reservar(t, amb, "token-bom", "00000000-0000-0000-0000-000000000000",
@@ -147,7 +142,6 @@ func TestReservarSessaoInexistenteNaoContataOEstoque(t *testing.T) {
 	}
 }
 
-// US3, cenário 6.
 func TestReservarCorpoInvalido(t *testing.T) {
 	casos := map[string]any{
 		"lista vazia":    map[string]any{"poltronas_ids": []string{}},
@@ -173,7 +167,6 @@ func TestReservarCorpoInvalido(t *testing.T) {
 	}
 }
 
-// Sessão que já começou: existe, mas não aceita mais reservas.
 func TestReservarSessaoNaoReservavelDevolve422(t *testing.T) {
 	amb := montar(t, func(a *ambiente) {
 		a.sessoes.sessao = catalogo.Sessao{ID: sessaoID, Status: catalogo.SessaoAgendada, DataHoraInicio: agora().Add(-time.Hour)}
@@ -192,11 +185,10 @@ func TestReservarSessaoNaoReservavelDevolve422(t *testing.T) {
 	}
 }
 
-// Sucesso sem os dados obrigatórios nunca vira 201.
 func TestReservarSucessoIncompletoDoParceiroDevolve502(t *testing.T) {
 	amb := montar(t, func(a *ambiente) {
 		a.sessoes.sessao = sessaoReservavel()
-		a.estoque.resultado = reserva.ResultadoReserva{ExpiraEm: agora()} // sem reserva_id
+		a.estoque.resultado = reserva.ResultadoReserva{ExpiraEm: agora()}
 	})
 	resp, corpo := reservar(t, amb, "token-bom", sessaoID, map[string]any{"poltronas_ids": []string{"A1"}})
 

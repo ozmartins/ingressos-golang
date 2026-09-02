@@ -13,23 +13,12 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/usecase"
 )
 
-// Reservas implementa usecase.RepositorioReservas.
 type Reservas struct{ banco *Banco }
 
-// NovoRepositorioReservas monta o repositório de reservas.
 func NovoRepositorioReservas(b *Banco) *Reservas { return &Reservas{banco: b} }
 
-// Conceder é o protocolo transacional de bloqueio (data-model.md §8).
-//
-// A exclusividade mora aqui: as linhas das poltronas são travadas em ordem
-// determinística de rótulo, na MESMA transação que grava reserva, vínculos,
-// novo estado das poltronas e o fato. Não há cadeado externo — perder o Redis
-// não abre janela de venda dupla (research D2).
 func (r *Reservas) Conceder(ctx context.Context, sol reserva.Solicitacao, res reserva.Reserva, fato usecase.FatoPendente) error {
 	return r.banco.EmTransacao(ctx, func(tx pgx.Tx) error {
-		// 1. Trava as poltronas solicitadas. ORDER BY rotulo evita deadlock
-		//    entre solicitações com conjuntos que se cruzam (A1,A2 vs A2,A1).
-		//    NOWAIT: preferimos recusar rápido a esperar — o orçamento é 100 ms.
 		linhas, err := tx.Query(ctx, `
 			SELECT id, rotulo, status
 			  FROM poltronas
@@ -38,8 +27,6 @@ func (r *Reservas) Conceder(ctx context.Context, sol reserva.Solicitacao, res re
 			   FOR UPDATE NOWAIT`, sol.SessaoID, sol.Rotulos)
 		if err != nil {
 			if ehConflitoDeTravamento(err) {
-				// Outra transação já tem a poltrona: para o cliente isso é
-				// indisponibilidade, não falha do serviço.
 				return fmt.Errorf("%w: disputa simultânea", shared.ErrPoltronasIndisponiveis)
 			}
 			return indisponivel(err)
@@ -63,8 +50,6 @@ func (r *Reservas) Conceder(ctx context.Context, sol reserva.Solicitacao, res re
 			return indisponivel(err)
 		}
 
-		// 2. Verificações. Rótulo que não voltou não existe na sessão; se
-		//    nenhum voltou, a sessão pode nem ter matriz provisionada (FR-036).
 		if len(encontradas) != len(sol.Rotulos) {
 			if len(encontradas) == 0 {
 				provisionada, err := sessaoProvisionada(ctx, tx, sol.SessaoID)
@@ -86,7 +71,6 @@ func (r *Reservas) Conceder(ctx context.Context, sol reserva.Solicitacao, res re
 			ids = append(ids, t.id)
 		}
 
-		// 3. Reserva pendente com prazo.
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO reservas (id, sessao_id, usuario_id, expira_em, status, criado_em)
 			VALUES ($1, $2, $3, $4, 'PENDENTE', $5)`,
@@ -94,7 +78,6 @@ func (r *Reservas) Conceder(ctx context.Context, sol reserva.Solicitacao, res re
 			return indisponivel(err)
 		}
 
-		// 4. Vínculos reserva–poltrona.
 		for _, id := range ids {
 			if _, err := tx.Exec(ctx,
 				`INSERT INTO reserva_poltronas (reserva_id, poltrona_id) VALUES ($1, $2)`,
@@ -103,7 +86,6 @@ func (r *Reservas) Conceder(ctx context.Context, sol reserva.Solicitacao, res re
 			}
 		}
 
-		// 5. Poltronas passam a RESERVADA (FR-032: instante da alteração).
 		if _, err := tx.Exec(ctx, `
 			UPDATE poltronas
 			   SET status = 'RESERVADA', atualizado_em = now()
@@ -111,7 +93,6 @@ func (r *Reservas) Conceder(ctx context.Context, sol reserva.Solicitacao, res re
 			return indisponivel(err)
 		}
 
-		// 6. Fato na caixa de saída, na mesma transação.
 		return enfileirarFato(ctx, tx, fato)
 	})
 }
@@ -126,9 +107,6 @@ func sessaoProvisionada(ctx context.Context, tx pgx.Tx, sessaoID string) (bool, 
 	return existe, nil
 }
 
-// aplicarDesfecho é o corpo comum de confirmação e cancelamento: registrar a
-// idempotência, mover a reserva a partir de PENDENTE e mover as poltronas —
-// tudo na mesma transação (FR-015).
 func (r *Reservas) aplicarDesfecho(
 	ctx context.Context,
 	fila, messageID, reservaID string,
@@ -159,8 +137,6 @@ func (r *Reservas) aplicarDesfecho(
 		}
 
 		if tag.RowsAffected() == 0 {
-			// Nada mudou: ou a reserva não existe, ou já está finalizada. A
-			// distinção importa para a auditoria de divergência (FR-022).
 			var existe bool
 			if err := tx.QueryRow(ctx,
 				`SELECT EXISTS (SELECT 1 FROM reservas WHERE id = $1)`, reservaID).Scan(&existe); err != nil {
@@ -189,12 +165,10 @@ func (r *Reservas) aplicarDesfecho(
 	return resultado, err
 }
 
-// Confirmar torna a posse definitiva: reserva CONFIRMADA, poltronas OCUPADA.
 func (r *Reservas) Confirmar(ctx context.Context, fila, messageID, reservaID string, agora time.Time) (usecase.ResultadoTransicao, error) {
 	return r.aplicarDesfecho(ctx, fila, messageID, reservaID, agora, reserva.Confirmada, poltrona.Ocupada)
 }
 
-// Cancelar devolve as poltronas ao estoque: reserva CANCELADA, poltronas LIVRE.
 func (r *Reservas) Cancelar(ctx context.Context, fila, messageID, reservaID string, agora time.Time) (usecase.ResultadoTransicao, error) {
 	return r.aplicarDesfecho(ctx, fila, messageID, reservaID, agora, reserva.Cancelada, poltrona.Livre)
 }

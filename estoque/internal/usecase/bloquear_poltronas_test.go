@@ -78,7 +78,6 @@ func TestBloqueioPublicaFatoComRotulosEContexto(t *testing.T) {
 	if fato.RoutingKey != RoutingKeyReservaCriada {
 		t.Errorf("routing key = %q, esperado %q", fato.RoutingKey, RoutingKeyReservaCriada)
 	}
-	// Sem o contexto persistido, o span da publicação nasceria órfão (SC-009).
 	if fato.TraceContext["traceparent"] == "" {
 		t.Error("fato sem contexto de rastreamento")
 	}
@@ -90,7 +89,6 @@ func TestBloqueioPublicaFatoComRotulosEContexto(t *testing.T) {
 	if evento.Evento != "RESERVA_CRIADA" || evento.Versao != 1 {
 		t.Errorf("envelope = %s v%d", evento.Evento, evento.Versao)
 	}
-	// O fato devolve exatamente os rótulos recebidos, normalizados (FR-016).
 	if len(evento.PoltronasIDs) != 2 || evento.PoltronasIDs[0] != "A2" || evento.PoltronasIDs[1] != "A1" {
 		t.Errorf("poltronas_ids = %v, esperado [A2 A1]", evento.PoltronasIDs)
 	}
@@ -112,7 +110,6 @@ func TestBloqueioRecusadoPorIndisponibilidadeNaoEhErro(t *testing.T) {
 	if resultado.Concedido {
 		t.Fatal("esperava recusa por indisponibilidade")
 	}
-	// Tudo-ou-nada: A2 estava livre e não pode ter sido tocada (FR-002).
 	if got := estoque.statusDe(sessao, "A2"); got != poltrona.Livre {
 		t.Errorf("A2 = %s, esperado LIVRE — bloqueio recusado não altera estado", got)
 	}
@@ -139,7 +136,6 @@ func TestBloqueioRecusaSolicitacaoInvalida(t *testing.T) {
 			if !errors.Is(err, caso.erro) {
 				t.Fatalf("erro = %v, esperado %v", err, caso.erro)
 			}
-			// SC-007: nenhuma reserva criada, nenhum estado alterado.
 			if len(estoque.reservas) != 0 {
 				t.Errorf("solicitação inválida criou %d reserva(s)", len(estoque.reservas))
 			}
@@ -177,7 +173,6 @@ func TestBloqueioPropagaFalhaDoRepositorio(t *testing.T) {
 
 	_, err := montarBloqueio(estoque, novoPrazoFalso(), &logFalso{}).
 		Executar(context.Background(), sessao, usuario, []string{"A1"})
-	// FR-006: sem garantia de exclusividade, recusa-se — nunca se concede.
 	if !errors.Is(err, shared.ErrDependenciaIndisponivel) {
 		t.Fatalf("erro = %v, esperado ErrDependenciaIndisponivel", err)
 	}
@@ -191,8 +186,6 @@ func TestBloqueioSobreviveAoIndiceDePrazoIndisponivel(t *testing.T) {
 	log := &logFalso{}
 
 	resultado, err := montarBloqueio(estoque, prazo, log).Executar(context.Background(), sessao, usuario, []string{"A1"})
-	// research D2: o índice de prazo é conveniência; sua falha não invalida o
-	// bloqueio, só é registrada.
 	if err != nil {
 		t.Fatalf("falha do índice de prazo não pode derrubar o bloqueio: %v", err)
 	}

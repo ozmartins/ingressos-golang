@@ -12,15 +12,10 @@ import (
 	"github.com/oseias/ingressos-golang/pagamento/internal/usecase"
 )
 
-// T028 / SC-003: interrupção entre gravar o estado final e publicar. A reentrega
-// publica o resultado gravado, sem nova cobrança. É o caso que a coluna
-// resultado_anunciado existe para cobrir (FR-014).
 func TestReentregaPublicaResultadoPendenteSemRecobrar(t *testing.T) {
 	a := subirAmbiente(t)
 	ctx := context.Background()
 
-	// Simula o estado deixado por uma queda logo depois do Finalizar: transação
-	// PAGA e resultado_anunciado = false.
 	reserva := uuid.NewString()
 	usuario := uuid.NewString()
 	tr := transacao.Nova(uuid.NewString(), reserva, usuario, "84.00", transacao.PIX, time.Now().UTC())
@@ -40,7 +35,6 @@ func TestReentregaPublicaResultadoPendenteSemRecobrar(t *testing.T) {
 		t.Fatal("preparação inválida: o resultado não podia estar anunciado")
 	}
 
-	// O serviço volta e a fila reentrega a intenção.
 	adq := novoAdquirente(usecase.ResultadoCobranca{Desfecho: usecase.Aprovada, Codigo: "nao-deve-acontecer"})
 	_, parar := a.consumidorDe(t, adq, 4)
 	defer parar()

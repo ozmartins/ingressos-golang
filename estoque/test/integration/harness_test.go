@@ -26,7 +26,6 @@ func (r registrador) Info(msg string, args ...any)  { r.t.Logf("INFO  %s %v", ms
 func (r registrador) Warn(msg string, args ...any)  { r.t.Logf("WARN  %s %v", msg, args) }
 func (r registrador) Error(msg string, args ...any) { r.t.Logf("ERROR %s %v", msg, args) }
 
-// Cenario reúne o serviço montado sobre as dependências reais.
 type Cenario struct {
 	Banco     *postgres.Banco
 	Pool      *pgxpool.Pool
@@ -42,9 +41,6 @@ type Cenario struct {
 	Provisionar usecase.ProvisionarSessao
 }
 
-// montarCenario abre o banco e monta os casos de uso com relógio controlável.
-// Cada teste usa uma sessão própria, então não há necessidade de limpar tabelas
-// entre eles — e isso mantém a suíte paralelizável.
 func montarCenario(t *testing.T, comPrazo bool) *Cenario {
 	t.Helper()
 	ctx := context.Background()
@@ -91,8 +87,6 @@ func montarCenario(t *testing.T, comPrazo bool) *Cenario {
 	}
 }
 
-// novaSessao provisiona uma sessão com fileiras × assentos poltronas e devolve
-// o identificador. Usa o caminho real de provisionamento (FR-033).
 func (c *Cenario) novaSessao(t *testing.T, fileiras []string, assentos int) string {
 	t.Helper()
 
@@ -118,7 +112,6 @@ func (c *Cenario) novaSessao(t *testing.T, fileiras []string, assentos int) stri
 	return sessaoID
 }
 
-// statusPoltrona lê o estado corrente direto do banco.
 func (c *Cenario) statusPoltrona(t *testing.T, sessaoID, rotulo string) poltrona.Status {
 	t.Helper()
 	var status string
@@ -130,7 +123,6 @@ func (c *Cenario) statusPoltrona(t *testing.T, sessaoID, rotulo string) poltrona
 	return poltrona.Status(status)
 }
 
-// statusReserva lê o estado corrente da reserva.
 func (c *Cenario) statusReserva(t *testing.T, reservaID string) string {
 	t.Helper()
 	var status string
@@ -142,7 +134,6 @@ func (c *Cenario) statusReserva(t *testing.T, reservaID string) string {
 	return status
 }
 
-// contarPorStatus conta as poltronas de uma sessão em cada estado.
 func (c *Cenario) contarPorStatus(t *testing.T, sessaoID string) map[string]int {
 	t.Helper()
 	linhas, err := c.Pool.Query(context.Background(),

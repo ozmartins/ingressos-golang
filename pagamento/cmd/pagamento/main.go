@@ -1,8 +1,3 @@
-// Command pagamento é o Servico-Pagamento: consome reserva.criada, cobra e
-// anuncia o desfecho; e serve a consulta de andamento.
-//
-// Este arquivo é o único lugar onde adaptadores concretos encontram os casos de
-// uso. Nada abaixo de internal/usecase sabe que existe Postgres ou RabbitMQ.
 package main
 
 import (
@@ -37,14 +32,12 @@ func (ids) Novo() string { return uuid.NewString() }
 
 func main() {
 	if err := executar(); err != nil {
-		// Sem logger ainda configurado em alguns caminhos: stderr direto.
 		os.Stderr.WriteString("pagamento: " + err.Error() + "\n")
 		os.Exit(1)
 	}
 }
 
 func executar() error {
-	// Configuração validada uma vez. Falta ou valor malformado impede subir.
 	cfg, err := config.Carregar()
 	if err != nil {
 		return err

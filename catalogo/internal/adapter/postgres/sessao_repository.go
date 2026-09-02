@@ -21,12 +21,6 @@ type SessaoRepository struct{ pool *pgxpool.Pool }
 
 func NovoSessaoRepository(p *pgxpool.Pool) *SessaoRepository { return &SessaoRepository{pool: p} }
 
-// Consultar devolve uma página da grade, com filme, cinema e sala já resolvidos.
-//
-// As junções são INTERNAS de propósito: uma sessão cujo filme ou sala não existe
-// mais é omitida em vez de virar linha incompleta ou derrubar a consulta inteira.
-// A discrepância entre o total bruto e o resolvido é registrada como aviso,
-// porque indica dado inconsistente que alguém precisa olhar.
 func (r *SessaoRepository) Consultar(
 	ctx context.Context,
 	filtro usecase.FiltroSessoes,
@@ -48,8 +42,6 @@ func (r *SessaoRepository) Consultar(
 		condicoes = append(condicoes, fmt.Sprintf("sa.cinema_id = $%d", len(filtros)))
 	}
 	if filtro.Data != nil {
-		// Intervalo [dia, dia+1) em vez de DATE(coluna) = valor: aplicar função
-		// sobre a coluna descartaria o índice.
 		inicio := time.Date(filtro.Data.Ano, time.Month(filtro.Data.Mes), filtro.Data.Dia, 0, 0, 0, 0, time.UTC)
 		filtros = append(filtros, inicio, inicio.AddDate(0, 0, 1))
 		condicoes = append(condicoes, fmt.Sprintf("s.data_hora_inicio >= $%d AND s.data_hora_inicio < $%d", len(filtros)-1, len(filtros)))
@@ -99,12 +91,9 @@ func (r *SessaoRepository) Consultar(
 	return pagina, nil
 }
 
-// avisarSobreSessoesOrfas compara o total resolvido pelas junções com o total
-// bruto de sessões visíveis. Diferença significa sessão apontando para filme ou
-// sala inexistente.
 func (r *SessaoRepository) avisarSobreSessoesOrfas(ctx context.Context, filtro usecase.FiltroSessoes, totalResolvido int) {
 	if filtro.CinemaID != "" || filtro.Data != nil || filtro.FilmeID != "" {
-		return // a comparação só é barata e significativa sem filtros
+		return
 	}
 	visiveis := make([]string, len(catalogo.StatusVisiveisNaGrade))
 	for i, st := range catalogo.StatusVisiveisNaGrade {
@@ -121,7 +110,6 @@ func (r *SessaoRepository) avisarSobreSessoesOrfas(ctx context.Context, filtro u
 	}
 }
 
-// BuscarPorID devolve a sessão para a verificação que antecede a reserva.
 func (r *SessaoRepository) BuscarPorID(ctx context.Context, sessaoID string) (catalogo.Sessao, error) {
 	const sql = `SELECT id, filme_id, sala_id, data_hora_inicio, idioma, preco_base, status
 	             FROM sessoes WHERE id = $1`

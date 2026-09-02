@@ -30,7 +30,6 @@ func TestConsultarMapaDevolveEstadoCorrente(t *testing.T) {
 		}
 	}
 
-	// Depois de um bloqueio, a consulta reflete o estado corrente (FR-030).
 	if _, err := cliente.BloquearPoltronas(context.Background(), &pb.SolicitacaoBloqueio{
 		SessaoId: sessaoProvisionada, PoltronasIds: []string{"A1"}, UsuarioId: usuario,
 	}); err != nil {

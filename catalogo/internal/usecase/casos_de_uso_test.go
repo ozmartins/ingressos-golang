@@ -11,8 +11,6 @@ import (
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/shared"
 )
 
-// --- dublês das portas -------------------------------------------------------
-
 type filmeRepoFalso struct {
 	filtroRecebido   FiltroFilmes
 	publicosRecebido []catalogo.StatusFilme
@@ -71,8 +69,6 @@ func pagina() shared.PageRequest {
 	return p
 }
 
-// --- listar filmes -----------------------------------------------------------
-
 func TestListarFilmesSemFiltroAplicaRecortePublico(t *testing.T) {
 	repo := &filmeRepoFalso{}
 	_, err := ListarFilmes{Repo: repo}.Executar(context.Background(), FiltroFilmes{}, pagina())
@@ -104,8 +100,6 @@ func TestListarFilmesComFiltroExplicitoRespeitaOPedido(t *testing.T) {
 	}
 }
 
-// --- listar salas ------------------------------------------------------------
-
 func TestListarSalasRecusaCinemaInexistente(t *testing.T) {
 	salas := &salaRepoFalso{}
 	_, err := ListarSalas{Cinemas: &cinemaRepoFalso{existe: false}, Salas: salas}.
@@ -114,13 +108,9 @@ func TestListarSalasRecusaCinemaInexistente(t *testing.T) {
 		t.Fatalf("esperava ErrNaoEncontrado, obteve %v", err)
 	}
 	if salas.chamado {
-		// Sem essa checagem, cinema inexistente devolveria página vazia,
-		// indistinguível de cinema real sem salas.
 		t.Fatal("não deveria consultar salas de um cinema inexistente")
 	}
 }
-
-// --- reservar poltronas ------------------------------------------------------
 
 func sessaoReservavel() catalogo.Sessao {
 	return catalogo.Sessao{
@@ -153,7 +143,6 @@ func TestReservarCaminhoFeliz(t *testing.T) {
 	}
 }
 
-// Cada recusa local é uma ida à rede que não acontece.
 func TestReservarNaoChamaEstoqueQuandoRecusaLocalmente(t *testing.T) {
 	casos := []struct {
 		nome        string
@@ -206,7 +195,6 @@ func TestReservarRecusaSessaoQueNaoAceitaMais(t *testing.T) {
 		{ID: "s", Status: catalogo.SessaoCancelada, DataHoraInicio: agoraFixo().Add(time.Hour)},
 		{ID: "s", Status: catalogo.SessaoFinalizada, DataHoraInicio: agoraFixo().Add(-time.Hour)},
 		{ID: "s", Status: catalogo.SessaoEmAndamento, DataHoraInicio: agoraFixo().Add(-time.Hour)},
-		// Agendada porém já iniciada: a transição de status é externa e atrasa.
 		{ID: "s", Status: catalogo.SessaoAgendada, DataHoraInicio: agoraFixo().Add(-time.Minute)},
 	} {
 		est := &estoqueFalso{}
@@ -222,7 +210,6 @@ func TestReservarRecusaSessaoQueNaoAceitaMais(t *testing.T) {
 }
 
 func TestReservarRecusaSucessoSemDadosObrigatorios(t *testing.T) {
-	// O estoque alegar sucesso sem identificador não pode virar 201.
 	est := &estoqueFalso{resultado: reserva.ResultadoReserva{ExpiraEm: agoraFixo()}}
 	uc := ReservarPoltronas{Sessoes: &sessaoRepoFalso{sessao: sessaoReservavel()}, Estoque: est, Agora: agoraFixo}
 	_, err := uc.Executar(context.Background(), solicitacao())

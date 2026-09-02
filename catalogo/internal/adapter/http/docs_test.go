@@ -11,8 +11,6 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-// documento é a fatia do OpenAPI que interessa à paridade: quais caminhos
-// existem, sob qual servidor, e com quais métodos.
 type documento struct {
 	Servers []servidor                      `yaml:"servers"`
 	Paths   map[string]map[string]yaml.Node `yaml:"paths"`
@@ -22,16 +20,11 @@ type servidor struct {
 	URL string `yaml:"url"`
 }
 
-// metodosHTTP são as chaves de um path item que denotam operação. As demais
-// (servers, parameters, summary...) descrevem o caminho, não uma operação.
 var metodosHTTP = map[string]bool{
 	"get": true, "put": true, "post": true, "delete": true,
 	"patch": true, "head": true, "options": true, "trace": true,
 }
 
-// A documentação só vale enquanto descreve o serviço que está no ar. Este teste
-// é o que impede que ela envelheça em silêncio: rota nova sem contrato, ou
-// contrato descrevendo rota que não existe mais, quebra o build.
 func TestContratoEParidadeComAsRotasRegistradas(t *testing.T) {
 	var doc documento
 	if err := yaml.Unmarshal(openapi.Especificacao, &doc); err != nil {
@@ -45,8 +38,6 @@ func TestContratoEParidadeComAsRotasRegistradas(t *testing.T) {
 	documentadas := map[string]bool{}
 	for caminho, item := range doc.Paths {
 		prefixo := prefixoPadrao
-		// Um path item pode sobrescrever o servidor — é como /health fica fora
-		// do prefixo versionado.
 		if node, ok := item["servers"]; ok {
 			var locais []servidor
 			if err := node.Decode(&locais); err != nil {
@@ -97,9 +88,6 @@ func ordenar(m map[string]bool) []string {
 }
 
 func TestDocumentacaoEhServidaSemAutenticacao(t *testing.T) {
-	// Só o mínimo para o roteador montar. O Verificador fica nil de propósito:
-	// se alguma destas rotas passasse pelo middleware de autenticação, ela
-	// entraria em pânico em vez de responder — que é exatamente o sinal desejado.
 	router := NovoRouter(Dependencias{
 		Saude: func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) },
 	})

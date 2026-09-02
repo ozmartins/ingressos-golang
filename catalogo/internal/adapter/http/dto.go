@@ -8,8 +8,6 @@ import (
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/shared"
 )
 
-// paginacaoDTO acompanha toda coleção. Total e tem_proxima existem para o
-// cliente navegar sem adivinhar (FR-003).
 type paginacaoDTO struct {
 	Pagina     int  `json:"pagina"`
 	Tamanho    int  `json:"tamanho"`
@@ -17,10 +15,6 @@ type paginacaoDTO struct {
 	TemProxima bool `json:"tem_proxima"`
 }
 
-// paginaDTO é o envelope de toda resposta de coleção.
-//
-// Diverge da ERS original, que mostrava arrays nus: um array não comporta o
-// total nem a indicação de próxima página.
 type paginaDTO[T any] struct {
 	Itens  []T          `json:"itens"`
 	Pagina paginacaoDTO `json:"pagina"`
@@ -96,9 +90,7 @@ type sessaoDTO struct {
 	TipoTela       string `json:"tipo_tela"`
 	DataHoraInicio string `json:"data_hora_inicio"`
 	Idioma         string `json:"idioma"`
-	// PrecoBase é texto para preservar a exatidão decimal: em JSON, número vira
-	// float64 no cliente e 42.00 deixa de ser 42.00.
-	PrecoBase string `json:"preco_base"`
+	PrecoBase      string `json:"preco_base"`
 }
 
 func paraSessaoDTO(s catalogo.SessaoDetalhada) sessaoDTO {

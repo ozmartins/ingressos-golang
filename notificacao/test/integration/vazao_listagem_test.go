@@ -13,15 +13,8 @@ import (
 	"github.com/oseias/ingressos-golang/notificacao/internal/usecase"
 )
 
-// Volume que SC-009 fixa como alvo verificável: 200 ingressos no histórico de
-// uma pessoa.
 const historicoAlvo = 200
 
-// SC-009: a listagem completa responde em menos de 2 s no percentil 95, com
-// 200 ingressos no histórico.
-//
-// Sem esta medição, SC-009 seria uma promessa que nenhum teste cobra — foi
-// exatamente a lacuna que o /speckit-analyze apontou.
 func TestListagemDe200IngressosRespondeDentroDoPrazo(t *testing.T) {
 	a := subirAmbiente(t)
 	usuario := uuid.NewString()
@@ -59,7 +52,6 @@ func TestListagemDe200IngressosRespondeDentroDoPrazo(t *testing.T) {
 	}
 }
 
-// FR-023: a ordenação é do contrato, e o desempate por id a torna determinística.
 func TestListagemVemOrdenadaDoMaisRecenteAoMaisAntigo(t *testing.T) {
 	a := subirAmbiente(t)
 	usuario := uuid.NewString()
@@ -89,7 +81,6 @@ func TestListagemVemOrdenadaDoMaisRecenteAoMaisAntigo(t *testing.T) {
 		}
 	}
 
-	// E o filtro preserva a ordem.
 	validos, err := usecase.ListarIngressos{Ingressos: a.Ingressos}.
 		Executar(context.Background(), usuario, string(ingresso.Valido))
 	if err != nil {
@@ -100,7 +91,6 @@ func TestListagemVemOrdenadaDoMaisRecenteAoMaisAntigo(t *testing.T) {
 	}
 }
 
-// percentil devolve o valor no percentil pedido, ordenando uma cópia.
 func percentil(ds []time.Duration, p float64) time.Duration {
 	c := append([]time.Duration(nil), ds...)
 	sort.Slice(c, func(i, j int) bool { return c[i] < c[j] })

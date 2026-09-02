@@ -7,10 +7,6 @@ import (
 	"go.opentelemetry.io/otel"
 )
 
-// Este teste existe por causa de um defeito real: a versão do semconv divergia
-// da do SDK, resource.Merge recusava juntar os esquemas, e o processo morria na
-// inicialização. Nada acusava, porque nenhum teste chamava Iniciar — só a
-// execução do binário revelava. Agora acusa.
 func TestIniciarSemColetorConfigurado(t *testing.T) {
 	metricas, encerrar, err := Iniciar(context.Background(), "")
 	if err != nil {
@@ -28,8 +24,6 @@ func TestIniciarSemColetorConfigurado(t *testing.T) {
 	}
 }
 
-// A ausência de coletor não pode desligar a propagação: repassar o contexto
-// recebido é obrigação do serviço, não função do observador.
 func TestPropagacaoW3CEstaInstaladaSempre(t *testing.T) {
 	p := otel.GetTextMapPropagator()
 	if p == nil {
@@ -47,9 +41,6 @@ func TestPropagacaoW3CEstaInstaladaSempre(t *testing.T) {
 	}
 }
 
-// Os quatro desfechos que FR-035 exige, mais o de negócio, precisam existir como
-// rótulos distintos — T048 depende deles para provar que uma recusa local não
-// contata o estoque.
 func TestRotulosDeDesfechoSaoDistintos(t *testing.T) {
 	vistos := map[string]bool{}
 	for _, d := range []string{

@@ -8,19 +8,12 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/shared"
 )
 
-// Solicitacao é o pedido de bloqueio já validado. Construí-la é a primeira
-// coisa que o caso de uso faz: solicitação inválida não gasta transação de
-// banco nem trava linha nenhuma (FR-003, FR-004).
 type Solicitacao struct {
 	SessaoID  string
 	UsuarioID string
 	Rotulos   []string
 }
 
-// NovaSolicitacao valida o pedido bruto e devolve a solicitação canônica, com
-// rótulos normalizados em maiúsculas.
-//
-// limite é o máximo de poltronas por bloqueio (configurável, padrão 10).
 func NovaSolicitacao(sessaoID, usuarioID string, rotulos []string, limite int) (Solicitacao, error) {
 	sessaoID = strings.TrimSpace(sessaoID)
 	usuarioID = strings.TrimSpace(usuarioID)
@@ -28,8 +21,6 @@ func NovaSolicitacao(sessaoID, usuarioID string, rotulos []string, limite int) (
 	if sessaoID == "" {
 		return Solicitacao{}, fmt.Errorf("%w: sessão não informada", shared.ErrSolicitacaoInvalida)
 	}
-	// A identidade da pessoa vem do chamador já autenticado e é tratada como
-	// confiável (FR-038); só se exige que esteja presente.
 	if usuarioID == "" {
 		return Solicitacao{}, fmt.Errorf("%w: identidade da pessoa usuária não informada", shared.ErrSolicitacaoInvalida)
 	}

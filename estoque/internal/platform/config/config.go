@@ -1,6 +1,3 @@
-// Package config lê e valida toda a configuração de ambiente uma única vez, na
-// largada. Constituição, princípio II: o processo recusa subir com variável
-// obrigatória ausente ou malformada — falhar alto é barato.
 package config
 
 import (
@@ -12,18 +9,13 @@ import (
 	"time"
 )
 
-// ModoTLS define a exigência de identidade de serviço do chamador.
 type ModoTLS string
 
 const (
-	// TLSExigido recusa qualquer chamador sem certificado válido (padrão de produção).
-	TLSExigido ModoTLS = "require"
-	// TLSDesligado serve em texto claro. Aceitável apenas em desenvolvimento,
-	// enquanto o Servico-Catalogo não apresenta certificado de cliente.
+	TLSExigido   ModoTLS = "require"
 	TLSDesligado ModoTLS = "off"
 )
 
-// Config é a configuração completa do serviço.
 type Config struct {
 	DatabaseURL string
 	RedisURL    string
@@ -31,12 +23,8 @@ type Config struct {
 
 	GRPCAddr  string
 	AdminAddr string
-	// HTTPAddr é a porta da API REST de negócio, separada da administração:
-	// saúde e métricas são para a operação, os bloqueios são para o cliente.
-	HTTPAddr string
+	HTTPAddr  string
 
-	// Credenciais da API REST. O canal gRPC continua se autenticando por mTLS;
-	// o REST atende o cliente final, cuja identidade vem de um JWT do Keycloak.
 	JWKSURL     string
 	JWTIssuer   string
 	JWTAudience string
@@ -103,9 +91,6 @@ func (c *coletor) inteiro(chave, padrao string) int {
 	return n
 }
 
-// Carregar lê o ambiente e devolve a configuração validada. Todo problema
-// encontrado é reportado de uma vez, para que quem sobe o serviço não descubra
-// as variáveis erradas uma por execução.
 func Carregar() (*Config, error) {
 	c := &coletor{}
 
@@ -139,8 +124,6 @@ func Carregar() (*Config, error) {
 
 	switch cfg.TLSClientAuth {
 	case TLSExigido:
-		// Com mTLS exigido, o material é obrigatório: subir sem ele significaria
-		// servir sem a garantia que o requisito promete (FR-037).
 		if cfg.TLSCertFile == "" {
 			c.falta("TLS_CERT_FILE", "obrigatório quando TLS_CLIENT_AUTH=require")
 		}
@@ -151,7 +134,6 @@ func Carregar() (*Config, error) {
 			c.falta("TLS_CLIENT_CA_FILE", "obrigatório quando TLS_CLIENT_AUTH=require")
 		}
 	case TLSDesligado:
-		// Permitido apenas em desenvolvimento; registrado na largada pelo main.
 	default:
 		c.falta("TLS_CLIENT_AUTH", fmt.Sprintf("valor não reconhecido (%q); use require ou off", cfg.TLSClientAuth))
 	}
@@ -162,6 +144,4 @@ func Carregar() (*Config, error) {
 	return cfg, nil
 }
 
-// ErrRedisAusente indica que o índice de prazo não foi configurado. Não é erro
-// de largada: sem Redis a liberação continua acontecendo pela varredura (D2/D4).
 var ErrRedisAusente = errors.New("REDIS_URL não configurado; expiração fica só com a varredura")

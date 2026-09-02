@@ -1,7 +1,3 @@
-// Package observability concentra logs estruturados, métricas e rastreamento.
-// Constituição, Restrições Técnicas: cada requisição e cada mensagem consumida
-// emite registro com correlação, operação, desfecho e duração; o contexto de
-// rastreamento recebido é propagado às chamadas de saída E aos fatos publicados.
 package observability
 
 import (
@@ -26,7 +22,6 @@ import (
 
 const nomeServico = "servico-estoque"
 
-// Observabilidade agrupa o que o resto do serviço precisa para se instrumentar.
 type Observabilidade struct {
 	Log        *slog.Logger
 	Tracer     trace.Tracer
@@ -36,15 +31,10 @@ type Observabilidade struct {
 	desligar []func(context.Context) error
 }
 
-// Iniciar monta logger, tracer e medidor. Sem endpoint OTLP configurado, o
-// serviço continua funcionando: apenas não exporta — a ausência de coletor não
-// é motivo para recusar tráfego.
 func Iniciar(ctx context.Context, nivel, endpointOTLP string) (*Observabilidade, error) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: parseNivel(nivel)}))
 	slog.SetDefault(log)
 
-	// O propagador W3C é o que liga bloqueio e desfecho de pagamento através do
-	// broker (FR-044, SC-009).
 	propagador := propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{}, propagation.Baggage{},
 	)
@@ -89,7 +79,6 @@ func Iniciar(ctx context.Context, nivel, endpointOTLP string) (*Observabilidade,
 	return obs, nil
 }
 
-// Desligar drena os exportadores.
 func (o *Observabilidade) Desligar(ctx context.Context) {
 	for _, f := range o.desligar {
 		if err := f(ctx); err != nil {
@@ -98,9 +87,6 @@ func (o *Observabilidade) Desligar(ctx context.Context) {
 	}
 }
 
-// LogOperacao emite o registro estruturado exigido para toda operação e todo
-// consumo: correlação, operação, desfecho e duração. Dados sensíveis não entram
-// aqui — o chamador passa apenas identificadores.
 func (o *Observabilidade) LogOperacao(ctx context.Context, operacao, desfecho string, inicio time.Time, extras ...any) {
 	campos := []any{
 		"operacao", operacao,
@@ -117,8 +103,6 @@ func (o *Observabilidade) LogOperacao(ctx context.Context, operacao, desfecho st
 	o.Log.InfoContext(ctx, "operação concluída", campos...)
 }
 
-// TraceID devolve o identificador de correlação do contexto, ou vazio quando
-// não há span ativo.
 func TraceID(ctx context.Context) string {
 	sc := trace.SpanContextFromContext(ctx)
 	if !sc.IsValid() {
@@ -127,7 +111,6 @@ func TraceID(ctx context.Context) string {
 	return sc.TraceID().String()
 }
 
-// Atributo é açúcar para métricas rotuladas por desfecho.
 func Atributo(chave, valor string) attribute.KeyValue { return attribute.String(chave, valor) }
 
 func parseNivel(nivel string) slog.Level {

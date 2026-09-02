@@ -13,10 +13,6 @@ import (
 	"github.com/oseias/ingressos-golang/notificacao/internal/usecase"
 )
 
-// SC-001: entregas simultâneas da mesma reserva produzem UM ingresso.
-//
-// Aqui a garantia é provada onde ela realmente mora: na restrição
-// UNIQUE (reserva_id) de um PostgreSQL de verdade, com transações concorrentes.
 func TestEntregasSimultaneasEmitemUmIngresso(t *testing.T) {
 	a := subirAmbiente(t)
 	caso := a.caso(false)
@@ -51,7 +47,6 @@ func TestEntregasSimultaneasEmitemUmIngresso(t *testing.T) {
 		t.Errorf("%d ingressos gravados, queria exatamente 1 (SC-001)", got)
 	}
 
-	// E exatamente um aviso: as entregas inertes não avisam de novo (D6).
 	var avisos int
 	if err := a.Pool.QueryRow(context.Background(),
 		`SELECT count(*) FROM registros_notificacao`).Scan(&avisos); err != nil {
@@ -62,7 +57,6 @@ func TestEntregasSimultaneasEmitemUmIngresso(t *testing.T) {
 	}
 }
 
-// Percurso completo: anúncio publicado → ingresso consultável.
 func TestPercursoDoAnuncioAoIngresso(t *testing.T) {
 	a := subirAmbiente(t)
 	c := a.consumidor(t, false)
@@ -90,8 +84,6 @@ func TestPercursoDoAnuncioAoIngresso(t *testing.T) {
 	if i.ReservaID != reserva {
 		t.Errorf("reserva = %q, queria %q", i.ReservaID, reserva)
 	}
-	// O código gravado é verificável pelo mesmo assinador — se não fosse, a
-	// portaria não conseguiria validar o que foi emitido.
 	id, err := a.Assinador.Verificar(i.CodigoQR)
 	if err != nil || id != i.ID {
 		t.Errorf("o código emitido não se verifica: id=%q err=%v", id, err)
@@ -102,8 +94,6 @@ func TestPercursoDoAnuncioAoIngresso(t *testing.T) {
 	})
 }
 
-// FR-002 e FR-022: anúncio malformado vai DIRETO para a quarentena, sem
-// retentativa. Se fosse retentado, a fila morta demoraria três entregas.
 func TestAnuncioMalformadoVaiDiretoParaAQuarentena(t *testing.T) {
 	a := subirAmbiente(t)
 	c := a.consumidor(t, false)
@@ -125,18 +115,10 @@ func TestAnuncioMalformadoVaiDiretoParaAQuarentena(t *testing.T) {
 	}
 }
 
-// FR-022: o limite de entregas significa TENTATIVAS, não reentregas.
-//
-// É a verificação da tradução do x-delivery-limit (research.md D5): com o
-// limite em 3, a mensagem é processada três vezes e só então vai para a fila
-// morta. Herdei o achado do Servico-Pagamento e o reverifico aqui em vez de
-// aceitá-lo de segunda mão (princípio III).
 func TestFalhaTransitoriaRetentaAteOLimiteEEntaoVaiParaAQuarentena(t *testing.T) {
 	a := subirAmbiente(t)
 	c := a.consumidor(t, false)
 
-	// Derruba o banco fechando o pool: toda gravação passa a falhar de forma
-	// transitória, que é exatamente o caso da FR-022.
 	a.Pool.Close()
 
 	ctx, parar := context.WithCancel(context.Background())

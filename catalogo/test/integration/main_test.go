@@ -1,10 +1,5 @@
 //go:build integration
 
-// Package integration exercita os adaptadores contra um PostgreSQL real.
-//
-// Mock de banco provaria apenas que o código chama o driver. O que precisa de
-// prova aqui é o SQL: junções, ordenação, contagem na mesma consulta e o tipo
-// decimal — nada disso sobrevive a um dublê.
 package integration
 
 import (
@@ -78,7 +73,6 @@ func aplicarMigracoes(ctx context.Context) error {
 	return nil
 }
 
-// carregarFixtures deixa o banco no estado conhecido antes de cada teste.
 func carregarFixtures(t *testing.T) {
 	t.Helper()
 	ctx := context.Background()
@@ -94,16 +88,9 @@ func carregarFixtures(t *testing.T) {
 	}
 }
 
-// TestSchemaProprio prova que o serviço não usa `public`: as consultas dos
-// repositórios não qualificam a tabela, então é o `search_path` do pool que
-// decide onde elas caem. Se alguém remover essa configuração ou desqualificar
-// as migrações, as tabelas voltam para `public` e este teste falha.
 func TestSchemaProprio(t *testing.T) {
 	ctx := context.Background()
 
-	// O `search_path` efetivo, não o schema resolvido: como o usuário do banco
-	// também se chama `catalogo`, o padrão `"$user", public` acertaria o schema
-	// por coincidência de nome e esconderia a falta da configuração no pool.
 	var searchPath string
 	if err := pool.QueryRow(ctx, `SELECT current_setting('search_path')`).Scan(&searchPath); err != nil {
 		t.Fatalf("consultando search_path: %v", err)

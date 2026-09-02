@@ -44,7 +44,6 @@ func TestParseStatusFilme(t *testing.T) {
 	if err == nil {
 		t.Fatal("esperava recusa de status desconhecido")
 	}
-	// FR-009: o erro precisa dizer quais valores são aceitos.
 	for _, v := range []string{"EM_CARTAZ", "BREVE", "FORA_DE_CARTAZ"} {
 		if !contains(err.Error(), v) {
 			t.Errorf("mensagem não lista %s: %s", v, err)
@@ -64,7 +63,6 @@ func contains(s, sub string) bool {
 }
 
 func TestDinheiroPreservaExatidao(t *testing.T) {
-	// 42.00 tem que continuar 42.00: é o motivo de não usar float64.
 	d := DinheiroDeCentavos(4200)
 	if d.String() != "42.00" {
 		t.Fatalf("esperava 42.00, obteve %s", d.String())

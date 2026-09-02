@@ -9,9 +9,6 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/usecase"
 )
 
-// enfileirarFato grava o fato na caixa de saída, dentro da transação que o
-// produziu. É isso que garante que o evento sobreviva a um broker fora do ar
-// sem duplicar a reserva (FR-018, SC-005).
 func enfileirarFato(ctx context.Context, tx pgx.Tx, fato usecase.FatoPendente) error {
 	var traceJSON []byte
 	if len(fato.TraceContext) > 0 {
@@ -33,7 +30,6 @@ func enfileirarFato(ctx context.Context, tx pgx.Tx, fato usecase.FatoPendente) e
 	return nil
 }
 
-// FatoNaCaixa é uma linha pendente de publicação.
 type FatoNaCaixa struct {
 	ID           int64
 	MessageID    string
@@ -42,10 +38,6 @@ type FatoNaCaixa struct {
 	TraceContext map[string]string
 }
 
-// PendentesParaPublicar reserva um lote de fatos ainda não publicados.
-//
-// SKIP LOCKED permite que mais de uma instância publique ao mesmo tempo sem
-// republicar a mesma linha.
 func (b *Banco) PendentesParaPublicar(ctx context.Context, limite int, fn func(FatoNaCaixa) error) (int, error) {
 	publicados := 0
 
@@ -81,8 +73,6 @@ func (b *Banco) PendentesParaPublicar(ctx context.Context, limite int, fn func(F
 
 		for _, f := range lote {
 			if err := fn(f); err != nil {
-				// Falha de publicação: conta a tentativa e deixa a linha
-				// pendente. O próximo ciclo tenta de novo (FR-018).
 				if _, errTent := tx.Exec(ctx,
 					`UPDATE outbox_eventos SET tentativas = tentativas + 1 WHERE id = $1`, f.ID); errTent != nil {
 					return indisponivel(errTent)

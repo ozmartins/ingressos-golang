@@ -1,6 +1,3 @@
-// Package config lê e valida a configuração de ambiente uma única vez, na
-// inicialização. Constituição, princípio II: nada embutido no artefato, e o
-// processo recusa subir com configuração incompleta ou malformada.
 package config
 
 import (
@@ -12,8 +9,6 @@ import (
 	"time"
 )
 
-// TimeoutEstoqueMaximo é o teto absoluto imposto pela especificação (FR-027).
-// Configuração que peça mais que isso é recusada.
 const TimeoutEstoqueMaximo = 2 * time.Second
 
 type Config struct {
@@ -42,9 +37,6 @@ type erroCampo struct {
 	motivo string
 }
 
-// Carregar lê o ambiente e devolve a configuração validada. O erro agrega todos
-// os campos problemáticos de uma vez: descobrir um por reinicialização é ruim
-// para quem opera.
 func Carregar() (Config, error) {
 	var falhas []erroCampo
 

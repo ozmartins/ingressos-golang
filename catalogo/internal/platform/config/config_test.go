@@ -47,7 +47,6 @@ func TestCarregarRecusaVariavelObrigatoriaAusente(t *testing.T) {
 }
 
 func TestCarregarAgregaTodasAsFalhas(t *testing.T) {
-	// Quem opera precisa ver tudo de uma vez, não uma falha por reinicialização.
 	t.Setenv("DATABASE_URL", "")
 	t.Setenv("KEYCLOAK_ISSUER_URL", "")
 	t.Setenv("KEYCLOAK_AUDIENCE", "")
@@ -72,7 +71,6 @@ func TestCarregarRecusaValorMalformado(t *testing.T) {
 }
 
 func TestCarregarRecusaTimeoutAcimaDoTetoDaEspecificacao(t *testing.T) {
-	// FR-027 fixa 2s como teto; configuração não pode afrouxar um requisito.
 	ambienteMinimo(t)
 	t.Setenv("ESTOQUE_TIMEOUT", "10s")
 	if _, err := Carregar(); err == nil || !strings.Contains(err.Error(), "ESTOQUE_TIMEOUT") {

@@ -11,21 +11,12 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/usecase"
 )
 
-// chaveVarredura é o identificador do advisory lock que serializa a varredura
-// entre instâncias. Valor arbitrário, mas fixo.
 const chaveVarredura int64 = 8_201_477_301
 
-// ExpirarVencidas invalida em lote as reservas cujo prazo venceu e devolve os
-// identificadores afetados.
-//
-// É o caminho autoritativo da expiração: cobre inclusive as reservas que
-// venceram enquanto o serviço estava fora do ar (FR-013, SC-008).
 func (r *Reservas) ExpirarVencidas(ctx context.Context, agora time.Time, limite int) ([]string, error) {
 	var ids []string
 
 	err := r.banco.EmTransacao(ctx, func(tx pgx.Tx) error {
-		// Só uma instância varre por vez. Sem espera: se outra está varrendo,
-		// esta passada simplesmente não faz nada.
 		var obtido bool
 		if err := tx.QueryRow(ctx, `SELECT pg_try_advisory_xact_lock($1)`, chaveVarredura).Scan(&obtido); err != nil {
 			return indisponivel(err)
@@ -64,7 +55,6 @@ func (r *Reservas) ExpirarVencidas(ctx context.Context, agora time.Time, limite 
 			return nil
 		}
 
-		// As poltronas voltam ao estoque na mesma transação (FR-015).
 		_, err = tx.Exec(ctx, `
 			UPDATE poltronas
 			   SET status = $2, atualizado_em = now()
@@ -82,8 +72,6 @@ func (r *Reservas) ExpirarVencidas(ctx context.Context, agora time.Time, limite 
 	return ids, nil
 }
 
-// ExpirarUma invalida uma reserva específica, se ainda pendente e vencida.
-// É o gatilho pronto, disparado pela notificação de prazo do Redis.
 func (r *Reservas) ExpirarUma(ctx context.Context, reservaID string, agora time.Time) (usecase.ResultadoTransicao, error) {
 	resultado := usecase.TransicaoIgnoradaInexistente
 
@@ -103,7 +91,6 @@ func (r *Reservas) ExpirarUma(ctx context.Context, reservaID string, agora time.
 				return indisponivel(err)
 			}
 			if existe {
-				// Confirmada, cancelada, ou ainda dentro do prazo: nada a fazer.
 				resultado = usecase.TransicaoIgnoradaEstadoFinal
 			}
 			return nil

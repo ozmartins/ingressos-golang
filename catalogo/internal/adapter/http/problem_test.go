@@ -24,7 +24,6 @@ func executar(t *testing.T, fn func(w http.ResponseWriter, r *http.Request)) (*h
 	return w, p
 }
 
-// As dez categorias de contracts/errors.md, com o status que cada uma promete.
 func TestTodasAsCategoriasDoContrato(t *testing.T) {
 	casos := []struct {
 		categoria string
@@ -103,7 +102,6 @@ func TestErroDeDominioMapeiaParaCategoria(t *testing.T) {
 	}
 }
 
-// Constituição, princípio IV: detalhe interno vai para o log, nunca para a resposta.
 func TestNaoVazaDetalheInterno(t *testing.T) {
 	interno := errors.New(`pq: relation "sessoes" does not exist (host=10.0.0.5 port=5432)`)
 	_, p := executar(t, func(w http.ResponseWriter, r *http.Request) {
@@ -117,7 +115,6 @@ func TestNaoVazaDetalheInterno(t *testing.T) {
 	}
 }
 
-// O sentinela já está codificado no type; repeti-lo no detail é ruído.
 func TestDetailNaoRepeteONomeDoSentinela(t *testing.T) {
 	_, p := executar(t, func(w http.ResponseWriter, r *http.Request) {
 		EscreverErroDeDominio(w, r, fmt.Errorf("%w: page deve ser maior ou igual a 1", shared.ErrValidacao), "")

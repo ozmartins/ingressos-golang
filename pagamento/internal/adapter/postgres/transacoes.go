@@ -1,6 +1,3 @@
-// Package postgres é o adaptador de persistência. O SQL é escrito à mão de
-// propósito: o ON CONFLICT abaixo é a garantia central do serviço, e um ORM o
-// esconderia (research.md D10).
 package postgres
 
 import (
@@ -22,9 +19,6 @@ const colunas = `id, reserva_id, usuario_id, valor_total::text, forma_pagamento,
 	coalesce(codigo_transacao_gateway,''), coalesce(motivo_falha,''),
 	cobranca_emitida, resultado_anunciado, pago_em, criado_em, atualizado_em`
 
-// CriarSeAusente é a porta de entrada da idempotência (FR-006, research.md D2).
-// Sob entregas simultâneas da mesma reserva, exatamente uma execução recebe
-// criada=true; as demais recebem a transação vigente e NÃO devem cobrar.
 func (r *Repositorio) CriarSeAusente(ctx context.Context, t transacao.Transacao) (bool, transacao.Transacao, error) {
 	const sql = `
 		INSERT INTO transacoes_pagamento
@@ -44,8 +38,6 @@ func (r *Repositorio) CriarSeAusente(ctx context.Context, t transacao.Transacao)
 		return false, transacao.Transacao{}, err
 	}
 
-	// Conflito: outra entrega chegou primeiro. Lê a vigente para decidir o que
-	// fazer com esta mensagem (usecase.processarConflito).
 	atual, err := r.BuscarPorReserva(ctx, t.ReservaID)
 	if err != nil {
 		return false, transacao.Transacao{}, err
@@ -62,9 +54,6 @@ func (r *Repositorio) BuscarPorReserva(ctx context.Context, reservaID string) (t
 	return t, err
 }
 
-// Finalizar grava o estado final. A cláusula WHERE condiciona a escrita a
-// PROCESSANDO: se outro já finalizou, zero linhas são afetadas e devolvemos
-// ErrJaFinalizada, para que o chamador releia em vez de sobrescrever.
 func (r *Repositorio) Finalizar(ctx context.Context, t transacao.Transacao) error {
 	const sql = `
 		UPDATE transacoes_pagamento
@@ -86,8 +75,6 @@ func (r *Repositorio) Finalizar(ctx context.Context, t transacao.Transacao) erro
 	return nil
 }
 
-// MarcarAnunciado fecha a janela da FR-014. Só vale a partir de estado final
-// anunciável — a restrição CHECK do banco recusa o resto.
 func (r *Repositorio) MarcarAnunciado(ctx context.Context, id string, agora time.Time) error {
 	const sql = `
 		UPDATE transacoes_pagamento
@@ -97,10 +84,6 @@ func (r *Repositorio) MarcarAnunciado(ctx context.Context, id string, agora time
 	return err
 }
 
-// ReivindicarCobranca é o direito EXCLUSIVO de chamar o adquirente por esta
-// transação. O UPDATE condicionado a cobranca_emitida = false é atômico no banco:
-// sob entregas simultâneas, exatamente uma execução recebe true. Sem isso, duas
-// entregas poderiam ambas ver "ninguém cobrou ainda" e cobrar a mesma reserva.
 func (r *Repositorio) ReivindicarCobranca(ctx context.Context, id string, agora time.Time) (bool, error) {
 	const sql = `
 		UPDATE transacoes_pagamento
@@ -113,10 +96,6 @@ func (r *Repositorio) ReivindicarCobranca(ctx context.Context, id string, agora 
 	return tag.RowsAffected() == 1, nil
 }
 
-// LiberarCobranca devolve o direito de cobrar. Só é chamada quando o adquirente
-// devolve ERRO — que, pelo contrato da porta, significa que nada foi enviado.
-// Nunca é chamada no desfecho indeterminado: lá não se sabe, e a reserva fica
-// travada de propósito (FR-008).
 func (r *Repositorio) LiberarCobranca(ctx context.Context, id string, agora time.Time) error {
 	const sql = `
 		UPDATE transacoes_pagamento
@@ -126,7 +105,6 @@ func (r *Repositorio) LiberarCobranca(ctx context.Context, id string, agora time
 	return err
 }
 
-// Ping é a sonda de prontidão do armazenamento (FR-025).
 func (r *Repositorio) Ping(ctx context.Context) error { return r.pool.Ping(ctx) }
 
 type linha interface {

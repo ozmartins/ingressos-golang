@@ -26,7 +26,6 @@ func TestIdaEVolta(t *testing.T) {
 	if len(c) > 255 {
 		t.Errorf("código com %d caracteres não cabe no VARCHAR(255)", len(c))
 	}
-	// FR-005: nada legível do domínio da compra dentro do código.
 	if strings.Contains(c, id) {
 		t.Error("o identificador aparece em texto legível dentro do código")
 	}
@@ -82,8 +81,6 @@ func TestVerificarRecusa(t *testing.T) {
 	}
 }
 
-// Um código gerado com outro segredo não pode ser aceito: é a defesa contra
-// falsificação na portaria (SC-005).
 func TestSegredoDiferenteNaoValida(t *testing.T) {
 	deles := assinador(t, "segredo-do-atacante").Gerar("ing-1")
 	if _, err := assinador(t, "segredo-de-teste").Verificar(deles); !errors.Is(err, ErrInvalido) {

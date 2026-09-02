@@ -11,16 +11,10 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/poltrona"
 )
 
-// TestInvarianteApos1000Ciclos cobre SC-006: mil ciclos de bloqueio seguidos
-// aleatoriamente de aprovação, recusa ou abandono. Ao final, toda poltrona
-// precisa estar LIVRE ou OCUPADA, e toda reserva em um único estado final.
-//
-// É o teste que pega inconsistência que nenhum caso isolado revela: transição
-// perdida, poltrona presa, reserva em dois estados.
 func TestInvarianteApos1000Ciclos(t *testing.T) {
 	c := montarCenario(t, false)
 	ctx := context.Background()
-	sessao := c.novaSessao(t, []string{"A", "B", "C", "D"}, 10) // 40 poltronas
+	sessao := c.novaSessao(t, []string{"A", "B", "C", "D"}, 10)
 
 	aleatorio := rand.New(rand.NewSource(20260829))
 	const ciclos = 1000
@@ -36,7 +30,7 @@ func TestInvarianteApos1000Ciclos(t *testing.T) {
 			t.Fatalf("ciclo %d: bloqueio falhou: %v", i, err)
 		}
 		if !resultado.Concedido {
-			continue // poltrona já tomada: desfecho legítimo
+			continue
 		}
 
 		switch aleatorio.Intn(3) {
@@ -49,11 +43,10 @@ func TestInvarianteApos1000Ciclos(t *testing.T) {
 				t.Fatalf("ciclo %d: cancelamento falhou: %v", i, err)
 			}
 		default:
-			abandonadas++ // ninguém paga; a expiração tem que dar conta
+			abandonadas++
 		}
 	}
 
-	// O tempo passa e as abandonadas vencem.
 	c.Relogio.Avancar(11 * time.Minute)
 	for {
 		n, err := c.Expirar.Varrer(ctx)
@@ -65,7 +58,6 @@ func TestInvarianteApos1000Ciclos(t *testing.T) {
 		}
 	}
 
-	// 1. Nenhuma poltrona presa em RESERVADA.
 	contagem := c.contarPorStatus(t, sessao)
 	if contagem["RESERVADA"] != 0 {
 		t.Errorf("%d poltrona(s) presas em RESERVADA após todos os desfechos", contagem["RESERVADA"])
@@ -74,7 +66,6 @@ func TestInvarianteApos1000Ciclos(t *testing.T) {
 		t.Errorf("contagem final = %v, esperado 40 poltronas entre LIVRE e OCUPADA", contagem)
 	}
 
-	// 2. Nenhuma reserva pendente.
 	var pendentes int
 	if err := c.Pool.QueryRow(ctx,
 		`SELECT count(*) FROM reservas WHERE sessao_id = $1 AND status = 'PENDENTE'`, sessao).Scan(&pendentes); err != nil {
@@ -84,8 +75,6 @@ func TestInvarianteApos1000Ciclos(t *testing.T) {
 		t.Errorf("%d reserva(s) ainda pendentes", pendentes)
 	}
 
-	// 3. Coerência entre reserva e poltronas: toda poltrona OCUPADA pertence a
-	//    exatamente uma reserva CONFIRMADA.
 	var incoerentes int
 	err := c.Pool.QueryRow(ctx, `
 		SELECT count(*) FROM poltronas p
@@ -100,7 +89,6 @@ func TestInvarianteApos1000Ciclos(t *testing.T) {
 		t.Errorf("%d poltrona(s) OCUPADA sem exatamente uma reserva confirmada", incoerentes)
 	}
 
-	// 4. Nenhuma poltrona LIVRE vinculada a reserva ainda ativa.
 	var vazando int
 	err = c.Pool.QueryRow(ctx, `
 		SELECT count(*) FROM poltronas p

@@ -24,7 +24,6 @@ func eventoDeSessao(sessaoID string, poltronas ...usecase.LayoutPoltrona) usecas
 	}
 }
 
-// TestProvisionamentoDisponibilizaMatrizParaBloqueio cobre SC-015.
 func TestProvisionamentoDisponibilizaMatrizParaBloqueio(t *testing.T) {
 	c := montarCenario(t, false)
 	ctx := context.Background()
@@ -47,7 +46,6 @@ func TestProvisionamentoDisponibilizaMatrizParaBloqueio(t *testing.T) {
 	if len(mapa) != 3 {
 		t.Fatalf("poltronas = %d, esperado 3", len(mapa))
 	}
-	// Ordenado por fileira e número, como a sala é desenhada.
 	if mapa[0].Rotulo != "A1" || mapa[1].Rotulo != "A2" || mapa[2].Rotulo != "B1" {
 		t.Errorf("ordem = %s %s %s", mapa[0].Rotulo, mapa[1].Rotulo, mapa[2].Rotulo)
 	}
@@ -66,7 +64,6 @@ func TestProvisionamentoDisponibilizaMatrizParaBloqueio(t *testing.T) {
 	}
 }
 
-// TestReanuncioNaoDuplicaNemReiniciaEstado cobre SC-004 do lado do provisionamento.
 func TestReanuncioNaoDuplicaNemReiniciaEstado(t *testing.T) {
 	c := montarCenario(t, false)
 	ctx := context.Background()
@@ -83,7 +80,6 @@ func TestReanuncioNaoDuplicaNemReiniciaEstado(t *testing.T) {
 		t.Fatalf("bloqueio: %v", err)
 	}
 
-	// Reentrega com a mesma chave de idempotência.
 	res, err := c.Provisionar.Executar(ctx, filaSessao, sessaoID, evento)
 	if err != nil {
 		t.Fatalf("reanúncio não pode virar erro: %v", err)
@@ -92,8 +88,6 @@ func TestReanuncioNaoDuplicaNemReiniciaEstado(t *testing.T) {
 		t.Errorf("resultado = %s, esperado ignorada-duplicata", res)
 	}
 
-	// Reentrega com chave diferente: a chave única da tabela é a segunda linha
-	// de defesa e precisa preservar o estado corrente.
 	if _, err := c.Provisionar.Executar(ctx, filaSessao, "outra-chave", evento); err != nil {
 		t.Fatalf("reanúncio com outra chave: %v", err)
 	}
@@ -126,11 +120,9 @@ func TestProvisionamentoRecusaLayoutInvalidoSemDeixarRastro(t *testing.T) {
 			if err == nil {
 				t.Fatal("esperava recusa do layout")
 			}
-			// Erro de conteúdo, para ir à DLQ e não voltar para a fila.
 			if !errors.Is(err, shared.ErrSolicitacaoInvalida) {
 				t.Errorf("erro = %v, esperado ErrSolicitacaoInvalida", err)
 			}
-			// FR-035: tudo-ou-nada.
 			if contagem := c.contarPorStatus(t, sessaoID); len(contagem) != 0 {
 				t.Errorf("layout inválido provisionou %v", contagem)
 			}
@@ -138,9 +130,6 @@ func TestProvisionamentoRecusaLayoutInvalidoSemDeixarRastro(t *testing.T) {
 	}
 }
 
-// TestBloqueioAntesDoProvisionamento cobre FR-036 e o edge case da spec: o
-// bloqueio que chega antes do fato de sessão criada é recusado, e passa a ser
-// aceito assim que a matriz existe.
 func TestBloqueioAntesDoProvisionamento(t *testing.T) {
 	c := montarCenario(t, false)
 	ctx := context.Background()
@@ -162,8 +151,6 @@ func TestBloqueioAntesDoProvisionamento(t *testing.T) {
 	}
 }
 
-// TestMapaCoerenteDuranteBloqueioConcorrente cobre o edge case de leitura: a
-// consulta devolve um retrato coerente, sem estado intermediário.
 func TestMapaCoerenteDuranteBloqueioConcorrente(t *testing.T) {
 	c := montarCenario(t, false)
 	sessao := c.novaSessao(t, []string{"A"}, 10)

@@ -12,10 +12,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Este teste amarra o que o servidor faz ao que o contrato promete. Sem ele, o
-// openapi.yaml vira documentação que envelhece sozinha — e o princípio III diz
-// que documento não é fonte da verdade.
-
 const caminhoContrato = "../../../specs/001-emissao-ingressos/contracts/openapi.yaml"
 
 func carregarContrato(t *testing.T) map[string]any {
@@ -47,8 +43,6 @@ func TestTodasAsRotasDoContratoExistem(t *testing.T) {
 					t.Fatal(err)
 				}
 				res, _ := a.enviar(t, req, nil)
-				// Sem credencial e sem corpo, qualquer resposta serve — menos
-				// 404 e 405, que denunciariam rota inexistente ou verbo errado.
 				if res.StatusCode == http.StatusNotFound && caminho != "/api/v1/ingressos/validar" {
 					t.Errorf("rota do contrato não existe no servidor (404)")
 				}
@@ -91,7 +85,6 @@ func TestVereditoDaPortariaBateComOContrato(t *testing.T) {
 	a := montarAmbiente(t)
 	i := a.repo.semear(t, "ing-1", usuario1, ingresso.Valido, instanteFixo)
 
-	// Sucesso: os quatro campos obrigatórios do contrato.
 	_, corpo := a.postValidar(t, `{"codigo_qr":"`+i.CodigoQR+`"}`, chaveOK())
 	var ok map[string]any
 	decodificarEm(t, corpo, &ok)
@@ -101,7 +94,6 @@ func TestVereditoDaPortariaBateComOContrato(t *testing.T) {
 		}
 	}
 
-	// Recusa: só os obrigatórios do esquema Recusa, sem vazar nada a mais.
 	_, corpoRecusa := a.postValidar(t, `{"codigo_qr":"lixo"}`, chaveOK())
 	var recusa map[string]any
 	decodificarEm(t, corpoRecusa, &recusa)

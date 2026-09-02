@@ -11,9 +11,6 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/usecase"
 )
 
-// chaveIdempotencia devolve a chave de deduplicação da mensagem. O contrato diz
-// que ela viaja no message_id; quando o publicador não a preenche, caímos no
-// identificador do próprio agregado, que é a chave declarada no contrato.
 func chaveIdempotencia(msg amqp.Delivery, alternativa string) string {
 	if msg.MessageId != "" {
 		return msg.MessageId
@@ -21,7 +18,6 @@ func chaveIdempotencia(msg amqp.Delivery, alternativa string) string {
 	return alternativa
 }
 
-// ConsumirPagamentoSucesso liga a fila de pagamento aprovado ao caso de uso.
 func ConsumirPagamentoSucesso(ctx context.Context, conexao *Conexao, prefetch int,
 	obs *observability.Observabilidade, uc usecase.ConfirmarReserva) error {
 
@@ -35,7 +31,6 @@ func ConsumirPagamentoSucesso(ctx context.Context, conexao *Conexao, prefetch in
 			resultado, err := uc.Executar(ctx, FilaPagamentoSucesso,
 				chaveIdempotencia(msg, desfecho.ReservaID), desfecho.ReservaID)
 			if err != nil {
-				// Falha de infraestrutura: devolve à fila e tenta de novo.
 				return "falha", err
 			}
 			return resultado.String(), nil
@@ -44,7 +39,6 @@ func ConsumirPagamentoSucesso(ctx context.Context, conexao *Conexao, prefetch in
 	return c.Iniciar(ctx)
 }
 
-// ConsumirPagamentoFalhou liga a fila de pagamento recusado ao caso de uso.
 func ConsumirPagamentoFalhou(ctx context.Context, conexao *Conexao, prefetch int,
 	obs *observability.Observabilidade, uc usecase.CancelarReserva) error {
 
@@ -66,7 +60,6 @@ func ConsumirPagamentoFalhou(ctx context.Context, conexao *Conexao, prefetch int
 	return c.Iniciar(ctx)
 }
 
-// ConsumirSessaoCriada liga a fila de sessão criada ao provisionamento.
 func ConsumirSessaoCriada(ctx context.Context, conexao *Conexao, prefetch int,
 	obs *observability.Observabilidade, uc usecase.ProvisionarSessao) error {
 
@@ -80,7 +73,6 @@ func ConsumirSessaoCriada(ctx context.Context, conexao *Conexao, prefetch int,
 			resultado, err := uc.Executar(ctx, FilaSessaoCriada,
 				chaveIdempotencia(msg, evento.SessaoID), evento)
 			if err != nil {
-				// Layout inválido é definitivo; o resto é transitório.
 				if errors.Is(err, shared.ErrSolicitacaoInvalida) {
 					return "invalida", Definitivo(err)
 				}
@@ -91,7 +83,3 @@ func ConsumirSessaoCriada(ctx context.Context, conexao *Conexao, prefetch int,
 	}
 	return c.Iniciar(ctx)
 }
-
-// Layout inválido é erro de conteúdo e vai para a DLQ; falha de infraestrutura
-// é transitória e volta para a fila. A distinção vem do erro de domínio, não de
-// comparação de texto (constituição, princípio IV).

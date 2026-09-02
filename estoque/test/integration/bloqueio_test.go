@@ -45,8 +45,6 @@ func TestBloqueioGravaTudoNaMesmaTransacao(t *testing.T) {
 		t.Errorf("vínculos = %d, esperado 2", vinculos)
 	}
 
-	// O fato precisa estar na caixa de saída, com contexto de rastreamento e
-	// ainda não publicado (FR-018, FR-044).
 	var payload []byte
 	var traceContext []byte
 	var publicadoEm *string
@@ -83,7 +81,6 @@ func TestBloqueioRecusadoNaoAlteraEstado(t *testing.T) {
 		t.Fatalf("primeiro bloqueio: %v", err)
 	}
 
-	// Tudo-ou-nada: A2 e A3 estavam livres e não podem ser tocadas (FR-002).
 	resultado, err := c.Bloquear.Executar(ctx, sessao, "outra-pessoa", []string{"A1", "A2", "A3"})
 	if err != nil {
 		t.Fatalf("indisponibilidade não é erro: %v", err)
@@ -123,16 +120,11 @@ func TestBloqueioRecusaRotuloInexistenteNaSessao(t *testing.T) {
 	if !errors.Is(err, shared.ErrPoltronaInexistente) {
 		t.Fatalf("erro = %v, esperado ErrPoltronaInexistente", err)
 	}
-	// A1 existia e estava livre: a recusa não pode tê-la reservado.
 	if got := c.statusPoltrona(t, sessao, "A1"); got != poltrona.Livre {
 		t.Errorf("A1 = %s, esperado LIVRE", got)
 	}
 }
 
-// TestConcorrenciaExatamenteUmVencedor cobre SC-002 — o critério que justifica a
-// existência deste serviço. 100 solicitações paralelas sobre o mesmo conjunto:
-// exatamente uma pode ser concedida, e nenhuma poltrona pode acabar vinculada a
-// duas reservas.
 func TestConcorrenciaExatamenteUmVencedor(t *testing.T) {
 	c := montarCenario(t, false)
 	sessao := c.novaSessao(t, []string{"A"}, 10)
@@ -150,7 +142,7 @@ func TestConcorrenciaExatamenteUmVencedor(t *testing.T) {
 		fim.Add(1)
 		go func(i int) {
 			defer fim.Done()
-			largada.Wait() // todos disputam no mesmo instante
+			largada.Wait()
 			resultado, err := c.Bloquear.Executar(ctx, sessao, usuario, []string{"A1", "A2"})
 			concedidos[i] = err == nil && resultado.Concedido
 			if err != nil && !errors.Is(err, shared.ErrPoltronasIndisponiveis) {
@@ -175,7 +167,6 @@ func TestConcorrenciaExatamenteUmVencedor(t *testing.T) {
 		t.Fatalf("vencedores = %d, esperado exatamente 1", vencedores)
 	}
 
-	// Nenhuma poltrona pode estar em duas reservas.
 	var duplicadas int
 	err := c.Pool.QueryRow(ctx, `
 		SELECT count(*) FROM (
@@ -193,13 +184,10 @@ func TestConcorrenciaExatamenteUmVencedor(t *testing.T) {
 	}
 }
 
-// TestBancoIndisponivelRecusaSemConceder cobre SC-012: sem garantia de
-// exclusividade, recusa-se — nunca se concede de forma otimista.
 func TestBancoIndisponivelRecusaSemConceder(t *testing.T) {
 	c := montarCenario(t, false)
 	sessao := c.novaSessao(t, []string{"A"}, 2)
 
-	// Fechar o pool simula a dependência fora do ar de forma determinística.
 	c.Banco.Fechar()
 
 	_, err := c.Bloquear.Executar(context.Background(), sessao, usuario, []string{"A1"})
@@ -210,7 +198,6 @@ func TestBancoIndisponivelRecusaSemConceder(t *testing.T) {
 		t.Fatalf("erro = %v, esperado ErrDependenciaIndisponivel", err)
 	}
 
-	// Com um pool novo, nada pode ter sido criado.
 	verificacao := montarCenario(t, false)
 	contagem := verificacao.contarPorStatus(t, sessao)
 	if contagem["RESERVADA"] != 0 {

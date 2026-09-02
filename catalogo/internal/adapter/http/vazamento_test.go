@@ -12,11 +12,6 @@ import (
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/shared"
 )
 
-// T076 — nenhuma resposta de erro pode carregar detalhe interno.
-//
-// Varre erros realistas de cada camada — driver, gRPC, resolução de nome — e
-// confirma que nada disso aparece no corpo devolvido ao cliente. É uma
-// verificação de superfície de ataque, não de formatação.
 func TestNenhumaRespostaVazaDetalheInterno(t *testing.T) {
 	errosRealistas := []error{
 		errors.New(`ERROR: relation "sessoes" does not exist (SQLSTATE 42P01)`),
@@ -50,10 +45,7 @@ func TestNenhumaRespostaVazaDetalheInterno(t *testing.T) {
 	}
 }
 
-// O pânico não pode devolver a pilha ao cliente.
 func TestPanicoNaoVazaPilha(t *testing.T) {
-	// A recuperação vive no middleware; aqui garantimos que o corpo padrão que
-	// ele escreve é o mesmo problem+json genérico, sem rastro de execução.
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodGet, "/api/v1/filmes", nil)
 	EscreverProblem(w, r, catErroInterno, "Erro interno. Consulte o suporte informando o identificador desta requisição.")

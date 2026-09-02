@@ -43,7 +43,6 @@ func TestValidarRecusaDuplicatas(t *testing.T) {
 }
 
 func TestValidarRecusaUsuarioAusente(t *testing.T) {
-	// Credencial válida em assinatura mas sem `sub`: não há a quem atribuir.
 	s := solicitacaoValida()
 	s.UsuarioID = ""
 	if err := s.Validar(); !errors.Is(err, shared.ErrValidacao) {

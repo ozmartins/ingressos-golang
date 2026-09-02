@@ -1,9 +1,5 @@
 //go:build integration
 
-// Package integration exercita o serviço contra PostgreSQL e RabbitMQ reais.
-// É a única camada que precisa de Docker, e é onde as garantias de
-// concorrência, reentrega e quarentena podem ser provadas de verdade
-// (research.md D12).
 package integration
 
 import (
@@ -32,12 +28,11 @@ import (
 )
 
 const (
-	exchange    = "cinema.eventos"
-	exchangeDLX = "cinema.eventos.dlx"
-	fila        = "notificacao.pagamento-sucesso"
-	filaDLQ     = "notificacao.pagamento-sucesso.dlq"
-	segredoQR   = "segredo-de-teste-da-integracao"
-	// LimiteEntregas do ambiente de teste: a FR-022 fala em TENTATIVAS.
+	exchange       = "cinema.eventos"
+	exchangeDLX    = "cinema.eventos.dlx"
+	fila           = "notificacao.pagamento-sucesso"
+	filaDLQ        = "notificacao.pagamento-sucesso.dlq"
+	segredoQR      = "segredo-de-teste-da-integracao"
 	limiteEntregas = 3
 )
 
@@ -51,8 +46,6 @@ type ambiente struct {
 	Log       *slog.Logger
 }
 
-// subirAmbiente cria Postgres e RabbitMQ reais, aplica a migração e declara a
-// topologia — exatamente a mesma declaração que o serviço usa na largada.
 func subirAmbiente(t *testing.T) *ambiente {
 	t.Helper()
 	ctx := context.Background()
@@ -74,8 +67,6 @@ func subirAmbiente(t *testing.T) *ambiente {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// O pool do serviço, não um cru: é ele que fixa o `search_path` no schema
-	// `notificacao`, e é isso que o teste precisa exercitar.
 	pool, err := postgres.Conectar(ctx, dsn)
 	if err != nil {
 		t.Fatal(err)
@@ -136,7 +127,6 @@ func aplicarMigracao(t *testing.T, pool *pgxpool.Pool) {
 	}
 }
 
-// caso monta o caso de uso de emissão sobre o ambiente real.
 func (a *ambiente) caso(falharAviso bool) usecase.EmitirIngresso {
 	return usecase.EmitirIngresso{
 		Ingressos:   a.Ingressos,
@@ -163,8 +153,6 @@ func (a *ambiente) consumidor(t *testing.T, falharAviso bool) *adaptamqp.Consumi
 	}
 }
 
-// publicar envia um pagamento.sucesso na mesma forma que o Servico-Pagamento
-// publica hoje (research.md D1).
 func (a *ambiente) publicar(t *testing.T, reservaID, usuarioID string) {
 	t.Helper()
 	agora := time.Now().UTC().Format(time.RFC3339)
@@ -189,7 +177,6 @@ func (a *ambiente) publicarCru(t *testing.T, corpo []byte) {
 	}
 }
 
-// contarFila devolve quantas mensagens estão na fila, sem consumi-las.
 func (a *ambiente) contarFila(t *testing.T, nome string) int {
 	t.Helper()
 	canal, err := a.Conexao.Channel()
@@ -204,7 +191,6 @@ func (a *ambiente) contarFila(t *testing.T, nome string) int {
 	return q.Messages
 }
 
-// esperar repete a condição até o prazo, e falha com a mensagem se não vier.
 func esperar(t *testing.T, prazo time.Duration, mensagem string, cond func() bool) {
 	t.Helper()
 	limite := time.Now().Add(prazo)
@@ -227,18 +213,10 @@ func (a *ambiente) contarIngressos(t *testing.T) int {
 	return n
 }
 
-// TestSchemaProprio prova que o serviço não usa `public`: as consultas dos
-// repositórios não qualificam a tabela, então é o `search_path` do pool que
-// decide onde elas caem. Se alguém remover essa configuração ou desqualificar
-// as migrações, as tabelas voltam para `public` e este teste falha.
 func TestSchemaProprio(t *testing.T) {
 	a := subirAmbiente(t)
 	ctx := context.Background()
 
-	// O `search_path` efetivo, não o schema resolvido: como o usuário do banco
-	// também se chama `notificacao`, o padrão `"$user", public` acertaria o
-	// schema por coincidência de nome e esconderia a falta da configuração no
-	// pool.
 	var searchPath string
 	if err := a.Pool.QueryRow(ctx, `SELECT current_setting('search_path')`).Scan(&searchPath); err != nil {
 		t.Fatalf("consultando search_path: %v", err)

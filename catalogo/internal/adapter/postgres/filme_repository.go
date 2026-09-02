@@ -15,11 +15,6 @@ type FilmeRepository struct{ pool *pgxpool.Pool }
 
 func NovoFilmeRepository(p *pgxpool.Pool) *FilmeRepository { return &FilmeRepository{pool: p} }
 
-// Listar devolve uma página de filmes com o total que atende ao filtro.
-//
-// COUNT(*) OVER () traz o total na mesma ida ao banco. A ordenação desempata por
-// id: sem isso, dois filmes de mesmo título poderiam trocar de posição entre
-// páginas consecutivas (FR-004).
 func (r *FilmeRepository) Listar(
 	ctx context.Context,
 	filtro usecase.FiltroFilmes,
@@ -54,7 +49,6 @@ func (r *FilmeRepository) Listar(
 			}
 			f.Status = catalogo.StatusFilme(status)
 			if !f.Status.Valido() {
-				// Situação desconhecida é erro de dados, não valor a repassar.
 				return f, fmt.Errorf("filme %s tem status desconhecido %q", f.ID, status)
 			}
 			return f, nil

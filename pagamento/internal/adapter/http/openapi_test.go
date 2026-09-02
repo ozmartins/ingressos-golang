@@ -50,8 +50,6 @@ func chaves(m map[string]any) []string {
 	return ks
 }
 
-// A resposta 200 tem exatamente os campos que o contrato declara — nem a menos
-// (quebraria o cliente), nem a mais (vazaria detalhe não contratado).
 func TestResposta200BateComOContrato(t *testing.T) {
 	doc := carregarContrato(t)
 	props := esquema(t, doc, "Pagamento")["properties"].(map[string]any)
@@ -72,7 +70,6 @@ func TestResposta200BateComOContrato(t *testing.T) {
 	}
 }
 
-// Todo estado que a API pode devolver consta do enum do contrato, e vice-versa.
 func TestEnumDeStatusBateComODominio(t *testing.T) {
 	doc := carregarContrato(t)
 	props := esquema(t, doc, "Pagamento")["properties"].(map[string]any)
@@ -114,7 +111,6 @@ func TestEnumDeFormaBateComODominio(t *testing.T) {
 	}
 }
 
-// O corpo de erro tem a forma que o contrato declara.
 func TestEsquemaDeErroBateComOContrato(t *testing.T) {
 	doc := carregarContrato(t)
 	props := esquema(t, doc, "Erro")["properties"].(map[string]any)
@@ -131,7 +127,6 @@ func TestEsquemaDeErroBateComOContrato(t *testing.T) {
 	}
 }
 
-// Todo caminho declarado no contrato existe de fato na API.
 func TestCaminhosDeclaradosExistem(t *testing.T) {
 	doc := carregarContrato(t)
 	caminhos := doc["paths"].(map[string]any)

@@ -72,8 +72,6 @@ func TestAnuncioValidoEmiteIngresso(t *testing.T) {
 	}
 }
 
-// FR-004: reentrega não cria segundo ingresso, não altera o existente, não
-// erra — e, pela D6, não dispara aviso novo.
 func TestReentregaEInerte(t *testing.T) {
 	c := montar(t)
 	ctx := context.Background()
@@ -103,7 +101,6 @@ func TestReentregaEInerte(t *testing.T) {
 	}
 }
 
-// FR-004 sob concorrência: duas entregas simultâneas, um ingresso.
 func TestEntregasSimultaneasEmitemUmSo(t *testing.T) {
 	c := montar(t)
 	var wg sync.WaitGroup
@@ -120,7 +117,6 @@ func TestEntregasSimultaneasEmitemUmSo(t *testing.T) {
 	}
 }
 
-// FR-002: defeito permanente vai para a quarentena, sem retentativa.
 func TestAnuncioInvalidoVaiParaQuarentena(t *testing.T) {
 	casos := map[string]Anuncio{
 		"sem reserva":        {TransacaoID: trans1, UsuarioID: usuario1, PagoEm: pagoEm1},
@@ -157,7 +153,6 @@ func TestJSONIlegivelEDefeitoPermanente(t *testing.T) {
 	}
 }
 
-// research D1: campos que o produtor publica a mais são tolerados.
 func TestCamposExtrasSaoTolerados(t *testing.T) {
 	a, err := DecodificarAnuncio([]byte(`{
       "evento":"PAGAMENTO_SUCESSO","versao":1,"ocorrido_em":"2026-08-29T21:35:10Z",
@@ -173,7 +168,6 @@ func TestCamposExtrasSaoTolerados(t *testing.T) {
 	}
 }
 
-// FR-022: falha transitória volta para a fila, não vai para a quarentena.
 func TestFalhaTransitoriaPedeNovaTentativa(t *testing.T) {
 	c := montar(t)
 	c.repo.falharCriar = true
@@ -189,8 +183,6 @@ func TestFalhaTransitoriaPedeNovaTentativa(t *testing.T) {
 		t.Error("ingresso parcial ficou gravado após falha")
 	}
 }
-
-// ---- User Story 4: o aviso (T042) ----
 
 func TestAvisoEnviadoDeixaRegistro(t *testing.T) {
 	c := montar(t)
@@ -216,11 +208,6 @@ func TestAvisoEnviadoDeixaRegistro(t *testing.T) {
 	}
 }
 
-// FR-018 e FR-025 — o teste mais importante desta feature.
-//
-// A falha do canal não pode desfazer a emissão (FR-018) NEM virar
-// reprocessamento da mensagem (FR-025). Se este teste algum dia passar a
-// aceitar Nack, a garantia morre em silêncio.
 func TestFalhaDoAvisoNaoDerrubaEmissaoNemReprocessa(t *testing.T) {
 	c := montar(t)
 	c.notif.falhar = true
@@ -260,7 +247,6 @@ func TestFalhaDoAvisoNaoDerrubaEmissaoNemReprocessa(t *testing.T) {
 	}
 }
 
-// Se nem o registro do aviso puder ser gravado, a emissão ainda assim vale.
 func TestFalhaAoGravarRegistroNaoDerrubaEmissao(t *testing.T) {
 	c := montar(t)
 	c.avi.falharGrav = true

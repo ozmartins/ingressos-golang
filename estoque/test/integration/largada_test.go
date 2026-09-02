@@ -12,14 +12,10 @@ import (
 	"time"
 )
 
-// TestProcessoRecusaSubirSemConfiguracao cobre a segunda metade de SC-010: o
-// artefato entregue não carrega configuração embutida, e o processo falha alto
-// na largada em vez de descobrir o problema na primeira requisição do dia.
 func TestProcessoRecusaSubirSemConfiguracao(t *testing.T) {
 	binario := compilarBinario(t)
 
 	cmd := exec.Command(binario)
-	// Ambiente deliberadamente vazio.
 	cmd.Env = []string{"PATH=/usr/bin:/bin"}
 	saida, err := cmd.CombinedOutput()
 
@@ -34,16 +30,9 @@ func TestProcessoRecusaSubirSemConfiguracao(t *testing.T) {
 	}
 }
 
-// TestProcessoSobeApenasComConfiguracaoExterna cobre a primeira metade de
-// SC-010: a mesma imagem sobe e atende com o ambiente apontando para as
-// dependências, sem alteração no artefato.
 func TestProcessoSobeApenasComConfiguracaoExterna(t *testing.T) {
 	binario := compilarBinario(t)
 
-	// A API REST carrega o conjunto de chaves na largada, como as demais APIs
-	// do sistema. Aqui basta um conjunto vazio: o que este teste verifica é que
-	// o processo sobe com o ambiente apontando para fora, não a validação de
-	// token — essa vive nos testes do adaptador HTTP.
 	jwks := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"keys":[]}`))
@@ -76,7 +65,6 @@ func TestProcessoSobeApenasComConfiguracaoExterna(t *testing.T) {
 		_, _ = cmd.Process.Wait()
 	})
 
-	// A instância precisa se declarar apta a receber tráfego.
 	var ultimoStatus int
 	prazo := time.Now().Add(30 * time.Second)
 	for time.Now().Before(prazo) {

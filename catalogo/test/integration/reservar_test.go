@@ -30,8 +30,6 @@ import (
 
 const sessaoAgendada = "e1b2c3d4-0000-4000-8000-000000000001"
 
-// estoqueSimulado concede cada poltrona uma única vez: é o que permite provar
-// SC-006 sem depender do comportamento real do parceiro.
 type estoqueSimulado struct {
 	estoquepb.UnimplementedServicoEstoqueServer
 
@@ -126,8 +124,6 @@ func montarServico(t *testing.T, sim *estoqueSimulado) (*httptest.Server, *estoq
 			ConsultarSessoes: usecase.ConsultarSessoes{Repo: sessoes},
 			ReservarPoltronas: usecase.ReservarPoltronas{
 				Sessoes: sessoes, Estoque: cliente,
-				// As fixtures usam 2026-09; fixar o relógio antes disso mantém as
-				// sessões reserváveis independentemente de quando o teste roda.
 				Agora: func() time.Time { return time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC) },
 			},
 			Limites: adapterhttp.LimitesPaginacao{Padrao: 20, Maximo: 100},
@@ -173,7 +169,6 @@ func TestReservaPontaAPonta(t *testing.T) {
 		t.Fatalf("esperava 201, obteve %d (%s)", codigo, corpo)
 	}
 
-	// A mesma poltrona, agora ocupada.
 	codigo, _ = pedirReserva(t, s, "token-bom", sessaoAgendada, []string{"A1"}, nil)
 	if codigo != http.StatusConflict {
 		t.Fatalf("esperava 409 na segunda tentativa, obteve %d", codigo)
@@ -183,7 +178,6 @@ func TestReservaPontaAPonta(t *testing.T) {
 	}
 }
 
-// FR-036 e SC-011: o contexto de rastreamento recebido chega ao estoque.
 func TestRastreamentoPropagaAteOEstoque(t *testing.T) {
 	carregarFixtures(t)
 	s, sim := montarServico(t, &estoqueSimulado{})
@@ -209,7 +203,6 @@ func TestRastreamentoPropagaAteOEstoque(t *testing.T) {
 	}
 }
 
-// A prova de que uma recusa local não vira chamada de rede.
 func TestRecusasLocaisNaoContatamOEstoque(t *testing.T) {
 	carregarFixtures(t)
 
@@ -234,8 +227,6 @@ func TestRecusasLocaisNaoContatamOEstoque(t *testing.T) {
 			if codigo != c.codigo {
 				t.Fatalf("esperava %d, obteve %d (%s)", c.codigo, codigo, corpo)
 			}
-			// O contador do simulado é a evidência: o status HTTP sozinho não
-			// distingue "recusou antes" de "recusou depois de chamar".
 			if sim.chamadas != 0 {
 				t.Fatalf("o estoque foi contatado %d vez(es)", sim.chamadas)
 			}
@@ -243,7 +234,6 @@ func TestRecusasLocaisNaoContatamOEstoque(t *testing.T) {
 	}
 }
 
-// SC-006: em disputa pelas mesmas poltronas, no máximo uma confirmação.
 func TestConcorrenciaConfirmaNoMaximoUma(t *testing.T) {
 	carregarFixtures(t)
 	s, _ := montarServico(t, &estoqueSimulado{})
@@ -287,7 +277,6 @@ func TestConcorrenciaConfirmaNoMaximoUma(t *testing.T) {
 	}
 }
 
-// SC-004 e SC-007 no caminho HTTP completo.
 func TestEstoqueLentoDevolve503DentroDoOrcamento(t *testing.T) {
 	carregarFixtures(t)
 	s, _ := montarServico(t, &estoqueSimulado{atraso: 10 * time.Second})
@@ -315,17 +304,14 @@ func TestEstoqueLentoDevolve503DentroDoOrcamento(t *testing.T) {
 	}
 }
 
-// SC-012: com o estoque fora do ar, a navegação continua servível.
 func TestNavegacaoFuncionaComEstoqueForaDoAr(t *testing.T) {
 	carregarFixtures(t)
 	s, _ := montarServico(t, &estoqueSimulado{atraso: 10 * time.Second})
 
-	// Reserva falha...
 	if codigo, _ := pedirReserva(t, s, "token-bom", sessaoAgendada, []string{"E1"}, nil); codigo != http.StatusServiceUnavailable {
 		t.Fatalf("esperava 503 na reserva, obteve %d", codigo)
 	}
 
-	// ...mas o catálogo responde normalmente.
 	for _, caminho := range []string{"/api/v1/filmes", "/api/v1/sessoes", "/api/v1/cinemas"} {
 		resp, err := s.Client().Get(s.URL + caminho)
 		if err != nil {

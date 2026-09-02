@@ -1,5 +1,3 @@
-// Package http é o adaptador de entrada: traduz requisições em casos de uso e
-// resultados em respostas. Nenhuma regra de negócio mora aqui.
 package http
 
 import (
@@ -12,12 +10,8 @@ import (
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/shared"
 )
 
-// BaseURIErros prefixa os identificadores de categoria. O type é o contrato
-// estável que o cliente inspeciona; title e detail são texto humano e podem
-// mudar de redação (constituição, princípio IV).
 const BaseURIErros = "https://cinema.example/errors/"
 
-// Problem é a representação RFC 9457.
 type Problem struct {
 	Type     string      `json:"type"`
 	Title    string      `json:"title"`
@@ -32,7 +26,6 @@ type CampoErro struct {
 	Mensagem string `json:"mensagem"`
 }
 
-// Categorias de erro do contrato (contracts/errors.md).
 const (
 	catParametroInvalido   = "parametro-invalido"
 	catCorpoInvalido       = "corpo-invalido"
@@ -64,7 +57,6 @@ var categorias = map[string]descricaoCategoria{
 	catErroInterno:         {"Erro interno", http.StatusInternalServerError},
 }
 
-// EscreverProblem serializa a resposta de erro na categoria informada.
 func EscreverProblem(w http.ResponseWriter, r *http.Request, categoria, detail string, campos ...CampoErro) {
 	d, ok := categorias[categoria]
 	if !ok {
@@ -86,10 +78,6 @@ func EscreverProblem(w http.ResponseWriter, r *http.Request, categoria, detail s
 	}
 }
 
-// EscreverErroDeDominio traduz um erro sentinela para a categoria correspondente.
-//
-// Erros não previstos viram 500 com detail genérico: detalhe interno vai para o
-// log, nunca para a resposta (constituição, princípio IV).
 func EscreverErroDeDominio(w http.ResponseWriter, r *http.Request, err error, contexto string) {
 	switch {
 	case errors.Is(err, shared.ErrValidacao):
@@ -105,8 +93,6 @@ func EscreverErroDeDominio(w http.ResponseWriter, r *http.Request, err error, co
 	case errors.Is(err, shared.ErrPoltronasIndisponiveis):
 		EscreverProblem(w, r, catPoltronasIndisp, "Uma ou mais poltronas selecionadas não estão disponíveis.")
 	case errors.Is(err, shared.ErrEstoqueIndisponivel):
-		// Timeout e recusa rápida são indistinguíveis aqui, por exigência da
-		// especificação. A distinção existe apenas nas métricas e nos logs.
 		EscreverProblem(w, r, catEstoqueIndisponivel, "Serviço temporariamente indisponível. Tente novamente em instantes.")
 	case errors.Is(err, shared.ErrRespostaInvalidaDoParceiro):
 		EscreverProblem(w, r, catRespostaInvalida, "Não foi possível confirmar a reserva junto ao serviço responsável.")
@@ -116,8 +102,6 @@ func EscreverErroDeDominio(w http.ResponseWriter, r *http.Request, err error, co
 	}
 }
 
-// mensagemLimpa devolve a mensagem do erro sentinela sem o prefixo do sentinela,
-// que já está codificado no type.
 func mensagemLimpa(err error) string {
 	msg := err.Error()
 	for _, prefixo := range []string{

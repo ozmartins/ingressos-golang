@@ -53,7 +53,6 @@ func TestValidarAutorizaEDaBaixa(t *testing.T) {
 	}
 }
 
-// FR-008: a segunda leitura nega e não mexe no instante original.
 func TestSegundaLeituraENegadaSemAlterarInstante(t *testing.T) {
 	repo := novosIngressos()
 	i := semear(t, repo, ingresso.Valido)
@@ -92,8 +91,6 @@ func TestIngressoCanceladoENegado(t *testing.T) {
 	}
 }
 
-// FR-010: assinatura inválida é recusada SEM consultar o acervo. A dobra
-// registra se foi consultada.
 func TestAssinaturaInvalidaNaoConsultaOAcervo(t *testing.T) {
 	repo := novosIngressos()
 	semear(t, repo, ingresso.Valido)
@@ -136,7 +133,6 @@ func TestCodigoMalformadoEInexistenteDaoOMesmoVeredito(t *testing.T) {
 	}
 }
 
-// FR-011: leituras simultâneas do mesmo código, no máximo uma autorização.
 func TestLeiturasSimultaneasAutorizamUmaSo(t *testing.T) {
 	repo := novosIngressos()
 	i := semear(t, repo, ingresso.Valido)

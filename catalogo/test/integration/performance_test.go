@@ -14,8 +14,6 @@ import (
 	"github.com/oseias/ingressos-golang/catalogo/internal/usecase"
 )
 
-// carregarVolume popula o catálogo no tamanho pedido.
-// fator 1 = volume base de SC-003; fator 10 = a margem de uma ordem de grandeza.
 func carregarVolume(t *testing.T, fator int) {
 	t.Helper()
 	ctx := context.Background()
@@ -23,8 +21,6 @@ func carregarVolume(t *testing.T, fator int) {
 	if _, err := pool.Exec(ctx, `TRUNCATE sessoes, salas, cinemas, filmes CASCADE`); err != nil {
 		t.Fatal(err)
 	}
-	// pgx não aceita múltiplos comandos numa consulta com parâmetros: cada
-	// carga vai numa chamada própria.
 	cargas := []struct {
 		sql  string
 		args []any
@@ -60,7 +56,6 @@ func carregarVolume(t *testing.T, fator int) {
 	}
 }
 
-// medirP95 roda a consulta n vezes e devolve o percentil 95.
 func medirP95(t *testing.T, n int, consulta func()) time.Duration {
 	t.Helper()
 	amostras := make([]time.Duration, 0, n)
@@ -73,9 +68,6 @@ func medirP95(t *testing.T, n int, consulta func()) time.Duration {
 	return amostras[int(float64(len(amostras))*0.95)]
 }
 
-// SC-003, nos dois pontos que o critério fixa: 1s no volume base e 2s com dez
-// vezes o volume. O segundo ponto existe porque o desenho de paginação cresce
-// com o total de registros filtrados — a margem é o limite de validade.
 func TestDesempenhoDasConsultasPaginadas(t *testing.T) {
 	if testing.Short() {
 		t.Skip("teste de volume")

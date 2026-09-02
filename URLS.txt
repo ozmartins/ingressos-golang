@@ -1,0 +1,69 @@
+URLs dos serviços que sobem com "docker compose up"
+====================================================
+(portas do host; todas configuráveis pelas variáveis PORTA_* do docker-compose.yml)
+
+APLICAÇÕES
+----------
+Catálogo (HTTP, porta 8082)
+  http://localhost:8082/docs                     Swagger UI
+  http://localhost:8082/openapi.yaml             Especificação OpenAPI
+  http://localhost:8082/health                   Health check
+  http://localhost:8082/api/v1/filmes
+  http://localhost:8082/api/v1/cinemas
+  http://localhost:8082/api/v1/cinemas/{id}/salas
+  http://localhost:8082/api/v1/sessoes
+  http://localhost:8082/api/v1/sessoes/{id}/reservar   (POST, protegida)
+
+Estoque (REST, porta 8085)
+  http://localhost:8085/docs                     Swagger UI
+  http://localhost:8085/openapi.yaml             Especificação OpenAPI
+  http://localhost:8085/api/v1/sessoes/{sessao_id}/bloqueios   (POST)
+  http://localhost:8085/api/v1/sessoes/{sessao_id}/poltronas   (GET)
+
+Estoque (administração/health, porta 8090)
+  http://localhost:8090/health/live
+  http://localhost:8090/health/ready
+
+Estoque (gRPC, porta 50051, mTLS obrigatório)
+  localhost:50051
+
+Estoque simulado (gRPC em texto claro, porta 50052)
+  localhost:50052
+
+Pagamento (HTTP, porta 8083)
+  http://localhost:8083/docs                     Swagger UI
+  http://localhost:8083/openapi.yaml             Especificação OpenAPI
+  http://localhost:8083/api/v1/health/live
+  http://localhost:8083/api/v1/health/ready
+  http://localhost:8083/api/v1/pagamentos/reserva/{reserva_id}
+
+Notificação (HTTP, porta 8084)
+  http://localhost:8084/docs                     Swagger UI
+  http://localhost:8084/openapi.yaml             Especificação OpenAPI
+  http://localhost:8084/health/live
+  http://localhost:8084/health/ready
+  http://localhost:8084/api/v1/ingressos/meus-ingressos        (GET)
+  http://localhost:8084/api/v1/ingressos/validar               (POST)
+
+INFRAESTRUTURA
+--------------
+Keycloak (porta 8081)
+  http://localhost:8081/                                       Console admin (admin/admin)
+  http://localhost:8081/realms/cinema                          Realm
+  http://localhost:8081/realms/cinema/protocol/openid-connect/certs   JWKS
+  http://localhost:8081/realms/cinema/protocol/openid-connect/token   Token
+
+RabbitMQ
+  http://localhost:15672/                        Painel de gerenciamento (guest/guest)
+  amqp://guest:guest@localhost:5672/             Broker AMQP
+
+PostgreSQL (porta 5434 no host)
+  postgres://postgres:postgres@localhost:5434/cinema
+
+Redis (porta 6379)
+  redis://localhost:6379/0
+
+SERVIÇOS SEM URL
+----------------
+migrate-catalogo, migrate-estoque, migrate-notificacao, migrate-pagamento
+  Executam as migrações e encerram; não expõem portas.

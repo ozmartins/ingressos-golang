@@ -4,7 +4,7 @@ info:
   version: "1.0.0"
   description: |
     Superfície REST do Servico-Estoque, com as mesmas duas operações que o
-    serviço oferece em gRPC (`contracts/estoque.proto`): bloquear poltronas de
+    serviço oferece em gRPC: bloquear poltronas de
     uma sessão e consultar o mapa de poltronas. As duas superfícies chamam os
     mesmos casos de uso, então valem as mesmas regras de domínio.
 
@@ -108,8 +108,8 @@ components:
       description: |
         Erro no formato da RFC 9457. O `type` é o contrato estável que o cliente
         inspeciona; `title` e `detail` são texto humano e podem mudar de redação.
-        Cada `type` corresponde a uma razão já publicada no contrato gRPC
-        (`contracts/erros.md`) — a superfície HTTP não cria categorias novas.
+        Cada `type` corresponde a uma razão já publicada no contrato gRPC — a
+        superfície HTTP não cria categorias novas.
       required: [type, title, status]
       properties:
         type:

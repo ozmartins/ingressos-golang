@@ -7,8 +7,7 @@ info:
     desfecho do pagamento de uma reserva enquanto o processamento acontece de
     forma assíncrona.
 
-    Contrato: FR-015..FR-018 e FR-025 de ../spec.md. Categorias de erro em
-    ./erros.md. Mudança incompatível exige versão nova no caminho (/api/v2).
+    Mudança incompatível exige versão nova no caminho (/api/v2).
 servers:
   - url: /api/v1
 paths:
@@ -18,7 +17,7 @@ paths:
       description: |
         Devolve o estado atual da transação da reserva informada. Só a pessoa dona
         da reserva obtém dados: para qualquer outra, a resposta é indistinguível
-        de reserva inexistente (FR-017). Nenhum papel administrativo é reconhecido.
+        de reserva inexistente. Nenhum papel administrativo é reconhecido.
       operationId: consultarPagamentoPorReserva
       security:
         - bearerJWT: []
@@ -55,7 +54,7 @@ paths:
                     forma_pagamento: CARTAO_CREDITO
                     criado_em: "2026-08-29T21:35:00Z"
         "400":
-          description: "`reserva_id` não é um UUID válido (FR-018)"
+          description: "`reserva_id` não é um UUID válido"
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Erro" }
@@ -67,7 +66,7 @@ paths:
         "404":
           description: |
             Não há pagamento visível para essa reserva. Cobre dois casos
-            deliberadamente indistinguíveis (FR-017): a reserva não tem transação,
+            deliberadamente indistinguíveis: a reserva não tem transação,
             ou a transação pertence a outra pessoa.
           content:
             application/json:
@@ -86,7 +85,7 @@ paths:
   /health/ready:
     get:
       summary: O serviço é capaz de processar cobranças
-      description: Verifica armazenamento e canal de eventos (FR-025).
+      description: Verifica armazenamento e canal de eventos.
       security: []
       responses:
         "200": { description: Pronto }
@@ -115,13 +114,12 @@ components:
         forma_pagamento: { type: string, enum: [PIX, CARTAO_CREDITO] }
         criado_em:      { type: string, format: date-time }
       description: |
-        `motivo_falha` e `codigo_transacao_gateway` NÃO são expostos: a ERS não os
-        inclui na resposta, e o motivo da recusa já chega ao aplicativo pela
-        notificação. Não expor referência de adquirente evita vazar detalhe da
-        integração pela API pública.
+        `motivo_falha` e `codigo_transacao_gateway` NÃO são expostos: o motivo da
+        recusa já chega ao aplicativo pela notificação, e não expor referência de
+        adquirente evita vazar detalhe da integração pela API pública.
     Erro:
       type: object
       required: [codigo, mensagem]
       properties:
-        codigo:   { type: string, description: "categoria estável — ver ./erros.md" }
+        codigo:   { type: string, description: "categoria estável do erro" }
         mensagem: { type: string, description: "texto humano, livre para mudar de redação" }

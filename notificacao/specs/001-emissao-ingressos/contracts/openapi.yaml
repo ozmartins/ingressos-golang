@@ -4,11 +4,11 @@ info:
   version: "1.0.0"
   description: |
     Emissão de ingressos digitais é assíncrona e não aparece aqui: acontece no consumo
-    de `pagamento.sucesso` (ver contracts/eventos.md). Esta API expõe apenas leitura
+    de `pagamento.sucesso`. Esta API expõe apenas leitura
     pela pessoa dona e a baixa do ingresso na portaria.
 
     Dois esquemas de credencial, sem hierarquia entre eles: cada operação aceita
-    somente o seu. Apresentar o outro é recusa, não promoção (research D7).
+    somente o seu. Apresentar o outro é recusa, não promoção.
 
 servers:
   # Relativo de propósito: a página de /docs resolve contra a própria origem,
@@ -32,8 +32,8 @@ paths:
       summary: Lista os ingressos da pessoa autenticada
       description: |
         Devolve todos os ingressos da pessoa, sem paginação, ordenados do mais recente
-        para o mais antigo (FR-023). O recorte é sempre pelo `sub` do token: não há
-        parâmetro capaz de alcançar ingresso de terceiro (FR-014).
+        para o mais antigo. O recorte é sempre pelo `sub` do token: não há
+        parâmetro capaz de alcançar ingresso de terceiro.
       operationId: listarMeusIngressos
       security:
         - tokenPessoa: []
@@ -42,7 +42,7 @@ paths:
           in: query
           required: false
           description: |
-            Filtro opcional por estado (FR-024). Ausente significa todos os estados.
+            Filtro opcional por estado. Ausente significa todos os estados.
             Valor não reconhecido é 400 — nunca tratado como ausência de filtro.
           schema:
             type: string
@@ -84,10 +84,10 @@ paths:
       summary: Valida o código na entrada da sala e dá baixa no ingresso
       description: |
         A autorização e a baixa acontecem no mesmo ato, por escrita condicionada: sob
-        leituras simultâneas do mesmo código, no máximo uma autoriza (FR-011).
+        leituras simultâneas do mesmo código, no máximo uma autoriza.
 
         Código malformado, assinatura inválida e ingresso inexistente devolvem a mesma
-        resposta 404 — indistinguíveis por exigência da FR-010.
+        resposta 404 — a indistinguibilidade é deliberada.
       operationId: validarIngresso
       security:
         - chavePortaria: []
@@ -131,7 +131,7 @@ paths:
         "404":
           description: |
             Código sem ingresso correspondente. Cobre três casos deliberadamente
-            indistinguíveis: malformado, assinatura inválida, inexistente (FR-010).
+            indistinguíveis: malformado, assinatura inválida, inexistente.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Recusa" }
@@ -200,7 +200,7 @@ components:
         criado_em: { type: string, format: date-time }
 
     Recusa:
-      description: Recusa de entrada na portaria; a forma é a da ERS, não RFC 9457.
+      description: Recusa de entrada na portaria; forma própria, não RFC 9457.
       type: object
       required: [valido, mensagem]
       properties:

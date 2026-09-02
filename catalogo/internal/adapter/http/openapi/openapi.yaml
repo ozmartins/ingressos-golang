@@ -6,9 +6,9 @@ info:
     API pública de navegação do catálogo de cinema e ponte síncrona para a reserva
     de poltronas no Servico-Estoque.
 
-    Divergências deliberadas em relação à ERS original (ver research.md, D7 e D8):
-      1. Coleções respondem com envelope de paginação, não com array nu (FR-001..FR-005).
-      2. Erros seguem RFC 9457 (application/problem+json), inclusive o 409 (FR-038).
+    Duas escolhas que valem para toda a API:
+      1. Coleções respondem com envelope de paginação, não com array nu.
+      2. Erros seguem RFC 9457 (application/problem+json), inclusive o 409.
 servers:
   - url: /api/v1
 
@@ -32,7 +32,7 @@ paths:
       tags: [Filmes]
       summary: Lista filmes do catálogo
       description: |
-        Sem o parâmetro `status`, retorna apenas filmes EM_CARTAZ e BREVE (FR-008).
+        Sem o parâmetro `status`, retorna apenas filmes EM_CARTAZ e BREVE.
       security: []
       parameters:
         - $ref: '#/components/parameters/Page'
@@ -93,7 +93,7 @@ paths:
       tags: [Sessões]
       summary: Consulta a grade de sessões
       description: |
-        Retorna apenas sessões AGENDADA ou EM_ANDAMENTO (FR-016).
+        Retorna apenas sessões AGENDADA ou EM_ANDAMENTO.
         Filtros podem ser combinados.
       security: []
       parameters:
@@ -123,8 +123,7 @@ paths:
       summary: Solicita o bloqueio de poltronas para uma sessão
       description: |
         Encaminha a solicitação ao Servico-Estoque via gRPC, com timeout de 2s e
-        sem retentativa (FR-027, FR-029). O usuário é identificado pela claim `sub`
-        do token (FR-021).
+        sem retentativa. O usuário é identificado pela claim `sub` do token.
       security:
         - bearerAuth: []
       parameters:
@@ -210,7 +209,7 @@ components:
         tamanho: { type: integer, example: 20 }
         total:
           type: integer
-          description: Total de registros que atendem aos filtros (FR-003)
+          description: Total de registros que atendem aos filtros
           example: 137
         tem_proxima: { type: boolean, example: true }
 

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/oseias/ingressos-golang/notificacao/internal/adapter/http/openapi"
 	"github.com/oseias/ingressos-golang/notificacao/internal/platform/health"
 	"github.com/oseias/ingressos-golang/notificacao/internal/usecase"
 )
@@ -35,6 +36,12 @@ func (a *API) Rotas() http.Handler {
 	mux.HandleFunc("POST /api/v1/ingressos/validar", a.validar)
 	mux.HandleFunc("GET /health/live", a.vivo)
 	mux.HandleFunc("GET /health/ready", a.pronto)
+
+	// /docs e /openapi.yaml servem o contrato, não fazem parte dele.
+	mux.Handle("GET /openapi.yaml", openapi.HandlerEspecificacao())
+	mux.Handle("GET /docs", openapi.HandlerUI("/openapi.yaml"))
+	// A variante com barra evita um 404 confuso para quem digita a URL à mão.
+	mux.Handle("GET /docs/", openapi.HandlerUI("/openapi.yaml"))
 	return mux
 }
 

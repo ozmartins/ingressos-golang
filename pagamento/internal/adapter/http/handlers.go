@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/oseias/ingressos-golang/pagamento/internal/adapter/http/openapi"
 	"github.com/oseias/ingressos-golang/pagamento/internal/domain/transacao"
 	"github.com/oseias/ingressos-golang/pagamento/internal/platform/health"
 	"github.com/oseias/ingressos-golang/pagamento/internal/usecase"
@@ -46,13 +47,21 @@ type API struct {
 	Log       *slog.Logger
 }
 
-// Rotas monta o roteador. São três caminhos: net/http basta, e um roteador de
+// Rotas monta o roteador. São poucos caminhos: net/http basta, e um roteador de
 // terceiro não se pagaria aqui (princípio I).
+//
+// /docs e /openapi.yaml ficam na raiz, e não sob /api/v1: servem o contrato,
+// não fazem parte dele, e por isso não acompanham a versão da API.
 func (a *API) Rotas() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/pagamentos/reserva/{reserva_id}", a.consultar)
 	mux.HandleFunc("GET /api/v1/health/live", a.vivo)
 	mux.HandleFunc("GET /api/v1/health/ready", a.pronto)
+
+	mux.Handle("GET /openapi.yaml", openapi.HandlerEspecificacao())
+	mux.Handle("GET /docs", openapi.HandlerUI("/openapi.yaml"))
+	// A variante com barra evita um 404 confuso para quem digita a URL à mão.
+	mux.Handle("GET /docs/", openapi.HandlerUI("/openapi.yaml"))
 	return mux
 }
 

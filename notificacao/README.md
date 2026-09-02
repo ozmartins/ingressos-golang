@@ -86,6 +86,16 @@ antes (`SET search_path TO notificacao;`) ou qualifique as tabelas. A tabela
 de controle do golang-migrate (`schema_migrations`) mora no mesmo schema: em
 `public` os quatro serviços disputariam uma só.
 
+## Documentação da API
+
+O contrato é servido pelo próprio serviço: `/openapi.yaml` devolve o documento e
+`/docs` abre o Swagger UI sobre ele — http://localhost:8084/docs no compose. Nenhum dos dois exige credencial:
+pedir token para ler o contrato barraria justamente quem ainda vai integrar.
+
+O contrato versionado em `specs/001-emissao-ingressos/contracts/openapi.yaml` é a fonte da verdade; a cópia embutida no
+binário é gerada por `make openapi-sync`, e um teste de paridade falha quando as
+duas divergem.
+
 Roteiro completo de validação ponta a ponta, com oito cenários, em
 [`quickstart.md`](specs/001-emissao-ingressos/quickstart.md).
 

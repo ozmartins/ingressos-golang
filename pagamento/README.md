@@ -42,6 +42,16 @@ de conexões. Para inspecionar o banco com `psql`, aponte o `search_path` antes
 controle do golang-migrate (`schema_migrations`) mora no mesmo schema: em
 `public` os quatro serviços disputariam uma só.
 
+## Documentação da API
+
+O contrato é servido pelo próprio serviço: `/openapi.yaml` devolve o documento e
+`/docs` abre o Swagger UI sobre ele — http://localhost:8083/docs no compose. Nenhum dos dois exige credencial:
+pedir token para ler o contrato barraria justamente quem ainda vai integrar.
+
+O contrato versionado em `specs/001-pagamento-assincrono/contracts/openapi.yaml` é a fonte da verdade; a cópia embutida no
+binário é gerada por `make openapi-sync`, e um teste de paridade falha quando as
+duas divergem.
+
 Roteiro completo de validação: [`specs/001-pagamento-assincrono/quickstart.md`](specs/001-pagamento-assincrono/quickstart.md).
 
 ## Configuração

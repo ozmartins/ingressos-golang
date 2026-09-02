@@ -12,6 +12,9 @@ func ambienteValido(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://u:p@localhost:5432/estoque")
 	t.Setenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
 	t.Setenv("TLS_CLIENT_AUTH", "off")
+	t.Setenv("JWKS_URL", "http://keycloak:8081/realms/cinema/protocol/openid-connect/certs")
+	t.Setenv("JWT_ISSUER", "http://keycloak:8081/realms/cinema")
+	t.Setenv("JWT_AUDIENCE", "cinema-app")
 }
 
 func TestCarregarAplicaPadroes(t *testing.T) {
@@ -32,6 +35,9 @@ func TestCarregarAplicaPadroes(t *testing.T) {
 	}
 	if cfg.GRPCAddr != ":50051" {
 		t.Errorf("GRPCAddr = %q, esperado :50051", cfg.GRPCAddr)
+	}
+	if cfg.HTTPAddr != ":8085" {
+		t.Errorf("HTTPAddr = %q, esperado :8085", cfg.HTTPAddr)
 	}
 }
 

@@ -21,6 +21,7 @@ import (
 
 	adaptadoramqp "github.com/oseias/ingressos-golang/estoque/internal/adapter/amqp"
 	adaptadorgrpc "github.com/oseias/ingressos-golang/estoque/internal/adapter/grpc"
+	adaptadorhttp "github.com/oseias/ingressos-golang/estoque/internal/adapter/http"
 	"github.com/oseias/ingressos-golang/estoque/internal/adapter/postgres"
 	adaptadorredis "github.com/oseias/ingressos-golang/estoque/internal/adapter/redis"
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/shared"
@@ -176,7 +177,36 @@ func executar() error {
 		_ = admin.Shutdown(ctxDesligar)
 	}()
 
-	// 8. Canal síncrono.
+	// 8. API REST: as mesmas operações do gRPC, para o cliente final. Fica em
+	// porta própria porque a de administração é outra audiência — operação, não
+	// negócio — e porque o gRPC exige mTLS, que o navegador não apresenta.
+	autenticador, err := adaptadorhttp.NovoAutenticador(cfg.JWKSURL, cfg.JWTIssuer, cfg.JWTAudience)
+	if err != nil {
+		return fmt.Errorf("autenticador da API REST: %w", err)
+	}
+	apiREST := &adaptadorhttp.API{
+		Bloqueio: bloquear,
+		Mapa:     consultar,
+		Auth:     autenticador,
+		Limite:   cfg.PoltronasMaxPorBloqueio,
+	}
+	rest := &http.Server{
+		Addr:              cfg.HTTPAddr,
+		Handler:           apiREST.Rotas(),
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+	go func() {
+		if err := rest.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			obs.Log.Error("porta da API REST caiu", "erro", err.Error())
+		}
+	}()
+	defer func() {
+		ctxDesligar, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancelar()
+		_ = rest.Shutdown(ctxDesligar)
+	}()
+
+	// 9. Canal síncrono.
 	servidor, err := adaptadorgrpc.NovoServidor(adaptadorgrpc.Opcoes{
 		Bloqueio: bloquear, Mapa: consultar, Obs: obs, Config: cfg,
 	})
@@ -188,7 +218,7 @@ func executar() error {
 	go func() { erros <- servidor.Servir(cfg.GRPCAddr) }()
 
 	obs.Log.Info("estoque no ar",
-		"grpc", cfg.GRPCAddr, "admin", cfg.AdminAddr,
+		"grpc", cfg.GRPCAddr, "admin", cfg.AdminAddr, "rest", cfg.HTTPAddr,
 		"reserva_ttl", cfg.ReservaTTL.String(),
 		"limite_poltronas", cfg.PoltronasMaxPorBloqueio,
 		"mtls", string(cfg.TLSClientAuth))

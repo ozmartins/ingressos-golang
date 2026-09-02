@@ -1,7 +1,7 @@
 GO ?= go
 PKG := ./...
 
-.PHONY: build test test-integration lint proto migrate-up migrate-down run certs \
+.PHONY: build test test-integration lint proto migrate-up migrate-down run certs openapi-sync \
         publicar-sessao publicar-pagamento contrato-sync
 
 build:
@@ -28,6 +28,14 @@ contrato-sync:
 
 proto: contrato-sync
 	buf generate
+
+# O contrato versionado é a fonte da verdade; a cópia em internal/ existe só
+# porque go:embed não alcança diretórios acima do pacote. O teste de paridade
+# do pacote openapi falha quando as duas divergem.
+CONTRATO := specs/001-estoque-bloqueio-poltronas/contracts/openapi.yaml
+
+openapi-sync:
+	cp $(CONTRATO) internal/adapter/http/openapi/openapi.yaml
 
 # A tabela de controle do migrate (`schema_migrations`) fica no schema do
 # serviço, fixada pelo `search_path`, e não em `public`: o banco `cinema` é

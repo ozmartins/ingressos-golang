@@ -4,8 +4,11 @@ Serviço de gestão de assentos e controle de concorrência do sistema de cinema
 É o **dono do estado de disponibilidade das poltronas**: nenhum outro serviço
 decide se um assento pode ser vendido.
 
-- Expõe um canal **gRPC** com duas operações: bloquear poltronas de forma atômica
-  e consultar o mapa de uma sessão.
+- Expõe duas operações — bloquear poltronas de forma atômica e consultar o mapa
+  de uma sessão — em **duas superfícies**: um canal **gRPC** autenticado por
+  mTLS, para os serviços, e uma **API REST** autenticada por JWT do Keycloak,
+  para o cliente final. As duas chamam os mesmos casos de uso, então valem as
+  mesmas regras; a documentação interativa da REST fica em `/docs`.
 - Reage a três fatos do **RabbitMQ**: `sessao.criada` (provisiona a matriz),
   `pagamento.sucesso` (confirma) e `pagamento.falhou` (libera).
 - Publica `reserva.criada` a cada bloqueio concedido.
@@ -46,6 +49,44 @@ Leia primeiro, nesta ordem: [`spec.md`](specs/001-estoque-bloqueio-poltronas/spe
 3. **Idempotência em duas camadas.** Registro de mensagem processada mais guarda
    de máquina de estados (`WHERE status = 'PENDENTE'`). Duplicata e chegada fora
    de ordem são inofensivas por construção.
+
+## As duas superfícies
+
+As mesmas duas operações são oferecidas em gRPC e em REST. Ambas chamam os
+mesmos casos de uso — este serviço não tem regra que valha em um transporte e
+não no outro. O que muda é quem chama:
+
+| | gRPC (`:50051`) | REST (`:8085`) |
+|---|---|---|
+| Chamador | outros serviços | cliente final |
+| Identidade | mTLS | JWT do Keycloak |
+| `usuario_id` | vem no corpo, porque o Servico-Catalogo já validou o token | vem da claim `sub`, que é assinada |
+| Poltronas indisponíveis | `OK` com `sucesso=false` | `409` |
+| Prazo da reserva | epoch em segundos | RFC 3339 |
+
+```
+POST /api/v1/sessoes/{sessao_id}/bloqueios   → 201 { reserva_id, expira_em, mensagem }
+GET  /api/v1/sessoes/{sessao_id}/poltronas   → 200 { sessao_id, poltronas[] }
+```
+
+O `usuario_id` **não** é lido do corpo na superfície REST: se fosse, qualquer
+chamador reservaria em nome de outra pessoa. Um teste trava essa regressão.
+
+Os erros seguem a RFC 9457 (`application/problem+json`). Cada `type` corresponde
+a uma razão já publicada em [`contracts/erros.md`](specs/001-estoque-bloqueio-poltronas/contracts/erros.md),
+com o status HTTP equivalente ao código gRPC: `InvalidArgument`→400,
+`FailedPrecondition`→422, `NotFound`→404, `Unavailable`→503, `Internal`→500.
+
+## Documentação da API
+
+`/openapi.yaml` devolve o contrato REST e `/docs` abre o Swagger UI sobre ele
+(http://localhost:8085/docs no compose). Nenhum dos dois exige credencial: pedir
+token para ler o contrato barraria justamente quem ainda vai integrar.
+
+O contrato versionado em `specs/001-estoque-bloqueio-poltronas/contracts/openapi.yaml`
+é a fonte da verdade; a cópia embutida no binário é gerada por `make openapi-sync`,
+e um teste de paridade falha quando as duas divergem. O contrato gRPC continua
+sendo o `.proto` no mesmo diretório.
 
 ## Subir localmente
 
@@ -92,8 +133,12 @@ ou malformada.
 | `DATABASE_URL` | — (obrigatória) | PostgreSQL, fonte de verdade (o `search_path` é fixado no código, no schema `estoque`) |
 | `RABBITMQ_URL` | — (obrigatória) | barramento de fatos |
 | `REDIS_URL` | vazio | índice de prazo; ausente, só a varredura expira |
-| `GRPC_ADDR` | `:50051` | canal síncrono |
+| `GRPC_ADDR` | `:50051` | canal síncrono entre serviços |
 | `ADMIN_ADDR` | `:8090` | saúde e métricas |
+| `HTTP_ADDR` | `:8085` | API REST e `/docs` |
+| `JWKS_URL` | — (obrigatória) | chaves do Keycloak, carregadas na largada, que validam o JWT da API REST |
+| `JWT_ISSUER` | — (obrigatória) | emissor aceito no token |
+| `JWT_AUDIENCE` | — (obrigatória) | público aceito no token |
 | `TLS_CLIENT_AUTH` | `require` | `require` exige identidade de serviço; `off` só em desenvolvimento |
 | `TLS_CERT_FILE`, `TLS_KEY_FILE`, `TLS_CLIENT_CA_FILE` | — | material de identidade (obrigatórios com `require`) |
 | `RESERVA_TTL` | `10m` | prazo da reserva |

@@ -5,6 +5,7 @@ package integration
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
 	"os/exec"
 	"strings"
 	"testing"
@@ -26,7 +27,7 @@ func TestProcessoRecusaSubirSemConfiguracao(t *testing.T) {
 		t.Fatal("o processo subiu sem configuração obrigatória")
 	}
 	texto := string(saida)
-	for _, esperado := range []string{"DATABASE_URL", "RABBITMQ_URL"} {
+	for _, esperado := range []string{"DATABASE_URL", "RABBITMQ_URL", "JWKS_URL", "JWT_ISSUER", "JWT_AUDIENCE"} {
 		if !strings.Contains(texto, esperado) {
 			t.Errorf("a recusa não menciona %s:\n%s", esperado, texto)
 		}
@@ -39,6 +40,16 @@ func TestProcessoRecusaSubirSemConfiguracao(t *testing.T) {
 func TestProcessoSobeApenasComConfiguracaoExterna(t *testing.T) {
 	binario := compilarBinario(t)
 
+	// A API REST carrega o conjunto de chaves na largada, como as demais APIs
+	// do sistema. Aqui basta um conjunto vazio: o que este teste verifica é que
+	// o processo sobe com o ambiente apontando para fora, não a validação de
+	// token — essa vive nos testes do adaptador HTTP.
+	jwks := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"keys":[]}`))
+	}))
+	defer jwks.Close()
+
 	ctx, cancelar := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancelar()
 
@@ -50,6 +61,10 @@ func TestProcessoSobeApenasComConfiguracaoExterna(t *testing.T) {
 		"RABBITMQ_URL=" + ambiente.RabbitURL,
 		"GRPC_ADDR=127.0.0.1:15051",
 		"ADMIN_ADDR=127.0.0.1:18090",
+		"HTTP_ADDR=127.0.0.1:18085",
+		"JWKS_URL=" + jwks.URL,
+		"JWT_ISSUER=http://keycloak.test/realms/cinema",
+		"JWT_AUDIENCE=cinema-app",
 		"TLS_CLIENT_AUTH=off",
 		"LOG_LEVEL=error",
 	}

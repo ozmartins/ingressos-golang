@@ -1,0 +1,248 @@
+openapi: 3.1.0
+info:
+  title: Servico-Estoque — API
+  version: "1.0.0"
+  description: |
+    Superfície REST do Servico-Estoque, com as mesmas duas operações que o
+    serviço oferece em gRPC (`contracts/estoque.proto`): bloquear poltronas de
+    uma sessão e consultar o mapa de poltronas. As duas superfícies chamam os
+    mesmos casos de uso, então valem as mesmas regras de domínio.
+
+    Diferenças deliberadas em relação ao gRPC, e o porquê de cada uma:
+
+    - **Identidade.** O gRPC é máquina-a-máquina, autenticado por mTLS, e recebe
+      o `usuario_id` no corpo porque quem chama (o Servico-Catalogo) já validou
+      o token. Aqui o chamador é o cliente final: a identidade vem da claim
+      `sub` de um JWT do Keycloak, e não do corpo, onde seria autodeclarada.
+    - **Poltronas indisponíveis.** Em gRPC isso é `OK` com `sucesso=false`; em
+      HTTP é `409`, porque o status é a categoria do desfecho.
+    - **Prazo da reserva.** `expira_em` é RFC 3339, e não o epoch em segundos do
+      proto: o cliente HTTP não tem o schema para saber a unidade.
+
+servers:
+  # Relativo de propósito: a página de /docs resolve contra a própria origem,
+  # então o "Try it out" funciona em qualquer porta em que o serviço esteja
+  # publicado, sem editar o contrato.
+  - url: /
+    description: a origem que serve esta documentação
+
+tags:
+  - name: poltronas
+    description: Bloqueio e consulta de poltronas de uma sessão
+
+components:
+  securitySchemes:
+    keycloak:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT do realm `cinema`. O `usuario_id` da reserva é a claim `sub`.
+
+  schemas:
+    SolicitacaoBloqueio:
+      type: object
+      required: [poltronas_ids]
+      properties:
+        poltronas_ids:
+          type: array
+          description: |
+            Rótulos das poltronas no escopo da sessão (fileira + número). Sem
+            repetições, e no máximo `POLTRONAS_MAX_POR_BLOQUEIO` itens (padrão 10).
+          items:
+            type: string
+            example: A1
+          minItems: 1
+          example: ["A1", "A2"]
+
+    RespostaBloqueio:
+      type: object
+      required: [reserva_id, expira_em, mensagem]
+      properties:
+        reserva_id:
+          type: string
+          format: uuid
+          description: Identificador da reserva pendente criada.
+        expira_em:
+          type: string
+          format: date-time
+          description: Instante em que a reserva expira se não for confirmada.
+          example: "2026-09-01T18:40:00Z"
+        mensagem:
+          type: string
+          description: Texto humano, livre para mudar de redação.
+
+    Poltrona:
+      type: object
+      required: [rotulo, fileira, numero, tipo, status]
+      properties:
+        rotulo:
+          type: string
+          description: Identidade da poltrona no escopo da sessão.
+          example: A1
+        fileira:
+          type: string
+          example: A
+        numero:
+          type: integer
+          example: 1
+        tipo:
+          type: string
+          enum: [NORMAL, PCD, NAMORADEIRA]
+        status:
+          type: string
+          enum: [LIVRE, RESERVADA, OCUPADA]
+
+    RespostaMapa:
+      type: object
+      required: [sessao_id, poltronas]
+      properties:
+        sessao_id:
+          type: string
+        poltronas:
+          type: array
+          items:
+            $ref: "#/components/schemas/Poltrona"
+
+    Problem:
+      type: object
+      description: |
+        Erro no formato da RFC 9457. O `type` é o contrato estável que o cliente
+        inspeciona; `title` e `detail` são texto humano e podem mudar de redação.
+        Cada `type` corresponde a uma razão já publicada no contrato gRPC
+        (`contracts/erros.md`) — a superfície HTTP não cria categorias novas.
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri
+          example: https://cinema.example/errors/poltronas-indisponiveis
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+          description: "`urn:trace:<trace_id>`, a chave que localiza o rastro no log."
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+
+  responses:
+    NaoAutenticado:
+      description: Token ausente, malformado, expirado ou de emissor não reconhecido.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Indisponivel:
+      description: |
+        Banco ou dependência de estado indisponível. Nenhum estado foi alterado.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    ErroInterno:
+      description: Falha não prevista. O detalhe fica no log, nunca na resposta.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+
+security:
+  - keycloak: []
+
+paths:
+  /api/v1/sessoes/{sessao_id}/bloqueios:
+    post:
+      tags: [poltronas]
+      summary: Bloqueia poltronas de uma sessão
+      description: |
+        Bloqueia atomicamente um conjunto de poltronas, criando uma reserva
+        pendente. Tudo-ou-nada: se qualquer poltrona pedida não estiver livre,
+        nenhuma muda de estado e a resposta é 409.
+      operationId: bloquearPoltronas
+      parameters:
+        - name: sessao_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SolicitacaoBloqueio"
+      responses:
+        "201":
+          description: Bloqueio concedido; a reserva pendente foi criada.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespostaBloqueio"
+        "400":
+          description: |
+            Lista vazia, rótulos repetidos, rótulo fora do formato, corpo não
+            é JSON válido, ou quantidade acima do limite por bloqueio — neste
+            caso `metadata.limite` traz o teto.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "401":
+          $ref: "#/components/responses/NaoAutenticado"
+        "409":
+          description: Ao menos uma poltrona solicitada está RESERVADA ou OCUPADA.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "422":
+          description: |
+            Sessão sem matriz de poltronas provisionada, ou rótulo inexistente
+            na sessão informada.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "503":
+          $ref: "#/components/responses/Indisponivel"
+        "500":
+          $ref: "#/components/responses/ErroInterno"
+
+  /api/v1/sessoes/{sessao_id}/poltronas:
+    get:
+      tags: [poltronas]
+      summary: Consulta o mapa de poltronas de uma sessão
+      description: |
+        Devolve o mapa completo de poltronas com o estado corrente de cada uma.
+        Operação de leitura: não altera nenhum estado.
+      operationId: consultarMapaPoltronas
+      parameters:
+        - name: sessao_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Mapa da sessão.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespostaMapa"
+        "401":
+          $ref: "#/components/responses/NaoAutenticado"
+        "404":
+          description: Sessão desconhecida.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "503":
+          $ref: "#/components/responses/Indisponivel"
+        "500":
+          $ref: "#/components/responses/ErroInterno"

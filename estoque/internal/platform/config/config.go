@@ -31,6 +31,15 @@ type Config struct {
 
 	GRPCAddr  string
 	AdminAddr string
+	// HTTPAddr é a porta da API REST de negócio, separada da administração:
+	// saúde e métricas são para a operação, os bloqueios são para o cliente.
+	HTTPAddr string
+
+	// Credenciais da API REST. O canal gRPC continua se autenticando por mTLS;
+	// o REST atende o cliente final, cuja identidade vem de um JWT do Keycloak.
+	JWKSURL     string
+	JWTIssuer   string
+	JWTAudience string
 
 	TLSCertFile     string
 	TLSKeyFile      string
@@ -107,6 +116,11 @@ func Carregar() (*Config, error) {
 
 		GRPCAddr:  c.comPadrao("GRPC_ADDR", ":50051"),
 		AdminAddr: c.comPadrao("ADMIN_ADDR", ":8090"),
+		HTTPAddr:  c.comPadrao("HTTP_ADDR", ":8085"),
+
+		JWKSURL:     c.obrigatoria("JWKS_URL"),
+		JWTIssuer:   c.obrigatoria("JWT_ISSUER"),
+		JWTAudience: c.obrigatoria("JWT_AUDIENCE"),
 
 		TLSCertFile:     c.comPadrao("TLS_CERT_FILE", ""),
 		TLSKeyFile:      c.comPadrao("TLS_KEY_FILE", ""),

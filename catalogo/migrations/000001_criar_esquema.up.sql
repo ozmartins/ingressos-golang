@@ -1,9 +1,10 @@
 -- O catálogo é dono do seu próprio schema: nada dele vive em `public`.
 --
 -- Objetos aqui são sempre qualificados porque esta migração roda pelo CLI do
--- golang-migrate, cujo `search_path` é o padrão da conexão. A tabela de
--- controle de versões (`schema_migrations`) segue em `public`: ela é do
--- ferramental de migração, não do domínio.
+-- golang-migrate, cujo `search_path` vem da conexão. A tabela de controle de
+-- versões (`schema_migrations`) fica no mesmo schema `catalogo`: o banco é
+-- compartilhado pelos quatro serviços, e em `public` os quatro disputariam
+-- uma só tabela de controle.
 CREATE SCHEMA IF NOT EXISTS catalogo;
 
 CREATE TABLE catalogo.filmes (

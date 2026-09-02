@@ -26,7 +26,7 @@ metade.
 As migrações criam o schema `estoque` e todas as tabelas dentro dele; o serviço
 fixa o `search_path` nesse schema, então nada do estoque fica em `public` além
 da tabela de controle do próprio golang-migrate. Fora do compose, use
-`make migrate-up`, que anexa `&search_path=public` à `DATABASE_URL` para manter
+`make migrate-up`, que anexa `&search_path=estoque` à `DATABASE_URL` para manter
 essa tabela de controle no lugar.
 
 Portas no host: gRPC `50051`, administração (saúde e métricas) `8090`, RabbitMQ

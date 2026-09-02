@@ -15,7 +15,7 @@ Prova, com o serviço rodando de verdade, os desfechos que a spec exige.
 ```bash
 cd pagamento
 docker compose up -d postgres rabbitmq       # espera os health checks
-export DATABASE_URL='postgres://pagamento:pagamento@localhost:5432/pagamento?sslmode=disable'  # `make migrate-up` anexa `&search_path=public`
+export DATABASE_URL='postgres://pagamento:pagamento@localhost:5434/cinema?sslmode=disable'  # `make migrate-up` anexa `&search_path=pagamento`
 make migrate-up
 make run                                     # declara a topologia e começa a consumir
 ```

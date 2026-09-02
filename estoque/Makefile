@@ -29,12 +29,12 @@ contrato-sync:
 proto: contrato-sync
 	buf generate
 
-# A tabela de controle do migrate fica em `public`, fixada pelo `search_path`.
-# O padrão (`"$$user", public`) a moveria para o schema `estoque` assim que a
-# primeira migração o criasse — o usuário do banco tem o mesmo nome —, e as
-# versões já aplicadas sumiriam do rastro. As migrações em si qualificam cada
-# objeto, então não dependem do `search_path`.
-MIGRATE_URL ?= $(DATABASE_URL)&search_path=public
+# A tabela de controle do migrate (`schema_migrations`) fica no schema do
+# serviço, fixada pelo `search_path`, e não em `public`: o banco `cinema` é
+# compartilhado pelos quatro serviços, e em `public` os quatro disputariam a
+# mesma tabela. As migrações em si qualificam cada objeto, então não dependem
+# do `search_path`.
+MIGRATE_URL ?= $(DATABASE_URL)&search_path=estoque
 
 migrate-up:
 	migrate -path migrations -database "$(MIGRATE_URL)" up

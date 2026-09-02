@@ -43,14 +43,14 @@ portaria o valida uma vez só.
 cd notificacao
 docker compose up -d          # Postgres + RabbitMQ
 # PORTA_POSTGRES permite desviar de um PostgreSQL local já ocupando a 5432.
-export DATABASE_URL='postgres://postgres:postgres@localhost:5432/notificacao?sslmode=disable'
+export DATABASE_URL='postgres://postgres:postgres@localhost:5434/cinema?sslmode=disable'
 make migrate-up
 ```
 
 A migração cria o schema `notificacao` e as duas tabelas dentro dele; o serviço
 fixa o `search_path` nesse schema no próprio pool, então nada da notificação
 fica em `public` além da tabela de controle do golang-migrate — `make
-migrate-up` anexa `&search_path=public` à `DATABASE_URL` justamente para manter
+migrate-up` anexa `&search_path=notificacao` à `DATABASE_URL` justamente para manter
 essa tabela no lugar. Os `psql` deste roteiro qualificam as tabelas
 (`notificacao.ingressos_emitidos`) porque a sessão do `psql` não herda esse
 `search_path`.

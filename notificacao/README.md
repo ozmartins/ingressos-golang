@@ -74,7 +74,7 @@ erro de largada — não cai silenciosamente no padrão.
 
 ```bash
 docker compose -f ../docker-compose.yml up -d rabbitmq keycloak
-export DATABASE_URL='postgres://notificacao:notificacao@localhost:5432/notificacao?sslmode=disable'
+export DATABASE_URL='postgres://notificacao:notificacao@localhost:5434/cinema?sslmode=disable'
 make migrate-up
 make run
 ```
@@ -82,9 +82,9 @@ make run
 As tabelas da notificação vivem no schema `notificacao`, não em `public`: a
 migração cria o schema e qualifica cada objeto, e o serviço fixa o `search_path`
 no pool de conexões. Para inspecionar o banco com `psql`, aponte o `search_path`
-antes (`SET search_path TO notificacao;`) ou qualifique as tabelas. Só a tabela
-de controle do golang-migrate (`schema_migrations`) segue em `public` — ela é do
-ferramental, não do domínio.
+antes (`SET search_path TO notificacao;`) ou qualifique as tabelas. A tabela
+de controle do golang-migrate (`schema_migrations`) mora no mesmo schema: em
+`public` os quatro serviços disputariam uma só.
 
 Roteiro completo de validação ponta a ponta, com oito cenários, em
 [`quickstart.md`](specs/001-emissao-ingressos/quickstart.md).

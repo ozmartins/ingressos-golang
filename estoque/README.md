@@ -58,9 +58,9 @@ curl -fsS http://localhost:8090/health/ready
 As tabelas do estoque vivem no schema `estoque`, não em `public`: as migrações
 criam o schema e qualificam cada objeto, e o serviço fixa o `search_path` no
 pool de conexões. Para inspecionar o banco com `psql`, aponte o `search_path`
-antes (`SET search_path TO estoque;`) ou qualifique as tabelas. Só a tabela de
-controle do golang-migrate (`schema_migrations`) segue em `public` — ela é do
-ferramental, não do domínio.
+antes (`SET search_path TO estoque;`) ou qualifique as tabelas. A tabela de
+controle do golang-migrate (`schema_migrations`) mora no mesmo schema: em
+`public` os quatro serviços disputariam uma só.
 
 O roteiro completo de validação — provisionar sessão, bloquear, confirmar,
 liberar, expirar — está em

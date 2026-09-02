@@ -2,20 +2,32 @@
 # compartilham. Substitui os quatro compose por serviço, que subiam um RabbitMQ
 # (e um Postgres) cada um e, por isso, não conseguiam trocar eventos entre si.
 #
-# O PostgreSQL NÃO sobe aqui: os serviços usam a instância instalada na máquina
-# que roda o compose, alcançada por `host.docker.internal`. Crie usuários e
-# bancos uma vez com `psql -U postgres -f infra/postgres/criar-bancos.sql`, e
-# garanta que o Postgres do host escute em todas as interfaces
-# (`listen_addresses = '*'`) e aceite a rede do Docker no `pg_hba.conf`.
-
-# Rota até o Postgres do host. Em Linux o alias não existe por padrão; o
-# `host-gateway` o aponta para o gateway da rede do compose.
-x-host-postgres: &host-postgres
-  extra_hosts:
-    - "host.docker.internal:host-gateway"
+# Os quatro serviços dividem uma instância e um banco (`cinema`), cada um dono
+# do seu schema — ver `infra/postgres/init/01-papeis-e-schemas.sql`. Os dados
+# vivem no volume `postgres-dados` e sobrevivem a `docker compose down`; só
+# `down -v` os apaga.
 
 services:
   # ---------------------------------------------------------------- infra ---
+  # A porta publicada no host é 5434 por padrão: 5432 costuma estar tomada pelo
+  # PostgreSQL da própria máquina. Dentro da rede do compose o endereço é
+  # sempre `postgres:5432`, independente do que se publica fora.
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: cinema
+    volumes:
+      - postgres-dados:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    ports: ["${PORTA_POSTGRES:-5434}:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cinema"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
   redis:
     image: redis:7-alpine
     # `Ex` habilita a notificação de chave expirada, que dispara a liberação
@@ -62,49 +74,56 @@ services:
       retries: 30
 
   # ----------------------------------------------------------- migrações ---
-  # Cada job aplica as migrações do seu serviço no Postgres do host e sai; a API
-  # correspondente só sobe depois que ele termina com sucesso, então nunca
-  # encontra um esquema pela metade.
+  # Cada job aplica as migrações do seu serviço e sai; a API correspondente só
+  # sobe depois que ele termina com sucesso, então nunca encontra um esquema
+  # pela metade.
   #
-  # O `search_path=public` fixa onde vive a tabela de controle do migrate. Sem
-  # ele o padrão `"$$user", public` a moveria de lugar assim que a primeira
-  # migração criasse o schema homônimo ao usuário do banco, e a ferramenta
-  # perderia o rastro das versões já aplicadas.
+  # O `search_path` aponta para o schema do serviço, e é lá que a ferramenta
+  # cria seu `schema_migrations`. Num banco compartilhado, deixá-lo em `public`
+  # faria os quatro jobs disputarem a mesma tabela de controle.
   migrate-catalogo:
-    <<: *host-postgres
     image: migrate/migrate:v4.17.1
     volumes: ["./catalogo/migrations:/migrations:ro"]
     command:
       - -path=/migrations
-      - -database=postgres://catalogo:catalogo@host.docker.internal:${PORTA_POSTGRES:-5432}/catalogo?sslmode=disable&search_path=public
+      - -database=postgres://catalogo:catalogo@postgres:5432/cinema?sslmode=disable&search_path=catalogo
       - up
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   migrate-estoque:
-    <<: *host-postgres
     image: migrate/migrate:v4.17.1
     volumes: ["./estoque/migrations:/migrations:ro"]
     command:
       - -path=/migrations
-      - -database=postgres://estoque:estoque@host.docker.internal:${PORTA_POSTGRES:-5432}/estoque?sslmode=disable&search_path=public
+      - -database=postgres://estoque:estoque@postgres:5432/cinema?sslmode=disable&search_path=estoque
       - up
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   migrate-notificacao:
-    <<: *host-postgres
     image: migrate/migrate:v4.17.1
     volumes: ["./notificacao/migrations:/migrations:ro"]
     command:
       - -path=/migrations
-      - -database=postgres://notificacao:notificacao@host.docker.internal:${PORTA_POSTGRES:-5432}/notificacao?sslmode=disable&search_path=public
+      - -database=postgres://notificacao:notificacao@postgres:5432/cinema?sslmode=disable&search_path=notificacao
       - up
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   migrate-pagamento:
-    <<: *host-postgres
     image: migrate/migrate:v4.17.1
     volumes: ["./pagamento/migrations:/migrations:ro"]
     command:
       - -path=/migrations
-      - -database=postgres://pagamento:pagamento@host.docker.internal:${PORTA_POSTGRES:-5432}/pagamento?sslmode=disable&search_path=public
+      - -database=postgres://pagamento:pagamento@postgres:5432/cinema?sslmode=disable&search_path=pagamento
       - up
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   # ---------------------------------------------------------------- apis ---
   # O catálogo fala gRPC em texto claro, enquanto o estoque real exige mTLS.
@@ -118,11 +137,10 @@ services:
     ports: ["${PORTA_ESTOQUE_SIMULADO:-50052}:50051"]
 
   catalogo:
-    <<: *host-postgres
     build:
       context: ./catalogo
     environment:
-      DATABASE_URL: postgres://catalogo:catalogo@host.docker.internal:${PORTA_POSTGRES:-5432}/catalogo?sslmode=disable
+      DATABASE_URL: postgres://catalogo:catalogo@postgres:5432/cinema?sslmode=disable
       KEYCLOAK_ISSUER_URL: http://keycloak:8081/realms/cinema
       KEYCLOAK_AUDIENCE: cinema-app
       ESTOQUE_GRPC_ADDR: estoque-simulado:50051
@@ -137,11 +155,10 @@ services:
         condition: service_started
 
   estoque:
-    <<: *host-postgres
     build:
       context: ./estoque
     environment:
-      DATABASE_URL: postgres://estoque:estoque@host.docker.internal:${PORTA_POSTGRES:-5432}/estoque?sslmode=disable
+      DATABASE_URL: postgres://estoque:estoque@postgres:5432/cinema?sslmode=disable
       REDIS_URL: redis://redis:6379/0
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       GRPC_ADDR: ":50051"
@@ -168,11 +185,10 @@ services:
         condition: service_healthy
 
   pagamento:
-    <<: *host-postgres
     build:
       context: ./pagamento
     environment:
-      DATABASE_URL: postgres://pagamento:pagamento@host.docker.internal:${PORTA_POSTGRES:-5432}/pagamento?sslmode=disable
+      DATABASE_URL: postgres://pagamento:pagamento@postgres:5432/cinema?sslmode=disable
       AMQP_URL: amqp://guest:guest@rabbitmq:5672/
       JWKS_URL: http://keycloak:8081/realms/cinema/protocol/openid-connect/certs
       JWT_ISSUER: http://keycloak:8081/realms/cinema
@@ -188,11 +204,10 @@ services:
         condition: service_healthy
 
   notificacao:
-    <<: *host-postgres
     build:
       context: ./notificacao
     environment:
-      DATABASE_URL: postgres://notificacao:notificacao@host.docker.internal:${PORTA_POSTGRES:-5432}/notificacao?sslmode=disable
+      DATABASE_URL: postgres://notificacao:notificacao@postgres:5432/cinema?sslmode=disable
       AMQP_URL: amqp://guest:guest@rabbitmq:5672/
       JWKS_URL: http://keycloak:8081/realms/cinema/protocol/openid-connect/certs
       JWT_ISSUER: http://keycloak:8081/realms/cinema
@@ -210,3 +225,6 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_healthy
+
+volumes:
+  postgres-dados:

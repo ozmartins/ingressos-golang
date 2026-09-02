@@ -33,13 +33,18 @@ O catálogo de erros está em [`specs/001-catalogo-sessoes-reserva/contracts/err
 
 O compose da raiz do repositório sobe o catálogo com tudo de que ele depende —
 Keycloak (com o realm `cinema` já importado de `keycloak/realm-cinema.json`), o
-estoque simulado e as migrações. O PostgreSQL não sobe em contêiner: os serviços
-usam a instância instalada na máquina, preparada uma única vez com
-`psql -U postgres -f ../infra/postgres/criar-bancos.sql`:
+estoque simulado, o PostgreSQL e as migrações. Os quatro serviços dividem uma
+instância e um banco (`cinema`), cada um dono do seu schema; os papéis e schemas
+nascem em `../infra/postgres/init/`, aplicado no primeiro boot do volume. Os
+dados ficam no volume `postgres-dados` e sobrevivem a `docker compose down` —
+só `down -v` os apaga.
+
+A porta publicada no host é a 5434, e não a 5432, que costuma estar ocupada pelo
+PostgreSQL da própria máquina:
 
 ```bash
 docker compose -f ../docker-compose.yml up -d catalogo
-psql "postgres://catalogo:catalogo@localhost:5432/catalogo?sslmode=disable" \
+psql "postgres://catalogo:catalogo@localhost:5434/cinema?sslmode=disable" \
   -f test/fixtures/catalogo_exemplo.sql      # catálogo de exemplo, opcional
 curl -s localhost:8082/health
 ```
@@ -51,9 +56,9 @@ serviço nunca encontra um esquema pela metade.
 As tabelas do catálogo vivem no schema `catalogo`, não em `public`: as migrações
 criam o schema e qualificam cada objeto, e o serviço fixa o `search_path` no
 pool de conexões. Para inspecionar o banco com `psql`, aponte o `search_path`
-antes (`SET search_path TO catalogo;`) ou qualifique as tabelas. Só a tabela de
-controle do golang-migrate (`schema_migrations`) segue em `public` — ela é do
-ferramental, não do domínio.
+antes (`SET search_path TO catalogo;`) ou qualifique as tabelas. A tabela de
+controle do golang-migrate (`schema_migrations`) mora no mesmo schema: em
+`public` os quatro serviços disputariam uma só.
 
 ### Documentação da API
 
@@ -90,7 +95,7 @@ verificação. O console de admin continua em `http://localhost:8081` (admin/adm
 ```bash
 docker compose -f ../docker-compose.yml up -d keycloak estoque-simulado migrate-catalogo
 echo "127.0.0.1 keycloak" | sudo tee -a /etc/hosts   # uma vez, pelo emissor fixo
-export DATABASE_URL="postgres://catalogo:catalogo@localhost:5432/catalogo?sslmode=disable"   # precisa da query string: `make migrate-up` anexa `&search_path=public`
+export DATABASE_URL="postgres://catalogo:catalogo@localhost:5434/cinema?sslmode=disable"   # precisa da query string: `make migrate-up` anexa `&search_path=catalogo`
 export KEYCLOAK_ISSUER_URL="http://keycloak:8081/realms/cinema"
 export KEYCLOAK_AUDIENCE="cinema-app"
 export ESTOQUE_GRPC_ADDR="localhost:50052"   # o simulado; a 50051 é do estoque real

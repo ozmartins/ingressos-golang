@@ -27,20 +27,20 @@ A divergência foi decidida com o mantenedor em 2026-08-30 e está registrada em
 
 ```bash
 docker compose -f ../docker-compose.yml up -d rabbitmq
-export DATABASE_URL='postgres://pagamento:pagamento@localhost:5432/pagamento?sslmode=disable'
+export DATABASE_URL='postgres://pagamento:pagamento@localhost:5434/cinema?sslmode=disable'
 make migrate-up
 make run
 ```
 
 A `DATABASE_URL` precisa da query string: `make migrate-up` anexa
-`&search_path=public` a ela.
+`&search_path=pagamento` a ela.
 
 As tabelas do pagamento vivem no schema `pagamento`, não em `public`: a migração
 cria o schema e qualifica cada objeto, e o serviço fixa o `search_path` no pool
 de conexões. Para inspecionar o banco com `psql`, aponte o `search_path` antes
-(`SET search_path TO pagamento;`) ou qualifique a tabela. Só a tabela de
-controle do golang-migrate (`schema_migrations`) segue em `public` — ela é do
-ferramental, não do domínio.
+(`SET search_path TO pagamento;`) ou qualifique a tabela. A tabela de
+controle do golang-migrate (`schema_migrations`) mora no mesmo schema: em
+`public` os quatro serviços disputariam uma só.
 
 Roteiro completo de validação: [`specs/001-pagamento-assincrono/quickstart.md`](specs/001-pagamento-assincrono/quickstart.md).
 

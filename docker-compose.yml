@@ -1,17 +1,4 @@
-# Ambiente completo do cinema: as quatro APIs e a infraestrutura que elas
-# compartilham. Substitui os quatro compose por serviço, que subiam um RabbitMQ
-# (e um Postgres) cada um e, por isso, não conseguiam trocar eventos entre si.
-#
-# Os quatro serviços dividem uma instância e um banco (`cinema`), cada um dono
-# do seu schema — ver `infra/postgres/init/01-papeis-e-schemas.sql`. Os dados
-# vivem no volume `postgres-dados` e sobrevivem a `docker compose down`; só
-# `down -v` os apaga.
-
-services:
-  # ---------------------------------------------------------------- infra ---
-  # A porta publicada no host é 5434 por padrão: 5432 costuma estar tomada pelo
-  # PostgreSQL da própria máquina. Dentro da rede do compose o endereço é
-  # sempre `postgres:5432`, independente do que se publica fora.
+services:  
   postgres:
     image: postgres:17-alpine
     environment:
@@ -29,9 +16,7 @@ services:
       retries: 20
 
   redis:
-    image: redis:7-alpine
-    # `Ex` habilita a notificação de chave expirada, que dispara a liberação
-    # pronta da reserva. A varredura no banco continua sendo a autoridade.
+    image: redis:7-alpine    
     command: ["redis-server", "--notify-keyspace-events", "Ex"]
     ports: ["${PORTA_REDIS:-6379}:6379"]
     healthcheck:
@@ -57,11 +42,7 @@ services:
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
-      KC_HTTP_PORT: "8081"
-      # O emissor precisa ser a MESMA URL dentro e fora da rede do compose: o
-      # token carrega `iss`, e os serviços recusam qualquer emissor diferente do
-      # que descobriram no boot. Daí o hostname `keycloak` e a porta 8081 iguais
-      # nos dois lados. O console de admin fica em localhost para o navegador.
+      KC_HTTP_PORT: "8081"      
       KC_HOSTNAME: http://keycloak:8081
       KC_HOSTNAME_ADMIN: http://localhost:8081
       KC_HEALTH_ENABLED: "true"
@@ -72,15 +53,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 30
-
-  # ----------------------------------------------------------- migrações ---
-  # Cada job aplica as migrações do seu serviço e sai; a API correspondente só
-  # sobe depois que ele termina com sucesso, então nunca encontra um esquema
-  # pela metade.
-  #
-  # O `search_path` aponta para o schema do serviço, e é lá que a ferramenta
-  # cria seu `schema_migrations`. Num banco compartilhado, deixá-lo em `public`
-  # faria os quatro jobs disputarem a mesma tabela de controle.
+  
   migrate-catalogo:
     image: migrate/migrate:v4.17.1
     volumes: ["./catalogo/migrations:/migrations:ro"]
@@ -124,12 +97,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-
-  # ---------------------------------------------------------------- apis ---
+  
   # O catálogo fala gRPC em texto claro, enquanto o estoque real exige mTLS.
   # Até que o cliente do catálogo aprenda a apresentar certificado, ele continua
-  # apontando para o duplo simulado. No host o simulado sai na 50052: a 50051 é
-  # do estoque real.
+  # apontando para o dublê simulado. No host o simulado sai na porta 50052. 
+  # A porta 50051 é do estoque real.
   estoque-simulado:
     build:
       context: ./catalogo
@@ -163,9 +135,7 @@ services:
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       GRPC_ADDR: ":50051"
       ADMIN_ADDR: ":8090"
-      HTTP_ADDR: ":8085"
-      # A API REST atende o cliente final, cuja identidade vem do Keycloak. O
-      # gRPC continua se autenticando por mTLS, entre serviços.
+      HTTP_ADDR: ":8085"      
       JWKS_URL: http://keycloak:8081/realms/cinema/protocol/openid-connect/certs
       JWT_ISSUER: http://keycloak:8081/realms/cinema
       JWT_AUDIENCE: cinema-app
@@ -220,8 +190,7 @@ services:
       AMQP_URL: amqp://guest:guest@rabbitmq:5672/
       JWKS_URL: http://keycloak:8081/realms/cinema/protocol/openid-connect/certs
       JWT_ISSUER: http://keycloak:8081/realms/cinema
-      JWT_AUDIENCE: cinema-app
-      # Segredos de desenvolvimento: sobreponha-os fora deste arquivo.
+      JWT_AUDIENCE: cinema-app      
       INGRESSO_QR_SEGREDO: ${INGRESSO_QR_SEGREDO:-segredo-de-desenvolvimento-nao-usar-em-producao}
       PORTARIA_API_KEY: ${PORTARIA_API_KEY:-chave-de-portaria-de-teste}
       NOTIFICADOR_MODO: enviar

@@ -44,8 +44,9 @@ curl -fsS http://localhost:8090/health/ready && echo OK
 
 ## 2. Provisionar a matriz de poltronas de uma sessão
 
-O provisionamento acontece pelo consumo de `sessao.criada` (FR-033). Como o
-`Servico-Catalogo` ainda não publica esse fato, publique-o à mão:
+O provisionamento acontece pelo consumo de `sessao.criada` (FR-033), que o
+`Servico-Catalogo` publica ao criar uma sessão. Para exercitar o consumo sem
+subir o catálogo, publique o fato à mão:
 
 ```bash
 make publicar-sessao SESSAO=f781a9b2-11e2-4f81-a901-8890bc123456 FILEIRAS=A,B ASSENTOS=10

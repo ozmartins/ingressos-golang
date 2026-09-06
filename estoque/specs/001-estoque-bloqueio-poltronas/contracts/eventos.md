@@ -90,10 +90,24 @@ expiração liberado. `motivo` é informativo e não altera o efeito.
 Chave de idempotência: `sessao_id`. `tipo` aceita `NORMAL`, `PCD`, `NAMORADEIRA`;
 valor desconhecido invalida a mensagem inteira (FR-035 — tudo-ou-nada).
 
-**Dependência de integração**: este fato ainda não é publicado pelo
-`Servico-Catalogo`, que é o dono do cadastro de sessões. Até que passe a
-publicá-lo, a matriz é populada por carga administrativa (ver `quickstart.md`).
-O contrato acima é a proposta deste serviço ao catálogo.
+**Produtor**: o `Servico-Catalogo`, dono do cadastro de sessões, publica este fato
+ao criar uma sessão, a partir da planta da sala que ele guarda. O contrato acima
+nasceu como proposta deste serviço e foi adotado por ele sem alteração; o lado de
+lá está em
+[`catalogo/.../contracts/eventos.md`](../../../../catalogo/specs/001-catalogo-sessoes-reserva/contracts/eventos.md).
+
+A entrega é ao menos uma vez — o catálogo publica por caixa de saída —, e é o
+`sessao_id` que descarta a repetição. Nada disso muda o efeito descrito acima: o
+provisionamento já era idempotente por essa mesma chave.
+
+Duas consequências que o produtor registra e que valem para quem lê este
+contrato: o fato carrega a planta que a sala tinha no instante da criação da
+sessão, e redesenhar a sala depois não o reemite; e alterar ou cancelar uma
+sessão não emite fato algum, de modo que mover uma sessão já anunciada para outra
+sala deixa a matriz provisionada aqui apontando para a planta antiga.
+
+Para exercitar o consumo sem subir o catálogo, `make publicar-sessao` publica um
+payload equivalente (ver `quickstart.md`).
 
 ## Regras de consumo (todas as filas)
 

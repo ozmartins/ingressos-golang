@@ -174,7 +174,7 @@ caixa de saída e varredura de expiração), compostas no mesmo `main.go`.
 
 | Risco | Impacto | Encaminhamento |
 |---|---|---|
-| `Servico-Catalogo` ainda não publica `sessao.criada` | Sem ele, a matriz de poltronas não é provisionada automaticamente | Contrato proposto em `contracts/eventos.md`; até a adoção, carga administrativa documentada no `quickstart.md` |
+| ~~`Servico-Catalogo` ainda não publica `sessao.criada`~~ **(resolvido)** | Sem ele, a matriz de poltronas não é provisionada automaticamente | Contrato proposto em `contracts/eventos.md` e adotado sem alteração pelo catálogo, que passou a publicar o fato ao criar a sessão. A carga administrativa do `quickstart.md` continua, agora só para exercitar o consumo isoladamente |
 | `Servico-Catalogo` disca em texto claro, sem certificado de cliente | Ativar mTLS obrigatório quebraria a integração hoje | `TLS_CLIENT_AUTH=require\|off` por ambiente, `require` como padrão de produção; a mudança no catálogo é pré-requisito de implantação (D7) |
 | Cliente do catálogo mapeia todo erro não-`Unavailable` como falha genérica | `INVALID_ARGUMENT` chegaria ao usuário como 5xx | Documentado em `contracts/erros.md`; comportamento é seguro, apenas menos informativo, até o catálogo estender o mapeamento |
 | Volume real não quantificado | Dimensionamento de pool, prefetch e intervalo de varredura ficam por estimativa | Valores configuráveis (D10); piso verificado por teste de carga em SC-001 |

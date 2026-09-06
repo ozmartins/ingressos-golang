@@ -167,8 +167,11 @@ verificado por teste (`test/arquitetura_test.go`) e pelo linter, não por revis�
 
 ## Pendências de integração
 
-- O `Servico-Catalogo` ainda não publica `sessao.criada`; até lá, a matriz é
-  provisionada com `make publicar-sessao`. O contrato proposto está em
-  [`contracts/eventos.md`](specs/001-estoque-bloqueio-poltronas/contracts/eventos.md).
+- O `Servico-Catalogo` publica `sessao.criada` desde que passou a guardar a planta
+  das salas, e o contrato em
+  [`contracts/eventos.md`](specs/001-estoque-bloqueio-poltronas/contracts/eventos.md)
+  foi adotado por ele sem alteração. Falta o outro lado do ciclo de vida: alterar
+  ou cancelar uma sessão não emite fato, e mover uma sessão já anunciada para
+  outra sala deixa a matriz daqui apontando para a planta antiga.
 - O `Servico-Catalogo` ainda disca em texto claro. Ativar `TLS_CLIENT_AUTH=require`
   em produção exige que ele passe a apresentar certificado de cliente.

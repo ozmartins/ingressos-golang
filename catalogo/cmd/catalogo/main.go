@@ -11,6 +11,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/oseias/ingressos-golang/catalogo/internal/adapter/estoque"
 	adapterhttp "github.com/oseias/ingressos-golang/catalogo/internal/adapter/http"
 	"github.com/oseias/ingressos-golang/catalogo/internal/adapter/identidade"
@@ -90,6 +92,10 @@ func executar() error {
 	router := adapterhttp.NovoRouter(adapterhttp.Dependencias{
 		Handlers: adapterhttp.Handlers{
 			ListarFilmes:     usecase.ListarFilmes{Repo: filmes},
+			BuscarFilme:      usecase.BuscarFilme{Repo: filmes},
+			CriarFilme:       usecase.CriarFilme{Repo: filmes, GerarID: uuid.NewString},
+			AtualizarFilme:   usecase.AtualizarFilme{Repo: filmes},
+			RemoverFilme:     usecase.RemoverFilme{Repo: filmes},
 			ListarCinemas:    usecase.ListarCinemas{Repo: cinemas},
 			ListarSalas:      usecase.ListarSalas{Cinemas: cinemas, Salas: salas},
 			ConsultarSessoes: usecase.ConsultarSessoes{Repo: sessoes},

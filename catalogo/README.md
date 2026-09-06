@@ -27,7 +27,33 @@ Quem já leu `ers-catalogo.md` precisa saber destas duas mudanças deliberadas:
    Manter dois formatos de erro no mesmo serviço obrigaria o cliente a tratar
    cada rota de um jeito.
 
+3. **Filmes aceitam escrita.** A ERS previa só a leitura do catálogo; hoje o
+   recurso tem os quatro verbos (ver abaixo). O `DELETE` é lógico — o filme
+   passa a `FORA_DE_CARTAZ` — porque as sessões gravadas referenciam o filme e
+   apagá-lo romperia a grade.
+
 O catálogo de erros está em [`specs/001-catalogo-sessoes-reserva/contracts/errors.md`](specs/001-catalogo-sessoes-reserva/contracts/errors.md).
+
+## Superfície da API
+
+| Método | Caminho | Credencial |
+| --- | --- | --- |
+| `GET` | `/api/v1/filmes` | pública |
+| `GET` | `/api/v1/filmes/{id}` | pública |
+| `POST` | `/api/v1/filmes` | Bearer |
+| `PUT` | `/api/v1/filmes/{id}` | Bearer |
+| `DELETE` | `/api/v1/filmes/{id}` | Bearer |
+| `GET` | `/api/v1/cinemas` | pública |
+| `GET` | `/api/v1/cinemas/{id}/salas` | pública |
+| `GET` | `/api/v1/sessoes` | pública |
+| `POST` | `/api/v1/sessoes/{id}/reservar` | Bearer |
+| `GET` | `/health` | pública |
+
+Sobre a escrita de filmes: o identificador é gerado pelo serviço e volta no
+corpo e no header `Location`; o `PUT` é substituição total, e campo opcional
+omitido volta a ficar ausente; sem `status` no corpo o filme fica `EM_CARTAZ`;
+e `GET /filmes/{id}` enxerga qualquer situação, inclusive `FORA_DE_CARTAZ` — o
+recorte público vale só para a listagem.
 
 ## Executando localmente
 
@@ -74,7 +100,8 @@ para atualizar a cópia de runtime — `make test` falha se as duas divergirem, 
 falha também se o contrato descrever uma rota que o roteador não registra (ou o
 contrário).
 
-Para exercitar `POST /sessoes/{id}/reservar` pela interface, gere o token abaixo
+Para exercitar as rotas protegidas (a escrita de filmes e
+`POST /sessoes/{id}/reservar`) pela interface, gere o token abaixo
 e cole-o em **Authorize** (apenas o valor, sem o prefixo `Bearer`).
 
 Token para as rotas autenticadas (usuário de desenvolvimento `teste`/`teste`):

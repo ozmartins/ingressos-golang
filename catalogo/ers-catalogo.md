@@ -84,6 +84,11 @@ CREATE TABLE sessoes (
 
 ### 4.1. Endpoints Públicos (Sem necessidade de autenticação)
 
+> Nota de implementação: o recurso Filmes hoje também aceita `POST /api/v1/filmes`,
+> `GET`, `PUT` e `DELETE` em `/api/v1/filmes/{id}` — as três escritas exigem token,
+> e o `DELETE` é lógico (o filme passa a `FORA_DE_CARTAZ`). Ver `README.md` e o
+> contrato OpenAPI.
+
 #### `GET /api/v1/filmes`
 Lista os filmes cadastrados.
 * **Query Params:** `status` (opcional: `EM_CARTAZ`, `BREVE`)

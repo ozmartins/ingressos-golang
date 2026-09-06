@@ -55,6 +55,38 @@ func paraFilmeDTO(f catalogo.Filme) filmeDTO {
 	}
 }
 
+// Campos ponteiro para separar "ausente" de "vazio": no PUT, que substitui o
+// filme inteiro, um `duracao_minutos` omitido é erro, não zero.
+type filmeEntradaDTO struct {
+	Titulo              *string `json:"titulo"`
+	Sinopse             *string `json:"sinopse"`
+	DuracaoMinutos      *int    `json:"duracao_minutos"`
+	ClassificacaoEtaria *string `json:"classificacao_etaria"`
+	Genero              *string `json:"genero"`
+	ImagemURL           *string `json:"imagem_url"`
+	Status              *string `json:"status"`
+}
+
+func (d filmeEntradaDTO) paraDadosFilme() catalogo.DadosFilme {
+	dados := catalogo.DadosFilme{Sinopse: d.Sinopse, ImagemURL: d.ImagemURL}
+	if d.Titulo != nil {
+		dados.Titulo = *d.Titulo
+	}
+	if d.DuracaoMinutos != nil {
+		dados.DuracaoMinutos = *d.DuracaoMinutos
+	}
+	if d.ClassificacaoEtaria != nil {
+		dados.ClassificacaoEtaria = *d.ClassificacaoEtaria
+	}
+	if d.Genero != nil {
+		dados.Genero = *d.Genero
+	}
+	if d.Status != nil {
+		dados.Status = *d.Status
+	}
+	return dados
+}
+
 type cinemaDTO struct {
 	ID       string `json:"id"`
 	Nome     string `json:"nome"`

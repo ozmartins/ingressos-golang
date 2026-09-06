@@ -33,6 +33,7 @@ func TestTodasAsCategoriasDoContrato(t *testing.T) {
 		{catCorpoInvalido, http.StatusBadRequest},
 		{catNaoAutenticado, http.StatusUnauthorized},
 		{catCinemaNaoEncontrado, http.StatusNotFound},
+		{catFilmeNaoEncontrado, http.StatusNotFound},
 		{catSessaoNaoEncontrada, http.StatusNotFound},
 		{catSessaoNaoReservavel, http.StatusUnprocessableEntity},
 		{catPoltronasIndisp, http.StatusConflict},
@@ -135,5 +136,27 @@ func TestCamposDeValidacaoMultiplos(t *testing.T) {
 	})
 	if len(p.Errors) != 2 {
 		t.Fatalf("esperava 2 campos, obteve %d", len(p.Errors))
+	}
+}
+
+func TestCategoriaDeNaoEncontradoSegueOContextoDoChamador(t *testing.T) {
+	casos := map[string]string{
+		"filme":  catFilmeNaoEncontrado,
+		"sessao": catSessaoNaoEncontrada,
+		"cinema": catCinemaNaoEncontrado,
+		"":       catCinemaNaoEncontrado,
+	}
+	for contexto, esperada := range casos {
+		t.Run(contexto, func(t *testing.T) {
+			w, p := executar(t, func(w http.ResponseWriter, r *http.Request) {
+				EscreverErroDeDominio(w, r, fmt.Errorf("%w: nada aqui", shared.ErrNaoEncontrado), contexto)
+			})
+			if w.Code != http.StatusNotFound {
+				t.Errorf("status: esperava 404, obteve %d", w.Code)
+			}
+			if p.Type != BaseURIErros+esperada {
+				t.Errorf("type: esperava %s, obteve %s", BaseURIErros+esperada, p.Type)
+			}
+		})
 	}
 }

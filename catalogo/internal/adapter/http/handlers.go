@@ -17,6 +17,10 @@ import (
 
 type Handlers struct {
 	ListarFilmes      usecase.ListarFilmes
+	BuscarFilme       usecase.BuscarFilme
+	CriarFilme        usecase.CriarFilme
+	AtualizarFilme    usecase.AtualizarFilme
+	RemoverFilme      usecase.RemoverFilme
 	ListarCinemas     usecase.ListarCinemas
 	ListarSalas       usecase.ListarSalas
 	ConsultarSessoes  usecase.ConsultarSessoes
@@ -53,6 +57,86 @@ func (h Handlers) GetFilmes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	escreverJSON(w, http.StatusOK, envelope(pagina, paraFilmeDTO))
+}
+
+func (h Handlers) GetFilme(w http.ResponseWriter, r *http.Request) {
+	filmeID := r.PathValue("id")
+	if err := validarUUID(filmeID, "id"); err != nil {
+		EscreverErroDeDominio(w, r, err, "")
+		return
+	}
+	filme, err := h.BuscarFilme.Executar(r.Context(), filmeID)
+	if err != nil {
+		EscreverErroDeDominio(w, r, err, "filme")
+		return
+	}
+	escreverJSON(w, http.StatusOK, paraFilmeDTO(filme))
+}
+
+func (h Handlers) PostFilme(w http.ResponseWriter, r *http.Request) {
+	corpo, ok := lerEntradaDeFilme(w, r)
+	if !ok {
+		return
+	}
+	filme, err := h.CriarFilme.Executar(r.Context(), corpo.paraDadosFilme())
+	if err != nil {
+		escreverErroDeEscritaDeFilme(w, r, err)
+		return
+	}
+	w.Header().Set("Location", "/api/v1/filmes/"+filme.ID)
+	escreverJSON(w, http.StatusCreated, paraFilmeDTO(filme))
+}
+
+func (h Handlers) PutFilme(w http.ResponseWriter, r *http.Request) {
+	filmeID := r.PathValue("id")
+	if err := validarUUID(filmeID, "id"); err != nil {
+		EscreverErroDeDominio(w, r, err, "")
+		return
+	}
+	corpo, ok := lerEntradaDeFilme(w, r)
+	if !ok {
+		return
+	}
+	filme, err := h.AtualizarFilme.Executar(r.Context(), filmeID, corpo.paraDadosFilme())
+	if err != nil {
+		escreverErroDeEscritaDeFilme(w, r, err)
+		return
+	}
+	escreverJSON(w, http.StatusOK, paraFilmeDTO(filme))
+}
+
+func (h Handlers) DeleteFilme(w http.ResponseWriter, r *http.Request) {
+	filmeID := r.PathValue("id")
+	if err := validarUUID(filmeID, "id"); err != nil {
+		EscreverErroDeDominio(w, r, err, "")
+		return
+	}
+	if err := h.RemoverFilme.Executar(r.Context(), filmeID); err != nil {
+		EscreverErroDeDominio(w, r, err, "filme")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func lerEntradaDeFilme(w http.ResponseWriter, r *http.Request) (filmeEntradaDTO, bool) {
+	var corpo filmeEntradaDTO
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64*1024))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&corpo); err != nil {
+		EscreverProblem(w, r, catCorpoInvalido, "Corpo da requisição não é um JSON válido para esta operação.")
+		return filmeEntradaDTO{}, false
+	}
+	return corpo, true
+}
+
+// Na escrita, entrada inválida veio do corpo, não da URL: o problema é
+// `corpo-invalido`, como em PostReservar.
+func escreverErroDeEscritaDeFilme(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, shared.ErrValidacao) {
+		EscreverProblem(w, r, catCorpoInvalido, mensagemLimpa(err))
+		return
+	}
+	EscreverErroDeDominio(w, r, err, "filme")
 }
 
 func (h Handlers) GetCinemas(w http.ResponseWriter, r *http.Request) {

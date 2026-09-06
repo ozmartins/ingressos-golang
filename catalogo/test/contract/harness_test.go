@@ -1,8 +1,11 @@
 package contract
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -17,6 +20,40 @@ import (
 )
 
 type filmesFalsos struct{ itens []catalogo.Filme }
+
+func (f *filmesFalsos) BuscarPorID(_ context.Context, id string) (catalogo.Filme, error) {
+	for _, filme := range f.itens {
+		if filme.ID == id {
+			return filme, nil
+		}
+	}
+	return catalogo.Filme{}, fmt.Errorf("%w: filme %s", shared.ErrNaoEncontrado, id)
+}
+
+func (f *filmesFalsos) Criar(_ context.Context, filme catalogo.Filme) error {
+	f.itens = append(f.itens, filme)
+	return nil
+}
+
+func (f *filmesFalsos) Atualizar(_ context.Context, filme catalogo.Filme) error {
+	for i, existente := range f.itens {
+		if existente.ID == filme.ID {
+			f.itens[i] = filme
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: filme %s", shared.ErrNaoEncontrado, filme.ID)
+}
+
+func (f *filmesFalsos) MarcarForaDeCartaz(_ context.Context, id string) error {
+	for i, existente := range f.itens {
+		if existente.ID == id {
+			f.itens[i].Status = catalogo.StatusForaDeCartaz
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: filme %s", shared.ErrNaoEncontrado, id)
+}
 
 func (f *filmesFalsos) Listar(_ context.Context, filtro usecase.FiltroFilmes, publicos []catalogo.StatusFilme, req shared.PageRequest) (shared.Page[catalogo.Filme], error) {
 	permitido := func(s catalogo.StatusFilme) bool {
@@ -133,6 +170,10 @@ func montar(t *testing.T, ajustar func(*ambiente)) *ambiente {
 	router := adapterhttp.NovoRouter(adapterhttp.Dependencias{
 		Handlers: adapterhttp.Handlers{
 			ListarFilmes:     usecase.ListarFilmes{Repo: filmes},
+			BuscarFilme:      usecase.BuscarFilme{Repo: filmes},
+			CriarFilme:       usecase.CriarFilme{Repo: filmes, GerarID: gerarID()},
+			AtualizarFilme:   usecase.AtualizarFilme{Repo: filmes},
+			RemoverFilme:     usecase.RemoverFilme{Repo: filmes},
 			ListarCinemas:    usecase.ListarCinemas{Repo: amb.cinemas},
 			ListarSalas:      usecase.ListarSalas{Cinemas: amb.cinemas, Salas: salas},
 			ConsultarSessoes: usecase.ConsultarSessoes{Repo: amb.sessoes},
@@ -156,17 +197,60 @@ func montarComFilmes(t *testing.T, itens []catalogo.Filme) *httptest.Server {
 	router := adapterhttp.NovoRouter(adapterhttp.Dependencias{
 		Handlers: adapterhttp.Handlers{
 			ListarFilmes:     usecase.ListarFilmes{Repo: filmes},
+			BuscarFilme:      usecase.BuscarFilme{Repo: filmes},
+			CriarFilme:       usecase.CriarFilme{Repo: filmes, GerarID: gerarID()},
+			AtualizarFilme:   usecase.AtualizarFilme{Repo: filmes},
+			RemoverFilme:     usecase.RemoverFilme{Repo: filmes},
 			ListarCinemas:    usecase.ListarCinemas{Repo: cinemas},
 			ListarSalas:      usecase.ListarSalas{Cinemas: cinemas, Salas: &salasFalsas{}},
 			ConsultarSessoes: usecase.ConsultarSessoes{Repo: &sessoesFalsas{}},
 			Limites:          adapterhttp.LimitesPaginacao{Padrao: 20, Maximo: 100},
 		},
 		Saude:       func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) },
-		Verificador: verificadorFalso{},
+		Verificador: verificadorFalso{usuarioID: "usuario-1"},
 	})
 	s := httptest.NewServer(router)
 	t.Cleanup(s.Close)
 	return s
+}
+
+// Identificadores previsíveis: os testes de contrato conferem o `Location` e
+// releem o filme criado.
+func gerarID() func() string {
+	n := 0
+	return func() string {
+		n++
+		return fmt.Sprintf("00000000-0000-4000-8000-%012d", n)
+	}
+}
+
+// requisitar cobre o que `obter` não alcança: verbo, corpo e credencial.
+func requisitar(t *testing.T, s *httptest.Server, metodo, caminho, token, corpo string) (*http.Response, []byte) {
+	t.Helper()
+	var leitor io.Reader
+	if corpo != "" {
+		leitor = bytes.NewBufferString(corpo)
+	}
+	req, err := http.NewRequest(metodo, s.URL+caminho, leitor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if corpo != "" {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	resp, err := s.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	lido, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resp, lido
 }
 
 type envelopeGenerico struct {

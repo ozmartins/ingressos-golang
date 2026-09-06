@@ -14,6 +14,10 @@ type FiltroFilmes struct {
 
 type FilmeRepository interface {
 	Listar(ctx context.Context, filtro FiltroFilmes, publicos []catalogo.StatusFilme, req shared.PageRequest) (shared.Page[catalogo.Filme], error)
+	BuscarPorID(ctx context.Context, filmeID string) (catalogo.Filme, error)
+	Criar(ctx context.Context, f catalogo.Filme) error
+	Atualizar(ctx context.Context, f catalogo.Filme) error
+	MarcarForaDeCartaz(ctx context.Context, filmeID string) error
 }
 
 type CinemaRepository interface {

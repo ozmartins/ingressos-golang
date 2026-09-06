@@ -50,6 +50,89 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/PaginaFilmes' }
         '400': { $ref: '#/components/responses/EntradaInvalida' }
+    post:
+      tags: [Filmes]
+      summary: Cadastra um filme
+      description: |
+        O identificador é gerado pelo serviço e devolvido no corpo e no header
+        `Location`. Sem `status` no corpo, o filme nasce EM_CARTAZ.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FilmeEntrada' }
+      responses:
+        '201':
+          description: Filme cadastrado
+          headers:
+            Location:
+              description: Caminho do filme recém-criado
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Filme' }
+        '400': { $ref: '#/components/responses/EntradaInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+
+  /filmes/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Filmes]
+      summary: Busca um filme pelo identificador
+      description: |
+        Devolve o filme em qualquer situação, inclusive FORA_DE_CARTAZ: o recorte
+        público vale apenas para a listagem.
+      security: []
+      responses:
+        '200':
+          description: Filme encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Filme' }
+        '400': { $ref: '#/components/responses/EntradaInvalida' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+    put:
+      tags: [Filmes]
+      summary: Substitui um filme
+      description: |
+        Substituição total: o corpo descreve o estado final do filme, e campo
+        opcional omitido volta a ficar ausente. Sem `status`, o filme fica EM_CARTAZ.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FilmeEntrada' }
+      responses:
+        '200':
+          description: Filme atualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Filme' }
+        '400': { $ref: '#/components/responses/EntradaInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+    delete:
+      tags: [Filmes]
+      summary: Retira um filme do catálogo
+      description: |
+        Remoção lógica: o filme passa a FORA_DE_CARTAZ e some da listagem
+        pública, mas a linha permanece — as sessões já gravadas o referenciam.
+        Segue disponível em `GET /filmes/{id}` e no filtro por status.
+      security:
+        - bearerAuth: []
+      responses:
+        '204': { $ref: '#/components/responses/SemConteudo' }
+        '400': { $ref: '#/components/responses/EntradaInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
 
   /cinemas:
     get:
@@ -226,6 +309,23 @@ components:
         imagem_url: { type: string, format: uri, description: Omitido quando ausente }
         status: { type: string, enum: [EM_CARTAZ, BREVE, FORA_DE_CARTAZ] }
 
+    FilmeEntrada:
+      type: object
+      description: Corpo de escrita de um filme; o `id` nunca vem do cliente.
+      required: [titulo, duracao_minutos, classificacao_etaria, genero]
+      properties:
+        titulo: { type: string, minLength: 1, maxLength: 255 }
+        sinopse: { type: string }
+        duracao_minutos: { type: integer, minimum: 1 }
+        classificacao_etaria: { type: string, minLength: 1, maxLength: 50 }
+        genero: { type: string, minLength: 1, maxLength: 100 }
+        imagem_url: { type: string, format: uri, maxLength: 500 }
+        status:
+          type: string
+          enum: [EM_CARTAZ, BREVE, FORA_DE_CARTAZ]
+          default: EM_CARTAZ
+      additionalProperties: false
+
     Cinema:
       type: object
       required: [id, nome, cidade, estado, endereco]
@@ -329,6 +429,8 @@ components:
               mensagem: { type: string }
 
   responses:
+    SemConteudo:
+      description: Operação concluída, sem corpo de resposta
     EntradaInvalida:
       description: Parâmetro ou corpo inválido
       content:

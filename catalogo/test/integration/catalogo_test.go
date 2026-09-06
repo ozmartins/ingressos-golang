@@ -160,3 +160,87 @@ func TestListarSalasDeCinemaInexistente(t *testing.T) {
 		t.Fatalf("esperava ErrNaoEncontrado, obteve %v", err)
 	}
 }
+
+func TestEscritaDeFilmeRoundTrip(t *testing.T) {
+	carregarFixtures(t)
+	repo := pgadapter.NovoFilmeRepository(pool)
+	ctx := context.Background()
+	const id = "b0000000-0000-4000-8000-00000000abcd"
+
+	sinopse := "Um filme criado pelo teste de integração."
+	novo, err := catalogo.NovoFilme(id, catalogo.DadosFilme{
+		Titulo: "Filme de Integração", Sinopse: &sinopse, DuracaoMinutos: 95,
+		ClassificacaoEtaria: "Livre", Genero: "Documentário",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.Criar(ctx, novo); err != nil {
+		t.Fatalf("criando filme: %v", err)
+	}
+
+	lido, err := repo.BuscarPorID(ctx, id)
+	if err != nil {
+		t.Fatalf("buscando filme recém-criado: %v", err)
+	}
+	if lido.Titulo != novo.Titulo || lido.Sinopse == nil || *lido.Sinopse != sinopse {
+		t.Fatalf("o filme lido diverge do gravado: %+v", lido)
+	}
+	if lido.Status != catalogo.StatusEmCartaz {
+		t.Fatalf("sem status explícito, o filme deveria nascer EM_CARTAZ, veio %q", lido.Status)
+	}
+
+	// A substituição é total: a sinopse omitida some da linha.
+	atualizado, err := catalogo.NovoFilme(id, catalogo.DadosFilme{
+		Titulo: "Filme de Integração II", DuracaoMinutos: 99,
+		ClassificacaoEtaria: "Livre", Genero: "Documentário", Status: "BREVE",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.Atualizar(ctx, atualizado); err != nil {
+		t.Fatalf("atualizando filme: %v", err)
+	}
+	lido, err = repo.BuscarPorID(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if lido.Titulo != "Filme de Integração II" || lido.Status != catalogo.StatusBreve || lido.Sinopse != nil {
+		t.Fatalf("atualização não substituiu o filme inteiro: %+v", lido)
+	}
+
+	if err := repo.MarcarForaDeCartaz(ctx, id); err != nil {
+		t.Fatalf("removendo filme: %v", err)
+	}
+	lido, err = repo.BuscarPorID(ctx, id)
+	if err != nil {
+		t.Fatalf("a remoção é lógica: o filme deveria continuar no banco: %v", err)
+	}
+	if lido.Status != catalogo.StatusForaDeCartaz {
+		t.Fatalf("status após remoção = %q, esperava FORA_DE_CARTAZ", lido.Status)
+	}
+}
+
+func TestEscritaDeFilmeInexistenteDevolveNaoEncontrado(t *testing.T) {
+	carregarFixtures(t)
+	repo := pgadapter.NovoFilmeRepository(pool)
+	ctx := context.Background()
+	const ausente = "b0000000-0000-4000-8000-0000000000ff"
+
+	if _, err := repo.BuscarPorID(ctx, ausente); !errors.Is(err, shared.ErrNaoEncontrado) {
+		t.Errorf("BuscarPorID: esperava ErrNaoEncontrado, obteve %v", err)
+	}
+
+	filme, err := catalogo.NovoFilme(ausente, catalogo.DadosFilme{
+		Titulo: "Fantasma", DuracaoMinutos: 10, ClassificacaoEtaria: "Livre", Genero: "Terror",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.Atualizar(ctx, filme); !errors.Is(err, shared.ErrNaoEncontrado) {
+		t.Errorf("Atualizar: esperava ErrNaoEncontrado, obteve %v", err)
+	}
+	if err := repo.MarcarForaDeCartaz(ctx, ausente); !errors.Is(err, shared.ErrNaoEncontrado) {
+		t.Errorf("MarcarForaDeCartaz: esperava ErrNaoEncontrado, obteve %v", err)
+	}
+}

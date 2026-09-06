@@ -14,11 +14,37 @@ import (
 type filmeRepoFalso struct {
 	filtroRecebido   FiltroFilmes
 	publicosRecebido []catalogo.StatusFilme
+	criado           catalogo.Filme
+	atualizado       catalogo.Filme
+	removido         string
+	erro             error
 }
 
 func (f *filmeRepoFalso) Listar(_ context.Context, filtro FiltroFilmes, publicos []catalogo.StatusFilme, req shared.PageRequest) (shared.Page[catalogo.Filme], error) {
 	f.filtroRecebido, f.publicosRecebido = filtro, publicos
 	return shared.NovaPage([]catalogo.Filme{{ID: "x"}}, 1, req), nil
+}
+
+func (f *filmeRepoFalso) BuscarPorID(_ context.Context, id string) (catalogo.Filme, error) {
+	if f.erro != nil {
+		return catalogo.Filme{}, f.erro
+	}
+	return catalogo.Filme{ID: id}, nil
+}
+
+func (f *filmeRepoFalso) Criar(_ context.Context, filme catalogo.Filme) error {
+	f.criado = filme
+	return f.erro
+}
+
+func (f *filmeRepoFalso) Atualizar(_ context.Context, filme catalogo.Filme) error {
+	f.atualizado = filme
+	return f.erro
+}
+
+func (f *filmeRepoFalso) MarcarForaDeCartaz(_ context.Context, id string) error {
+	f.removido = id
+	return f.erro
 }
 
 type sessaoRepoFalso struct {
@@ -225,5 +251,81 @@ func TestReservarPropagaIndisponibilidade(t *testing.T) {
 		if _, err := uc.Executar(context.Background(), solicitacao()); !errors.Is(err, sentinela) {
 			t.Errorf("esperava %v, obteve %v", sentinela, err)
 		}
+	}
+}
+
+func dadosValidos() catalogo.DadosFilme {
+	return catalogo.DadosFilme{
+		Titulo: "Duna: Parte 2", DuracaoMinutos: 166,
+		ClassificacaoEtaria: "14 anos", Genero: "Ficção Científica",
+	}
+}
+
+func TestCriarFilmeUsaOIdentificadorGerado(t *testing.T) {
+	repo := &filmeRepoFalso{}
+	uc := CriarFilme{Repo: repo, GerarID: func() string { return "id-fixo" }}
+
+	filme, err := uc.Executar(context.Background(), dadosValidos())
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if filme.ID != "id-fixo" || repo.criado.ID != "id-fixo" {
+		t.Fatalf("o id gerado deveria chegar ao repositório e à resposta: %+v", repo.criado)
+	}
+	if filme.Status != catalogo.StatusEmCartaz {
+		t.Fatalf("sem status no corpo, o filme deveria nascer EM_CARTAZ, veio %q", filme.Status)
+	}
+}
+
+func TestCriarFilmeInvalidoNaoChegaAoRepositorio(t *testing.T) {
+	repo := &filmeRepoFalso{}
+	uc := CriarFilme{Repo: repo, GerarID: func() string { return "id-fixo" }}
+
+	dados := dadosValidos()
+	dados.Titulo = "   "
+	_, err := uc.Executar(context.Background(), dados)
+
+	if !errors.Is(err, shared.ErrValidacao) {
+		t.Fatalf("esperava erro de validação, obteve %v", err)
+	}
+	if repo.criado.ID != "" {
+		t.Fatal("filme inválido não pode ser gravado")
+	}
+}
+
+func TestAtualizarFilmePreservaOIdentificadorDaRota(t *testing.T) {
+	repo := &filmeRepoFalso{}
+	filme, err := AtualizarFilme{Repo: repo}.Executar(context.Background(), "id-da-rota", dadosValidos())
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if filme.ID != "id-da-rota" || repo.atualizado.ID != "id-da-rota" {
+		t.Fatalf("o id da rota deveria identificar o filme atualizado: %+v", repo.atualizado)
+	}
+}
+
+func TestAtualizarFilmePropagaNaoEncontrado(t *testing.T) {
+	repo := &filmeRepoFalso{erro: shared.ErrNaoEncontrado}
+	_, err := AtualizarFilme{Repo: repo}.Executar(context.Background(), "id-da-rota", dadosValidos())
+	if !errors.Is(err, shared.ErrNaoEncontrado) {
+		t.Fatalf("esperava ErrNaoEncontrado, obteve %v", err)
+	}
+}
+
+func TestRemoverFilmeMarcaForaDeCartaz(t *testing.T) {
+	repo := &filmeRepoFalso{}
+	if err := (RemoverFilme{Repo: repo}).Executar(context.Background(), "id-x"); err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if repo.removido != "id-x" {
+		t.Fatalf("esperava remoção lógica de id-x, obteve %q", repo.removido)
+	}
+}
+
+func TestRemoverFilmePropagaNaoEncontrado(t *testing.T) {
+	repo := &filmeRepoFalso{erro: shared.ErrNaoEncontrado}
+	err := RemoverFilme{Repo: repo}.Executar(context.Background(), "inexistente")
+	if !errors.Is(err, shared.ErrNaoEncontrado) {
+		t.Fatalf("esperava ErrNaoEncontrado, obteve %v", err)
 	}
 }

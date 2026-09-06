@@ -31,6 +31,7 @@ const (
 	catCorpoInvalido       = "corpo-invalido"
 	catNaoAutenticado      = "nao-autenticado"
 	catCinemaNaoEncontrado = "cinema-nao-encontrado"
+	catFilmeNaoEncontrado  = "filme-nao-encontrado"
 	catSessaoNaoEncontrada = "sessao-nao-encontrada"
 	catSessaoNaoReservavel = "sessao-nao-reservavel"
 	catPoltronasIndisp     = "poltronas-indisponiveis"
@@ -49,6 +50,7 @@ var categorias = map[string]descricaoCategoria{
 	catCorpoInvalido:       {"Corpo da requisição inválido", http.StatusBadRequest},
 	catNaoAutenticado:      {"Não autenticado", http.StatusUnauthorized},
 	catCinemaNaoEncontrado: {"Cinema não encontrado", http.StatusNotFound},
+	catFilmeNaoEncontrado:  {"Filme não encontrado", http.StatusNotFound},
 	catSessaoNaoEncontrada: {"Sessão não encontrada", http.StatusNotFound},
 	catSessaoNaoReservavel: {"Sessão não aceita reservas", http.StatusUnprocessableEntity},
 	catPoltronasIndisp:     {"Poltronas indisponíveis", http.StatusConflict},
@@ -83,11 +85,7 @@ func EscreverErroDeDominio(w http.ResponseWriter, r *http.Request, err error, co
 	case errors.Is(err, shared.ErrValidacao):
 		EscreverProblem(w, r, catParametroInvalido, mensagemLimpa(err))
 	case errors.Is(err, shared.ErrNaoEncontrado):
-		categoria := catCinemaNaoEncontrado
-		if contexto == "sessao" {
-			categoria = catSessaoNaoEncontrada
-		}
-		EscreverProblem(w, r, categoria, mensagemLimpa(err))
+		EscreverProblem(w, r, categoriaNaoEncontrado(contexto), mensagemLimpa(err))
 	case errors.Is(err, shared.ErrSessaoNaoReservavel):
 		EscreverProblem(w, r, catSessaoNaoReservavel, mensagemLimpa(err))
 	case errors.Is(err, shared.ErrPoltronasIndisponiveis):
@@ -99,6 +97,19 @@ func EscreverErroDeDominio(w http.ResponseWriter, r *http.Request, err error, co
 	default:
 		slog.ErrorContext(r.Context(), "erro não previsto", slog.Any("erro", err), slog.String("contexto", contexto))
 		EscreverProblem(w, r, catErroInterno, "Erro interno. Consulte o suporte informando o identificador desta requisição.")
+	}
+}
+
+// O recurso ausente muda o `type` do problema, e é o chamador quem sabe qual
+// recurso procurava: o erro de domínio é o mesmo nos três casos.
+func categoriaNaoEncontrado(contexto string) string {
+	switch contexto {
+	case "sessao":
+		return catSessaoNaoEncontrada
+	case "filme":
+		return catFilmeNaoEncontrado
+	default:
+		return catCinemaNaoEncontrado
 	}
 }
 

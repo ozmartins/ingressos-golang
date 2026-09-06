@@ -18,7 +18,9 @@ tags:
   - name: Filmes
     description: Catálogo de filmes em exibição.
   - name: Cinemas
-    description: Cadastro dos cinemas da rede e as salas de cada um.
+    description: Cadastro dos cinemas da rede.
+  - name: Salas
+    description: Salas de exibição de cada cinema.
   - name: Sessões
     description: |
       Grade de sessões e a reserva de poltronas — a escrita que parte do
@@ -241,7 +243,7 @@ paths:
 
   /cinemas/{id}/salas:
     get:
-      tags: [Cinemas]
+      tags: [Salas]
       summary: Lista as salas de um cinema
       security: []
       parameters:

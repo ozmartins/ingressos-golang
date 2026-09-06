@@ -244,17 +244,24 @@ paths:
         '404': { $ref: '#/components/responses/NaoEncontrado' }
 
   /cinemas/{id}/salas:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
     get:
       tags: [Salas]
       summary: Lista as salas de um cinema
+      description: |
+        Sem o parâmetro `ativo`, retorna as salas em qualquer situação.
       security: []
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
+        - name: ativo
+          in: query
+          required: false
+          schema: { type: boolean }
       responses:
         '200':
           description: Página de salas
@@ -262,6 +269,97 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/PaginaSalas' }
         '400': { $ref: '#/components/responses/EntradaInvalida' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+    post:
+      tags: [Salas]
+      summary: Cadastra uma sala no cinema
+      description: |
+        O identificador é gerado pelo serviço e devolvido no corpo e no header
+        `Location`. O `cinema_id` vem do caminho, não do corpo. Sem `ativo`, a
+        sala nasce ativa.
+      security:
+        - clientCredentials: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SalaEntrada' }
+      responses:
+        '201':
+          description: Sala cadastrada
+          headers:
+            Location:
+              description: Caminho da sala recém-criada
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sala' }
+        '400': { $ref: '#/components/responses/EntradaInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+
+  /cinemas/{id}/salas/{sala_id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+      - name: sala_id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Salas]
+      summary: Busca uma sala pelo identificador
+      description: |
+        Devolve a sala em qualquer situação, inclusive inativa. A sala pedida
+        pelo cinema errado responde 404: o caminho inteiro é o endereço.
+      security: []
+      responses:
+        '200':
+          description: Sala encontrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sala' }
+        '400': { $ref: '#/components/responses/EntradaInvalida' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+    put:
+      tags: [Salas]
+      summary: Substitui uma sala
+      description: |
+        Substituição total: o corpo descreve o estado final da sala, e campo
+        opcional omitido volta ao padrão. A sala não muda de cinema.
+      security:
+        - clientCredentials: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SalaEntrada' }
+      responses:
+        '200':
+          description: Sala atualizada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sala' }
+        '400': { $ref: '#/components/responses/EntradaInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+    delete:
+      tags: [Salas]
+      summary: Retira uma sala do cinema
+      description: |
+        Remoção lógica: a sala passa a inativa e some da listagem, mas a linha
+        permanece — as sessões a referenciam. O número volta a ficar livre para
+        a sala que a substituir.
+      security:
+        - clientCredentials: []
+      responses:
+        '204': { $ref: '#/components/responses/SemConteudo' }
+        '400': { $ref: '#/components/responses/EntradaInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
 
   /sessoes:
@@ -292,6 +390,95 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/PaginaSessoes' }
         '400': { $ref: '#/components/responses/EntradaInvalida' }
+    post:
+      tags: [Sessões]
+      summary: Publica uma sessão na grade
+      description: |
+        O identificador é gerado pelo serviço e devolvido no corpo e no header
+        `Location`. O filme e a sala precisam existir, e a sala precisa estar
+        livre no intervalo que vai do início até o fim do filme: uma sala
+        projeta um filme de cada vez.
+      security:
+        - clientCredentials: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SessaoEntrada' }
+      responses:
+        '201':
+          description: Sessão publicada
+          headers:
+            Location:
+              description: Caminho da sessão recém-criada
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sessao' }
+        '400': { $ref: '#/components/responses/EntradaInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+
+  /sessoes/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Sessões]
+      summary: Busca uma sessão pelo identificador
+      description: |
+        Devolve a sessão em qualquer status, inclusive cancelada: o recorte da
+        grade vale apenas para a consulta paginada.
+      security: []
+      responses:
+        '200':
+          description: Sessão encontrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sessao' }
+        '400': { $ref: '#/components/responses/EntradaInvalida' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+    put:
+      tags: [Sessões]
+      summary: Substitui uma sessão
+      description: |
+        Substituição total: o corpo descreve o estado final da sessão, e campo
+        opcional omitido volta ao padrão. A checagem de ocupação da sala ignora
+        a própria sessão.
+      security:
+        - clientCredentials: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SessaoEntrada' }
+      responses:
+        '200':
+          description: Sessão atualizada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sessao' }
+        '400': { $ref: '#/components/responses/EntradaInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+    delete:
+      tags: [Sessões]
+      summary: Retira uma sessão da grade
+      description: |
+        Remoção lógica: a sessão passa a CANCELADA e sai da grade, mas a linha
+        permanece — as reservas já feitas apontam para ela. Segue disponível em
+        `GET /sessoes/{id}`.
+      security:
+        - clientCredentials: []
+      responses:
+        '204': { $ref: '#/components/responses/SemConteudo' }
+        '400': { $ref: '#/components/responses/EntradaInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
 
   /sessoes/{id}/reservar:
     post:
@@ -457,15 +644,63 @@ components:
 
     Sala:
       type: object
-      required: [id, cinema_id, numero, tipo_tela, capacidade_total]
+      required: [id, cinema_id, numero, tipo_tela, capacidade_total, ativo]
       properties:
         id: { type: string, format: uuid }
         cinema_id: { type: string, format: uuid }
         numero: { type: integer }
         tipo_tela: { type: string, enum: ['2D', '3D', IMAX, VIP] }
         capacidade_total: { type: integer }
+        ativo: { type: boolean }
+
+    SalaEntrada:
+      type: object
+      required: [numero, tipo_tela, capacidade_total]
+      properties:
+        numero:
+          type: integer
+          minimum: 1
+          description: Único entre as salas ativas do cinema
+        tipo_tela: { type: string, enum: ['2D', '3D', IMAX, VIP] }
+        capacidade_total: { type: integer, minimum: 1 }
+        ativo: { type: boolean, default: true }
 
     Sessao:
+      type: object
+      description: |
+        A sessão como é gravada. A grade devolve `SessaoNaGrade`, com o filme e o
+        cinema já resolvidos.
+      required: [id, filme_id, sala_id, data_hora_inicio, idioma, preco_base, status]
+      properties:
+        id: { type: string, format: uuid }
+        filme_id: { type: string, format: uuid }
+        sala_id: { type: string, format: uuid }
+        data_hora_inicio: { type: string, format: date-time }
+        idioma: { type: string, enum: [DUBLADO, LEGENDADO] }
+        preco_base:
+          type: string
+          description: Decimal exato em texto, para não perder precisão em ponto flutuante
+          example: '42.00'
+        status: { type: string, enum: [AGENDADA, EM_ANDAMENTO, FINALIZADA, CANCELADA] }
+
+    SessaoEntrada:
+      type: object
+      required: [filme_id, sala_id, data_hora_inicio, idioma, preco_base]
+      properties:
+        filme_id: { type: string, format: uuid }
+        sala_id: { type: string, format: uuid }
+        data_hora_inicio: { type: string, format: date-time }
+        idioma: { type: string, enum: [DUBLADO, LEGENDADO] }
+        preco_base:
+          type: string
+          description: Decimal exato em texto, com até duas casas
+          example: '42.00'
+        status:
+          type: string
+          enum: [AGENDADA, EM_ANDAMENTO, FINALIZADA, CANCELADA]
+          default: AGENDADA
+
+    SessaoNaGrade:
       type: object
       required: [id, filme_id, filme_titulo, cinema_id, cinema_nome, sala_numero, tipo_tela, data_hora_inicio, idioma, preco_base]
       properties:
@@ -505,7 +740,7 @@ components:
       type: object
       required: [itens, pagina]
       properties:
-        itens: { type: array, items: { $ref: '#/components/schemas/Sessao' } }
+        itens: { type: array, items: { $ref: '#/components/schemas/SessaoNaGrade' } }
         pagina: { $ref: '#/components/schemas/Paginacao' }
 
     SolicitacaoReserva:
@@ -566,7 +801,9 @@ components:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }
     Conflito:
-      description: Uma ou mais poltronas indisponíveis
+      description: |
+        Conflito com o estado atual: poltrona já tomada, número de sala repetido
+        ou sala ocupada no horário.
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }

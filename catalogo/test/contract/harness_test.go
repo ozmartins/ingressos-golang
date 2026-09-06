@@ -27,7 +27,7 @@ func (f *filmesFalsos) BuscarPorID(_ context.Context, id string) (catalogo.Filme
 			return filme, nil
 		}
 	}
-	return catalogo.Filme{}, fmt.Errorf("%w: filme %s", shared.ErrNaoEncontrado, id)
+	return catalogo.Filme{}, shared.NaoEncontrado("filme", id)
 }
 
 func (f *filmesFalsos) Criar(_ context.Context, filme catalogo.Filme) error {
@@ -42,7 +42,7 @@ func (f *filmesFalsos) Atualizar(_ context.Context, filme catalogo.Filme) error 
 			return nil
 		}
 	}
-	return fmt.Errorf("%w: filme %s", shared.ErrNaoEncontrado, filme.ID)
+	return shared.NaoEncontrado("filme", filme.ID)
 }
 
 func (f *filmesFalsos) MarcarForaDeCartaz(_ context.Context, id string) error {
@@ -52,7 +52,7 @@ func (f *filmesFalsos) MarcarForaDeCartaz(_ context.Context, id string) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("%w: filme %s", shared.ErrNaoEncontrado, id)
+	return shared.NaoEncontrado("filme", id)
 }
 
 func (f *filmesFalsos) Listar(_ context.Context, filtro usecase.FiltroFilmes, publicos []catalogo.StatusFilme, req shared.PageRequest) (shared.Page[catalogo.Filme], error) {
@@ -97,7 +97,7 @@ func (c *cinemasFalsos) BuscarPorID(_ context.Context, id string) (catalogo.Cine
 			return cinema, nil
 		}
 	}
-	return catalogo.Cinema{}, fmt.Errorf("%w: cinema %s", shared.ErrNaoEncontrado, id)
+	return catalogo.Cinema{}, shared.NaoEncontrado("cinema", id)
 }
 
 func (c *cinemasFalsos) Criar(_ context.Context, cinema catalogo.Cinema) error {
@@ -112,7 +112,7 @@ func (c *cinemasFalsos) Atualizar(_ context.Context, cinema catalogo.Cinema) err
 			return nil
 		}
 	}
-	return fmt.Errorf("%w: cinema %s", shared.ErrNaoEncontrado, cinema.ID)
+	return shared.NaoEncontrado("cinema", cinema.ID)
 }
 
 func (c *cinemasFalsos) Desativar(_ context.Context, id string) error {
@@ -122,31 +122,130 @@ func (c *cinemasFalsos) Desativar(_ context.Context, id string) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("%w: cinema %s", shared.ErrNaoEncontrado, id)
+	return shared.NaoEncontrado("cinema", id)
 }
 
 func (c *cinemasFalsos) Existe(context.Context, string) (bool, error) { return c.existe, nil }
 
-type salasFalsas struct{ itens []catalogo.Sala }
+type salasFalsas struct {
+	itens       []catalogo.Sala
+	numeroEmUso bool
+}
 
-func (s *salasFalsas) ListarPorCinema(_ context.Context, _ string, req shared.PageRequest) (shared.Page[catalogo.Sala], error) {
-	return recortar(s.itens, req), nil
+func (s *salasFalsas) ListarPorCinema(_ context.Context, cinemaID string, filtro usecase.FiltroSalas, req shared.PageRequest) (shared.Page[catalogo.Sala], error) {
+	var selecionadas []catalogo.Sala
+	for _, sala := range s.itens {
+		if sala.CinemaID != cinemaID {
+			continue
+		}
+		if filtro.Ativo == nil || sala.Ativo == *filtro.Ativo {
+			selecionadas = append(selecionadas, sala)
+		}
+	}
+	return recortar(selecionadas, req), nil
+}
+
+func (s *salasFalsas) BuscarPorID(_ context.Context, id string) (catalogo.Sala, error) {
+	for _, sala := range s.itens {
+		if sala.ID == id {
+			return sala, nil
+		}
+	}
+	return catalogo.Sala{}, shared.NaoEncontrado("sala", id)
+}
+
+func (s *salasFalsas) Criar(_ context.Context, sala catalogo.Sala) error {
+	s.itens = append(s.itens, sala)
+	return nil
+}
+
+func (s *salasFalsas) Atualizar(_ context.Context, sala catalogo.Sala) error {
+	for i, existente := range s.itens {
+		if existente.ID == sala.ID {
+			s.itens[i] = sala
+			return nil
+		}
+	}
+	return shared.NaoEncontrado("sala", sala.ID)
+}
+
+func (s *salasFalsas) Desativar(_ context.Context, id string) error {
+	for i, existente := range s.itens {
+		if existente.ID == id {
+			s.itens[i].Ativo = false
+			return nil
+		}
+	}
+	return shared.NaoEncontrado("sala", id)
+}
+
+func (s *salasFalsas) NumeroEmUso(_ context.Context, cinemaID string, numero int, excetoID string) (bool, error) {
+	if s.numeroEmUso {
+		return true, nil
+	}
+	for _, sala := range s.itens {
+		if sala.CinemaID == cinemaID && sala.Numero == numero && sala.Ativo && sala.ID != excetoID {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 type sessoesFalsas struct {
-	grade  []catalogo.SessaoDetalhada
-	sessao catalogo.Sessao
-	erro   error
+	grade       []catalogo.SessaoDetalhada
+	sessao      catalogo.Sessao
+	erro        error
+	itens       []catalogo.Sessao
+	salaOcupada bool
 }
 
 func (s *sessoesFalsas) Consultar(_ context.Context, _ usecase.FiltroSessoes, req shared.PageRequest) (shared.Page[catalogo.SessaoDetalhada], error) {
 	return recortar(s.grade, req), nil
 }
-func (s *sessoesFalsas) BuscarPorID(context.Context, string) (catalogo.Sessao, error) {
+func (s *sessoesFalsas) BuscarPorID(_ context.Context, id string) (catalogo.Sessao, error) {
 	if s.erro != nil {
 		return catalogo.Sessao{}, s.erro
 	}
-	return s.sessao, nil
+	for _, sessao := range s.itens {
+		if sessao.ID == id {
+			return sessao, nil
+		}
+	}
+	// Sem grade montada, o dublê responde a sessão única configurada: é o que os
+	// testes de reserva esperam.
+	if len(s.itens) == 0 && s.sessao.ID != "" {
+		return s.sessao, nil
+	}
+	return catalogo.Sessao{}, shared.NaoEncontrado("sessao", id)
+}
+
+func (s *sessoesFalsas) Criar(_ context.Context, sessao catalogo.Sessao) error {
+	s.itens = append(s.itens, sessao)
+	return nil
+}
+
+func (s *sessoesFalsas) Atualizar(_ context.Context, sessao catalogo.Sessao) error {
+	for i, existente := range s.itens {
+		if existente.ID == sessao.ID {
+			s.itens[i] = sessao
+			return nil
+		}
+	}
+	return shared.NaoEncontrado("sessao", sessao.ID)
+}
+
+func (s *sessoesFalsas) Cancelar(_ context.Context, id string) error {
+	for i, existente := range s.itens {
+		if existente.ID == id {
+			s.itens[i].Status = catalogo.SessaoCancelada
+			return nil
+		}
+	}
+	return shared.NaoEncontrado("sessao", id)
+}
+
+func (s *sessoesFalsas) SalaOcupada(context.Context, string, time.Time, time.Time, string) (bool, error) {
+	return s.salaOcupada, nil
 }
 
 type estoqueContado struct {
@@ -186,6 +285,8 @@ type ambiente struct {
 	estoque  *estoqueContado
 	sessoes  *sessoesFalsas
 	cinemas  *cinemasFalsos
+	salas    *salasFalsas
+	filmes   *filmesFalsos
 }
 
 const agoraDeTeste = "2026-09-01T10:00:00Z"
@@ -201,27 +302,37 @@ func montar(t *testing.T, ajustar func(*ambiente)) *ambiente {
 		estoque: &estoqueContado{},
 		sessoes: &sessoesFalsas{},
 		cinemas: &cinemasFalsos{existe: true},
+		salas:   &salasFalsas{},
+		filmes:  &filmesFalsos{},
 	}
-	filmes := &filmesFalsos{}
-	salas := &salasFalsas{}
 	if ajustar != nil {
 		ajustar(amb)
 	}
 
 	router := adapterhttp.NovoRouter(adapterhttp.Dependencias{
 		Handlers: adapterhttp.Handlers{
-			ListarFilmes:     usecase.ListarFilmes{Repo: filmes},
-			BuscarFilme:      usecase.BuscarFilme{Repo: filmes},
-			CriarFilme:       usecase.CriarFilme{Repo: filmes, GerarID: gerarID()},
-			AtualizarFilme:   usecase.AtualizarFilme{Repo: filmes},
-			RemoverFilme:     usecase.RemoverFilme{Repo: filmes},
+			ListarFilmes:     usecase.ListarFilmes{Repo: amb.filmes},
+			BuscarFilme:      usecase.BuscarFilme{Repo: amb.filmes},
+			CriarFilme:       usecase.CriarFilme{Repo: amb.filmes, GerarID: gerarID()},
+			AtualizarFilme:   usecase.AtualizarFilme{Repo: amb.filmes},
+			RemoverFilme:     usecase.RemoverFilme{Repo: amb.filmes},
 			ListarCinemas:    usecase.ListarCinemas{Repo: amb.cinemas},
 			BuscarCinema:     usecase.BuscarCinema{Repo: amb.cinemas},
 			CriarCinema:      usecase.CriarCinema{Repo: amb.cinemas, GerarID: gerarID()},
 			AtualizarCinema:  usecase.AtualizarCinema{Repo: amb.cinemas},
 			RemoverCinema:    usecase.RemoverCinema{Repo: amb.cinemas},
-			ListarSalas:      usecase.ListarSalas{Cinemas: amb.cinemas, Salas: salas},
+			ListarSalas:      usecase.ListarSalas{Cinemas: amb.cinemas, Salas: amb.salas},
+			BuscarSala:       usecase.BuscarSala{Salas: amb.salas},
+			CriarSala:        usecase.CriarSala{Cinemas: amb.cinemas, Salas: amb.salas, GerarID: gerarID()},
+			AtualizarSala:    usecase.AtualizarSala{Cinemas: amb.cinemas, Salas: amb.salas},
+			RemoverSala:      usecase.RemoverSala{Salas: amb.salas},
 			ConsultarSessoes: usecase.ConsultarSessoes{Repo: amb.sessoes},
+			BuscarSessao:     usecase.BuscarSessao{Repo: amb.sessoes},
+			CriarSessao: usecase.CriarSessao{
+				Sessoes: amb.sessoes, Filmes: amb.filmes, Salas: amb.salas, GerarID: gerarID(),
+			},
+			AtualizarSessao: usecase.AtualizarSessao{Sessoes: amb.sessoes, Filmes: amb.filmes, Salas: amb.salas},
+			RemoverSessao:   usecase.RemoverSessao{Repo: amb.sessoes},
 			ReservarPoltronas: usecase.ReservarPoltronas{
 				Sessoes: amb.sessoes, Estoque: amb.estoque, Agora: agora,
 			},
@@ -237,30 +348,7 @@ func montar(t *testing.T, ajustar func(*ambiente)) *ambiente {
 
 func montarComFilmes(t *testing.T, itens []catalogo.Filme) *httptest.Server {
 	t.Helper()
-	filmes := &filmesFalsos{itens: itens}
-	cinemas := &cinemasFalsos{existe: true}
-	router := adapterhttp.NovoRouter(adapterhttp.Dependencias{
-		Handlers: adapterhttp.Handlers{
-			ListarFilmes:     usecase.ListarFilmes{Repo: filmes},
-			BuscarFilme:      usecase.BuscarFilme{Repo: filmes},
-			CriarFilme:       usecase.CriarFilme{Repo: filmes, GerarID: gerarID()},
-			AtualizarFilme:   usecase.AtualizarFilme{Repo: filmes},
-			RemoverFilme:     usecase.RemoverFilme{Repo: filmes},
-			ListarCinemas:    usecase.ListarCinemas{Repo: cinemas},
-			BuscarCinema:     usecase.BuscarCinema{Repo: cinemas},
-			CriarCinema:      usecase.CriarCinema{Repo: cinemas, GerarID: gerarID()},
-			AtualizarCinema:  usecase.AtualizarCinema{Repo: cinemas},
-			RemoverCinema:    usecase.RemoverCinema{Repo: cinemas},
-			ListarSalas:      usecase.ListarSalas{Cinemas: cinemas, Salas: &salasFalsas{}},
-			ConsultarSessoes: usecase.ConsultarSessoes{Repo: &sessoesFalsas{}},
-			Limites:          adapterhttp.LimitesPaginacao{Padrao: 20, Maximo: 100},
-		},
-		Saude:       func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) },
-		Verificador: verificadorFalso{usuarioID: "usuario-1"},
-	})
-	s := httptest.NewServer(router)
-	t.Cleanup(s.Close)
-	return s
+	return montar(t, func(a *ambiente) { a.filmes.itens = itens }).servidor
 }
 
 // Identificadores previsíveis: os testes de contrato conferem o `Location` e

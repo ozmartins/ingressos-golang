@@ -27,7 +27,15 @@ type Handlers struct {
 	AtualizarCinema   usecase.AtualizarCinema
 	RemoverCinema     usecase.RemoverCinema
 	ListarSalas       usecase.ListarSalas
+	BuscarSala        usecase.BuscarSala
+	CriarSala         usecase.CriarSala
+	AtualizarSala     usecase.AtualizarSala
+	RemoverSala       usecase.RemoverSala
 	ConsultarSessoes  usecase.ConsultarSessoes
+	BuscarSessao      usecase.BuscarSessao
+	CriarSessao       usecase.CriarSessao
+	AtualizarSessao   usecase.AtualizarSessao
+	RemoverSessao     usecase.RemoverSessao
 	ReservarPoltronas usecase.ReservarPoltronas
 	Limites           LimitesPaginacao
 }
@@ -257,12 +265,116 @@ func (h Handlers) GetSalasDoCinema(w http.ResponseWriter, r *http.Request) {
 		EscreverErroDeDominio(w, r, err, "")
 		return
 	}
-	pagina, err := h.ListarSalas.Executar(r.Context(), cinemaID, req)
+
+	var filtro usecase.FiltroSalas
+	if bruto := r.URL.Query().Get("ativo"); bruto != "" {
+		ativo, err := parseBooleano(bruto, "ativo")
+		if err != nil {
+			EscreverErroDeDominio(w, r, err, "")
+			return
+		}
+		filtro.Ativo = ativo
+	}
+
+	pagina, err := h.ListarSalas.Executar(r.Context(), cinemaID, filtro, req)
 	if err != nil {
 		EscreverErroDeDominio(w, r, err, "cinema")
 		return
 	}
 	escreverJSON(w, http.StatusOK, envelope(pagina, paraSalaDTO))
+}
+
+func (h Handlers) GetSala(w http.ResponseWriter, r *http.Request) {
+	cinemaID, salaID, ok := lerCaminhoDeSala(w, r)
+	if !ok {
+		return
+	}
+	sala, err := h.BuscarSala.Executar(r.Context(), cinemaID, salaID)
+	if err != nil {
+		EscreverErroDeDominio(w, r, err, "sala")
+		return
+	}
+	escreverJSON(w, http.StatusOK, paraSalaDTO(sala))
+}
+
+func (h Handlers) PostSala(w http.ResponseWriter, r *http.Request) {
+	cinemaID := r.PathValue("id")
+	if err := validarUUID(cinemaID, "id"); err != nil {
+		EscreverErroDeDominio(w, r, err, "")
+		return
+	}
+	corpo, ok := lerEntradaDeSala(w, r)
+	if !ok {
+		return
+	}
+	sala, err := h.CriarSala.Executar(r.Context(), cinemaID, corpo.paraDadosSala())
+	if err != nil {
+		escreverErroDeEscritaDeSala(w, r, err)
+		return
+	}
+	w.Header().Set("Location", "/api/v1/cinemas/"+cinemaID+"/salas/"+sala.ID)
+	escreverJSON(w, http.StatusCreated, paraSalaDTO(sala))
+}
+
+func (h Handlers) PutSala(w http.ResponseWriter, r *http.Request) {
+	cinemaID, salaID, ok := lerCaminhoDeSala(w, r)
+	if !ok {
+		return
+	}
+	corpo, ok := lerEntradaDeSala(w, r)
+	if !ok {
+		return
+	}
+	sala, err := h.AtualizarSala.Executar(r.Context(), cinemaID, salaID, corpo.paraDadosSala())
+	if err != nil {
+		escreverErroDeEscritaDeSala(w, r, err)
+		return
+	}
+	escreverJSON(w, http.StatusOK, paraSalaDTO(sala))
+}
+
+func (h Handlers) DeleteSala(w http.ResponseWriter, r *http.Request) {
+	cinemaID, salaID, ok := lerCaminhoDeSala(w, r)
+	if !ok {
+		return
+	}
+	if err := h.RemoverSala.Executar(r.Context(), cinemaID, salaID); err != nil {
+		EscreverErroDeDominio(w, r, err, "sala")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// A sala é endereçada pelo par cinema+sala: os dois identificadores precisam ser
+// UUID antes de qualquer consulta.
+func lerCaminhoDeSala(w http.ResponseWriter, r *http.Request) (string, string, bool) {
+	cinemaID, salaID := r.PathValue("id"), r.PathValue("sala_id")
+	for campo, valor := range map[string]string{"id": cinemaID, "sala_id": salaID} {
+		if err := validarUUID(valor, campo); err != nil {
+			EscreverErroDeDominio(w, r, err, "")
+			return "", "", false
+		}
+	}
+	return cinemaID, salaID, true
+}
+
+func lerEntradaDeSala(w http.ResponseWriter, r *http.Request) (salaEntradaDTO, bool) {
+	var corpo salaEntradaDTO
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64*1024))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&corpo); err != nil {
+		EscreverProblem(w, r, catCorpoInvalido, "Corpo da requisição não é um JSON válido para esta operação.")
+		return salaEntradaDTO{}, false
+	}
+	return corpo, true
+}
+
+func escreverErroDeEscritaDeSala(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, shared.ErrValidacao) {
+		EscreverProblem(w, r, catCorpoInvalido, mensagemLimpa(err))
+		return
+	}
+	EscreverErroDeDominio(w, r, err, "sala")
 }
 
 func (h Handlers) GetSessoes(w http.ResponseWriter, r *http.Request) {
@@ -303,6 +415,91 @@ func (h Handlers) GetSessoes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	escreverJSON(w, http.StatusOK, envelope(pagina, paraSessaoDTO))
+}
+
+func (h Handlers) GetSessao(w http.ResponseWriter, r *http.Request) {
+	sessaoID := r.PathValue("id")
+	if err := validarUUID(sessaoID, "id"); err != nil {
+		EscreverErroDeDominio(w, r, err, "")
+		return
+	}
+	sessao, err := h.BuscarSessao.Executar(r.Context(), sessaoID)
+	if err != nil {
+		EscreverErroDeDominio(w, r, err, "sessao")
+		return
+	}
+	escreverJSON(w, http.StatusOK, paraSessaoRecursoDTO(sessao))
+}
+
+func (h Handlers) PostSessao(w http.ResponseWriter, r *http.Request) {
+	dados, ok := lerEntradaDeSessao(w, r)
+	if !ok {
+		return
+	}
+	sessao, err := h.CriarSessao.Executar(r.Context(), dados)
+	if err != nil {
+		escreverErroDeEscritaDeSessao(w, r, err)
+		return
+	}
+	w.Header().Set("Location", "/api/v1/sessoes/"+sessao.ID)
+	escreverJSON(w, http.StatusCreated, paraSessaoRecursoDTO(sessao))
+}
+
+func (h Handlers) PutSessao(w http.ResponseWriter, r *http.Request) {
+	sessaoID := r.PathValue("id")
+	if err := validarUUID(sessaoID, "id"); err != nil {
+		EscreverErroDeDominio(w, r, err, "")
+		return
+	}
+	dados, ok := lerEntradaDeSessao(w, r)
+	if !ok {
+		return
+	}
+	sessao, err := h.AtualizarSessao.Executar(r.Context(), sessaoID, dados)
+	if err != nil {
+		escreverErroDeEscritaDeSessao(w, r, err)
+		return
+	}
+	escreverJSON(w, http.StatusOK, paraSessaoRecursoDTO(sessao))
+}
+
+func (h Handlers) DeleteSessao(w http.ResponseWriter, r *http.Request) {
+	sessaoID := r.PathValue("id")
+	if err := validarUUID(sessaoID, "id"); err != nil {
+		EscreverErroDeDominio(w, r, err, "")
+		return
+	}
+	if err := h.RemoverSessao.Executar(r.Context(), sessaoID); err != nil {
+		EscreverErroDeDominio(w, r, err, "sessao")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// Diferente das outras entradas, aqui a conversão pode falhar sozinha: o
+// instante vem como texto, e um formato errado é problema de corpo.
+func lerEntradaDeSessao(w http.ResponseWriter, r *http.Request) (catalogo.DadosSessao, bool) {
+	var corpo sessaoEntradaDTO
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64*1024))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&corpo); err != nil {
+		EscreverProblem(w, r, catCorpoInvalido, "Corpo da requisição não é um JSON válido para esta operação.")
+		return catalogo.DadosSessao{}, false
+	}
+	dados, err := corpo.paraDadosSessao()
+	if err != nil {
+		EscreverProblem(w, r, catCorpoInvalido, mensagemLimpa(err))
+		return catalogo.DadosSessao{}, false
+	}
+	return dados, true
+}
+
+func escreverErroDeEscritaDeSessao(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, shared.ErrValidacao) {
+		EscreverProblem(w, r, catCorpoInvalido, mensagemLimpa(err))
+		return
+	}
+	EscreverErroDeDominio(w, r, err, "sessao")
 }
 
 func (h Handlers) PostReservar(w http.ResponseWriter, r *http.Request) {

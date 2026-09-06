@@ -47,7 +47,7 @@ func (r *CinemaRepository) BuscarPorID(ctx context.Context, cinemaID string) (ca
 	linha := r.pool.QueryRow(ctx, `SELECT `+colunasCinema+` FROM cinemas WHERE id = $1`, cinemaID)
 	c, err := lerCinema(linha.Scan)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return catalogo.Cinema{}, fmt.Errorf("%w: cinema %s", shared.ErrNaoEncontrado, cinemaID)
+		return catalogo.Cinema{}, shared.NaoEncontrado("cinema", cinemaID)
 	}
 	if err != nil {
 		return catalogo.Cinema{}, err
@@ -74,7 +74,7 @@ func (r *CinemaRepository) Atualizar(ctx context.Context, c catalogo.Cinema) err
 		return fmt.Errorf("atualizando cinema: %w", err)
 	}
 	if etiqueta.RowsAffected() == 0 {
-		return fmt.Errorf("%w: cinema %s", shared.ErrNaoEncontrado, c.ID)
+		return shared.NaoEncontrado("cinema", c.ID)
 	}
 	return nil
 }
@@ -87,7 +87,7 @@ func (r *CinemaRepository) Desativar(ctx context.Context, cinemaID string) error
 		return fmt.Errorf("desativando cinema: %w", err)
 	}
 	if etiqueta.RowsAffected() == 0 {
-		return fmt.Errorf("%w: cinema %s", shared.ErrNaoEncontrado, cinemaID)
+		return shared.NaoEncontrado("cinema", cinemaID)
 	}
 	return nil
 }

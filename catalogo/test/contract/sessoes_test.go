@@ -1,7 +1,9 @@
 package contract
 
 import (
+	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -118,5 +120,250 @@ func TestGetSessoesRecusaFiltrosMalformados(t *testing.T) {
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Errorf("%s: esperava 400, obteve %d", q, resp.StatusCode)
 		}
+	}
+}
+
+const (
+	filmeDaSessao     = "c394c8b3-76a1-4328-b803-02f5923b7a15"
+	corpoSessaoValido = `{"filme_id":"` + filmeDaSessao + `","sala_id":"` + salaID + `",` +
+		`"data_hora_inicio":"2026-09-20T19:30:00Z","idioma":"LEGENDADO","preco_base":"42.50"}`
+)
+
+func sessaoDeTeste() catalogo.Sessao {
+	return catalogo.Sessao{
+		ID:             sessaoID,
+		FilmeID:        filmeDaSessao,
+		SalaID:         salaID,
+		DataHoraInicio: agora().Add(24 * time.Hour),
+		Idioma:         catalogo.Legendado,
+		PrecoBase:      catalogo.DinheiroDeCentavos(4200),
+		Status:         catalogo.SessaoAgendada,
+	}
+}
+
+// A escrita de uma sessão consulta o filme e a sala: as duas precisam existir no
+// ambiente para o caminho felizardo passar.
+func montarComSessoes(t *testing.T, itens []catalogo.Sessao) *ambiente {
+	t.Helper()
+	return montar(t, func(a *ambiente) {
+		a.sessoes.itens = itens
+		a.salas.itens = []catalogo.Sala{salaDeTeste()}
+		a.filmes.itens = []catalogo.Filme{{ID: filmeDaSessao, Titulo: "Duna: Parte 2",
+			DuracaoMinutos: 166, Status: catalogo.StatusEmCartaz}}
+	})
+}
+
+func decodificarSessao(t *testing.T, corpo []byte) map[string]any {
+	t.Helper()
+	var sessao map[string]any
+	if err := json.Unmarshal(corpo, &sessao); err != nil {
+		t.Fatalf("resposta não é uma sessão JSON: %v (corpo: %s)", err, corpo)
+	}
+	return sessao
+}
+
+func TestGetSessaoPorIDDevolveARepresentacaoGravada(t *testing.T) {
+	amb := montarComSessoes(t, []catalogo.Sessao{sessaoDeTeste()})
+	resp, corpo := obter(t, amb.servidor, "/api/v1/sessoes/"+sessaoID)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d (corpo: %s)", resp.StatusCode, corpo)
+	}
+	sessao := decodificarSessao(t, corpo)
+	for _, campo := range []string{"id", "filme_id", "sala_id", "data_hora_inicio", "idioma", "preco_base", "status"} {
+		if _, ok := sessao[campo]; !ok {
+			t.Errorf("campo obrigatório %q ausente", campo)
+		}
+	}
+	// A grade resolve o filme e o cinema; o recurso, não.
+	if _, presente := sessao["filme_titulo"]; presente {
+		t.Error("o recurso não deveria trazer filme_titulo: isso é da grade")
+	}
+}
+
+func TestGetSessaoInexistenteDevolve404DeSessao(t *testing.T) {
+	amb := montarComSessoes(t, []catalogo.Sessao{sessaoDeTeste()})
+	resp, corpo := obter(t, amb.servidor, "/api/v1/sessoes/f781a9b2-11e2-4f81-a901-8890bc999999")
+
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("status %d, esperava 404", resp.StatusCode)
+	}
+	if p := decodificarProblem(t, resp, corpo); !strings.HasSuffix(p.Type, "sessao-nao-encontrada") {
+		t.Fatalf("type inesperado: %s", p.Type)
+	}
+}
+
+func TestPostSessaoPublicaEDevolveLocation(t *testing.T) {
+	amb := montarComSessoes(t, nil)
+	resp, corpo := requisitar(t, amb.servidor, http.MethodPost, "/api/v1/sessoes", "token-bom", corpoSessaoValido)
+
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("status %d (corpo: %s)", resp.StatusCode, corpo)
+	}
+	sessao := decodificarSessao(t, corpo)
+	id, _ := sessao["id"].(string)
+	if id == "" {
+		t.Fatal("o serviço deveria gerar o id da sessão")
+	}
+	if local := resp.Header.Get("Location"); local != "/api/v1/sessoes/"+id {
+		t.Fatalf("Location = %q, esperava o caminho da sessão criada", local)
+	}
+	if sessao["status"] != "AGENDADA" {
+		t.Fatalf("sem `status` no corpo, a sessão deveria nascer agendada, veio %v", sessao["status"])
+	}
+	if sessao["preco_base"] != "42.50" {
+		t.Fatalf("preco_base deveria voltar como texto exato, veio %v", sessao["preco_base"])
+	}
+
+	respBusca, corpoBusca := obter(t, amb.servidor, "/api/v1/sessoes/"+id)
+	if respBusca.StatusCode != http.StatusOK {
+		t.Fatalf("a sessão criada deveria ser legível: status %d (corpo: %s)", respBusca.StatusCode, corpoBusca)
+	}
+}
+
+func TestPostSessaoSemTokenDevolve401(t *testing.T) {
+	amb := montarComSessoes(t, nil)
+	resp, corpo := requisitar(t, amb.servidor, http.MethodPost, "/api/v1/sessoes", "", corpoSessaoValido)
+
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("status %d, esperava 401", resp.StatusCode)
+	}
+	if p := decodificarProblem(t, resp, corpo); !strings.HasSuffix(p.Type, "nao-autenticado") {
+		t.Fatalf("type inesperado: %s", p.Type)
+	}
+}
+
+func TestPostSessaoRecusaCorpoInvalido(t *testing.T) {
+	amb := montarComSessoes(t, nil)
+	casos := map[string]string{
+		"sem filme": `{"sala_id":"` + salaID + `","data_hora_inicio":"2026-09-20T19:30:00Z",` +
+			`"idioma":"LEGENDADO","preco_base":"42.50"}`,
+		"início fora do RFC 3339": `{"filme_id":"` + filmeDaSessao + `","sala_id":"` + salaID + `",` +
+			`"data_hora_inicio":"20/09/2026 19:30","idioma":"LEGENDADO","preco_base":"42.50"}`,
+		"idioma desconhecido": `{"filme_id":"` + filmeDaSessao + `","sala_id":"` + salaID + `",` +
+			`"data_hora_inicio":"2026-09-20T19:30:00Z","idioma":"ORIGINAL","preco_base":"42.50"}`,
+		"preço com três casas": `{"filme_id":"` + filmeDaSessao + `","sala_id":"` + salaID + `",` +
+			`"data_hora_inicio":"2026-09-20T19:30:00Z","idioma":"LEGENDADO","preco_base":"42.505"}`,
+		"preço como número": `{"filme_id":"` + filmeDaSessao + `","sala_id":"` + salaID + `",` +
+			`"data_hora_inicio":"2026-09-20T19:30:00Z","idioma":"LEGENDADO","preco_base":42.50}`,
+		"campo desconhecido": `{"filme_id":"` + filmeDaSessao + `","sala_id":"` + salaID + `",` +
+			`"data_hora_inicio":"2026-09-20T19:30:00Z","idioma":"LEGENDADO","preco_base":"42.50","sala_numero":3}`,
+		"json quebrado": `{"filme_id":`,
+	}
+	for nome, corpoPedido := range casos {
+		t.Run(nome, func(t *testing.T) {
+			resp, corpo := requisitar(t, amb.servidor, http.MethodPost, "/api/v1/sessoes", "token-bom", corpoPedido)
+			if resp.StatusCode != http.StatusBadRequest {
+				t.Fatalf("status %d, esperava 400 (corpo: %s)", resp.StatusCode, corpo)
+			}
+			if p := decodificarProblem(t, resp, corpo); !strings.HasSuffix(p.Type, "corpo-invalido") {
+				t.Fatalf("type inesperado: %s", p.Type)
+			}
+		})
+	}
+}
+
+func TestPostSessaoDeFilmeInexistenteDevolve404DeFilme(t *testing.T) {
+	amb := montar(t, func(a *ambiente) { a.salas.itens = []catalogo.Sala{salaDeTeste()} })
+	resp, corpo := requisitar(t, amb.servidor, http.MethodPost, "/api/v1/sessoes", "token-bom", corpoSessaoValido)
+
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("status %d, esperava 404 (corpo: %s)", resp.StatusCode, corpo)
+	}
+	if p := decodificarProblem(t, resp, corpo); !strings.HasSuffix(p.Type, "filme-nao-encontrado") {
+		t.Fatalf("type inesperado: %s", p.Type)
+	}
+}
+
+func TestPostSessaoEmSalaInexistenteDevolve404DeSala(t *testing.T) {
+	amb := montar(t, func(a *ambiente) {
+		a.filmes.itens = []catalogo.Filme{{ID: filmeDaSessao, DuracaoMinutos: 166}}
+	})
+	resp, corpo := requisitar(t, amb.servidor, http.MethodPost, "/api/v1/sessoes", "token-bom", corpoSessaoValido)
+
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("status %d, esperava 404 (corpo: %s)", resp.StatusCode, corpo)
+	}
+	if p := decodificarProblem(t, resp, corpo); !strings.HasSuffix(p.Type, "sala-nao-encontrada") {
+		t.Fatalf("type inesperado: %s", p.Type)
+	}
+}
+
+func TestPostSessaoEmSalaOcupadaDevolve409(t *testing.T) {
+	amb := montarComSessoes(t, nil)
+	amb.sessoes.salaOcupada = true
+
+	resp, corpo := requisitar(t, amb.servidor, http.MethodPost, "/api/v1/sessoes", "token-bom", corpoSessaoValido)
+	if resp.StatusCode != http.StatusConflict {
+		t.Fatalf("status %d, esperava 409 (corpo: %s)", resp.StatusCode, corpo)
+	}
+	if p := decodificarProblem(t, resp, corpo); !strings.HasSuffix(p.Type, "conflito") {
+		t.Fatalf("type inesperado: %s", p.Type)
+	}
+}
+
+func TestPutSessaoSubstituiASessao(t *testing.T) {
+	amb := montarComSessoes(t, []catalogo.Sessao{sessaoDeTeste()})
+	novo := `{"filme_id":"` + filmeDaSessao + `","sala_id":"` + salaID + `",` +
+		`"data_hora_inicio":"2026-09-21T21:00:00Z","idioma":"DUBLADO","preco_base":"55.00"}`
+	resp, corpo := requisitar(t, amb.servidor, http.MethodPut, "/api/v1/sessoes/"+sessaoID, "token-bom", novo)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d (corpo: %s)", resp.StatusCode, corpo)
+	}
+	sessao := decodificarSessao(t, corpo)
+	if sessao["idioma"] != "DUBLADO" || sessao["preco_base"] != "55.00" {
+		t.Fatalf("sessão não foi substituída: %v", sessao)
+	}
+
+	_, corpoBusca := obter(t, amb.servidor, "/api/v1/sessoes/"+sessaoID)
+	if relida := decodificarSessao(t, corpoBusca); relida["data_hora_inicio"] != "2026-09-21T21:00:00Z" {
+		t.Fatalf("a substituição não persistiu: %v", relida)
+	}
+}
+
+func TestPutSessaoInexistenteDevolve404(t *testing.T) {
+	amb := montarComSessoes(t, nil)
+	caminho := "/api/v1/sessoes/f781a9b2-11e2-4f81-a901-8890bc999999"
+	resp, corpo := requisitar(t, amb.servidor, http.MethodPut, caminho, "token-bom", corpoSessaoValido)
+
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("status %d, esperava 404 (corpo: %s)", resp.StatusCode, corpo)
+	}
+	if p := decodificarProblem(t, resp, corpo); !strings.HasSuffix(p.Type, "sessao-nao-encontrada") {
+		t.Fatalf("type inesperado: %s", p.Type)
+	}
+}
+
+func TestDeleteSessaoCancelaESaiDaGrade(t *testing.T) {
+	amb := montarComSessoes(t, []catalogo.Sessao{sessaoDeTeste()})
+	resp, corpo := requisitar(t, amb.servidor, http.MethodDelete, "/api/v1/sessoes/"+sessaoID, "token-bom", "")
+
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("status %d, esperava 204 (corpo: %s)", resp.StatusCode, corpo)
+	}
+	if len(corpo) != 0 {
+		t.Fatalf("204 não deveria ter corpo, veio %s", corpo)
+	}
+
+	respBusca, corpoBusca := obter(t, amb.servidor, "/api/v1/sessoes/"+sessaoID)
+	if respBusca.StatusCode != http.StatusOK {
+		t.Fatalf("a sessão cancelada deveria seguir legível pelo id: status %d", respBusca.StatusCode)
+	}
+	if sessao := decodificarSessao(t, corpoBusca); sessao["status"] != "CANCELADA" {
+		t.Fatalf("a sessão deveria estar cancelada: %v", sessao)
+	}
+}
+
+func TestDeleteSessaoInexistenteDevolve404(t *testing.T) {
+	amb := montarComSessoes(t, nil)
+	caminho := "/api/v1/sessoes/f781a9b2-11e2-4f81-a901-8890bc999999"
+	resp, corpo := requisitar(t, amb.servidor, http.MethodDelete, caminho, "token-bom", "")
+
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("status %d, esperava 404", resp.StatusCode)
+	}
+	if p := decodificarProblem(t, resp, corpo); !strings.HasSuffix(p.Type, "sessao-nao-encontrada") {
+		t.Fatalf("type inesperado: %s", p.Type)
 	}
 }

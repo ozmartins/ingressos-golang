@@ -17,6 +17,7 @@ type filmeRepoFalso struct {
 	criado           catalogo.Filme
 	atualizado       catalogo.Filme
 	removido         string
+	duracao          int
 	erro             error
 }
 
@@ -29,7 +30,7 @@ func (f *filmeRepoFalso) BuscarPorID(_ context.Context, id string) (catalogo.Fil
 	if f.erro != nil {
 		return catalogo.Filme{}, f.erro
 	}
-	return catalogo.Filme{ID: id}, nil
+	return catalogo.Filme{ID: id, DuracaoMinutos: f.duracao}, nil
 }
 
 func (f *filmeRepoFalso) Criar(_ context.Context, filme catalogo.Filme) error {
@@ -48,9 +49,15 @@ func (f *filmeRepoFalso) MarcarForaDeCartaz(_ context.Context, id string) error 
 }
 
 type sessaoRepoFalso struct {
-	sessao       catalogo.Sessao
-	erroBusca    error
-	buscasFeitas int
+	sessao           catalogo.Sessao
+	erroBusca        error
+	buscasFeitas     int
+	criada           catalogo.Sessao
+	atualizada       catalogo.Sessao
+	cancelada        string
+	salaOcupada      bool
+	janelaConsultada [2]time.Time
+	excetoRecebido   string
 }
 
 func (s *sessaoRepoFalso) Consultar(context.Context, FiltroSessoes, shared.PageRequest) (shared.Page[catalogo.SessaoDetalhada], error) {
@@ -63,6 +70,27 @@ func (s *sessaoRepoFalso) BuscarPorID(_ context.Context, id string) (catalogo.Se
 		return catalogo.Sessao{}, s.erroBusca
 	}
 	return s.sessao, nil
+}
+
+func (s *sessaoRepoFalso) Criar(_ context.Context, sessao catalogo.Sessao) error {
+	s.criada = sessao
+	return nil
+}
+
+func (s *sessaoRepoFalso) Atualizar(_ context.Context, sessao catalogo.Sessao) error {
+	s.atualizada = sessao
+	return nil
+}
+
+func (s *sessaoRepoFalso) Cancelar(_ context.Context, id string) error {
+	s.cancelada = id
+	return nil
+}
+
+func (s *sessaoRepoFalso) SalaOcupada(_ context.Context, salaID string, inicio, fim time.Time, excetoID string) (bool, error) {
+	s.janelaConsultada = [2]time.Time{inicio, fim}
+	s.excetoRecebido = excetoID
+	return s.salaOcupada, nil
 }
 
 type estoqueFalso struct {
@@ -114,11 +142,48 @@ func (c *cinemaRepoFalso) Desativar(_ context.Context, id string) error {
 
 func (c *cinemaRepoFalso) Existe(context.Context, string) (bool, error) { return c.existe, nil }
 
-type salaRepoFalso struct{ chamado bool }
+type salaRepoFalso struct {
+	chamado     bool
+	sala        catalogo.Sala
+	erroBusca   error
+	numeroEmUso bool
+	criada      catalogo.Sala
+	atualizada  catalogo.Sala
+	desativada  string
+}
 
-func (s *salaRepoFalso) ListarPorCinema(_ context.Context, _ string, req shared.PageRequest) (shared.Page[catalogo.Sala], error) {
+func (s *salaRepoFalso) ListarPorCinema(_ context.Context, _ string, _ FiltroSalas, req shared.PageRequest) (shared.Page[catalogo.Sala], error) {
 	s.chamado = true
 	return shared.NovaPage([]catalogo.Sala{}, 0, req), nil
+}
+
+func (s *salaRepoFalso) BuscarPorID(_ context.Context, id string) (catalogo.Sala, error) {
+	if s.erroBusca != nil {
+		return catalogo.Sala{}, s.erroBusca
+	}
+	if s.sala.ID == "" {
+		return catalogo.Sala{ID: id}, nil
+	}
+	return s.sala, nil
+}
+
+func (s *salaRepoFalso) Criar(_ context.Context, sala catalogo.Sala) error {
+	s.criada = sala
+	return nil
+}
+
+func (s *salaRepoFalso) Atualizar(_ context.Context, sala catalogo.Sala) error {
+	s.atualizada = sala
+	return nil
+}
+
+func (s *salaRepoFalso) Desativar(_ context.Context, id string) error {
+	s.desativada = id
+	return nil
+}
+
+func (s *salaRepoFalso) NumeroEmUso(context.Context, string, int, string) (bool, error) {
+	return s.numeroEmUso, nil
 }
 
 func pagina() shared.PageRequest {
@@ -160,7 +225,7 @@ func TestListarFilmesComFiltroExplicitoRespeitaOPedido(t *testing.T) {
 func TestListarSalasRecusaCinemaInexistente(t *testing.T) {
 	salas := &salaRepoFalso{}
 	_, err := ListarSalas{Cinemas: &cinemaRepoFalso{existe: false}, Salas: salas}.
-		Executar(context.Background(), "id-qualquer", pagina())
+		Executar(context.Background(), "id-qualquer", FiltroSalas{}, pagina())
 	if !errors.Is(err, shared.ErrNaoEncontrado) {
 		t.Fatalf("esperava ErrNaoEncontrado, obteve %v", err)
 	}
@@ -452,5 +517,214 @@ func TestRemoverCinemaDesativa(t *testing.T) {
 	}
 	if repo.desativado != "id-x" {
 		t.Fatalf("esperava remoção lógica de id-x, obteve %q", repo.desativado)
+	}
+}
+
+func dadosSala() catalogo.DadosSala {
+	return catalogo.DadosSala{Numero: 3, TipoTela: "IMAX", CapacidadeTotal: 180}
+}
+
+func TestCriarSalaRecusaCinemaInexistente(t *testing.T) {
+	salas := &salaRepoFalso{}
+	uc := CriarSala{Cinemas: &cinemaRepoFalso{existe: false}, Salas: salas, GerarID: idFixo}
+
+	_, err := uc.Executar(context.Background(), "cinema-1", dadosSala())
+	if !errors.Is(err, shared.ErrNaoEncontrado) {
+		t.Fatalf("esperava ErrNaoEncontrado, obteve %v", err)
+	}
+	if salas.criada.ID != "" {
+		t.Fatal("não deveria gravar sala em cinema inexistente")
+	}
+}
+
+func TestCriarSalaRecusaNumeroJaUsado(t *testing.T) {
+	salas := &salaRepoFalso{numeroEmUso: true}
+	uc := CriarSala{Cinemas: &cinemaRepoFalso{existe: true}, Salas: salas, GerarID: idFixo}
+
+	_, err := uc.Executar(context.Background(), "cinema-1", dadosSala())
+	if !errors.Is(err, shared.ErrConflito) {
+		t.Fatalf("esperava ErrConflito, obteve %v", err)
+	}
+	if salas.criada.ID != "" {
+		t.Fatal("não deveria gravar sala com número repetido")
+	}
+}
+
+func TestCriarSalaInativaNaoDisputaONumero(t *testing.T) {
+	inativa := false
+	dados := dadosSala()
+	dados.Ativo = &inativa
+
+	salas := &salaRepoFalso{numeroEmUso: true}
+	uc := CriarSala{Cinemas: &cinemaRepoFalso{existe: true}, Salas: salas, GerarID: idFixo}
+
+	if _, err := uc.Executar(context.Background(), "cinema-1", dados); err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if salas.criada.ID == "" {
+		t.Fatal("a sala inativa deveria ser gravada: o índice único vale entre as ativas")
+	}
+}
+
+func TestCriarSalaTomaOCinemaDoCaminho(t *testing.T) {
+	salas := &salaRepoFalso{}
+	uc := CriarSala{Cinemas: &cinemaRepoFalso{existe: true}, Salas: salas, GerarID: idFixo}
+
+	sala, err := uc.Executar(context.Background(), "cinema-1", dadosSala())
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if sala.CinemaID != "cinema-1" || salas.criada.CinemaID != "cinema-1" {
+		t.Fatalf("cinema_id = %q, esperava o do caminho", salas.criada.CinemaID)
+	}
+}
+
+func TestBuscarSalaDeOutroCinemaNaoEncontra(t *testing.T) {
+	salas := &salaRepoFalso{sala: catalogo.Sala{ID: "sala-1", CinemaID: "cinema-2"}}
+
+	_, err := BuscarSala{Salas: salas}.Executar(context.Background(), "cinema-1", "sala-1")
+	if !errors.Is(err, shared.ErrNaoEncontrado) {
+		t.Fatalf("esperava ErrNaoEncontrado, obteve %v", err)
+	}
+	var ausente shared.RecursoAusente
+	if !errors.As(err, &ausente) || ausente.Recurso != "sala" {
+		t.Fatalf("o ausente deveria ser a sala, obteve %v", err)
+	}
+}
+
+func TestRemoverSalaDeOutroCinemaNaoDesativa(t *testing.T) {
+	salas := &salaRepoFalso{sala: catalogo.Sala{ID: "sala-1", CinemaID: "cinema-2"}}
+
+	err := RemoverSala{Salas: salas}.Executar(context.Background(), "cinema-1", "sala-1")
+	if !errors.Is(err, shared.ErrNaoEncontrado) {
+		t.Fatalf("esperava ErrNaoEncontrado, obteve %v", err)
+	}
+	if salas.desativada != "" {
+		t.Fatal("não deveria desativar sala de outro cinema")
+	}
+}
+
+func dadosSessao() catalogo.DadosSessao {
+	return catalogo.DadosSessao{
+		FilmeID:        "filme-1",
+		SalaID:         "sala-1",
+		DataHoraInicio: time.Date(2026, 9, 20, 19, 30, 0, 0, time.UTC),
+		Idioma:         "LEGENDADO",
+		PrecoBase:      "42.50",
+	}
+}
+
+func idFixo() string { return "id-gerado" }
+
+func TestCriarSessaoRecusaSalaOcupada(t *testing.T) {
+	sessoes := &sessaoRepoFalso{salaOcupada: true}
+	uc := CriarSessao{Sessoes: sessoes, Filmes: &filmeRepoFalso{}, Salas: &salaRepoFalso{}, GerarID: idFixo}
+
+	_, err := uc.Executar(context.Background(), dadosSessao())
+	if !errors.Is(err, shared.ErrConflito) {
+		t.Fatalf("esperava ErrConflito, obteve %v", err)
+	}
+	if sessoes.criada.ID != "" {
+		t.Fatal("não deveria gravar sessão sobreposta")
+	}
+}
+
+func TestCriarSessaoCalculaAJanelaComADuracaoDoFilme(t *testing.T) {
+	sessoes := &sessaoRepoFalso{}
+	filmes := &filmeRepoFalso{duracao: 148}
+	uc := CriarSessao{Sessoes: sessoes, Filmes: filmes, Salas: &salaRepoFalso{}, GerarID: idFixo}
+
+	if _, err := uc.Executar(context.Background(), dadosSessao()); err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	inicio, fim := sessoes.janelaConsultada[0], sessoes.janelaConsultada[1]
+	if esperado := time.Date(2026, 9, 20, 21, 58, 0, 0, time.UTC); !fim.Equal(esperado) {
+		t.Fatalf("fim da janela = %s, esperava %s", fim, esperado)
+	}
+	if !inicio.Equal(dadosSessao().DataHoraInicio) {
+		t.Fatalf("início da janela = %s", inicio)
+	}
+	if sessoes.excetoRecebido != "" {
+		t.Fatal("na criação não há sessão a excluir da checagem")
+	}
+}
+
+func TestCriarSessaoCanceladaNaoOcupaASala(t *testing.T) {
+	dados := dadosSessao()
+	dados.Status = string(catalogo.SessaoCancelada)
+
+	sessoes := &sessaoRepoFalso{salaOcupada: true}
+	uc := CriarSessao{Sessoes: sessoes, Filmes: &filmeRepoFalso{}, Salas: &salaRepoFalso{}, GerarID: idFixo}
+
+	if _, err := uc.Executar(context.Background(), dados); err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if sessoes.criada.ID == "" {
+		t.Fatal("uma sessão cancelada não disputa a sala e deveria ser gravada")
+	}
+}
+
+func TestCriarSessaoRecusaFilmeInexistente(t *testing.T) {
+	sessoes := &sessaoRepoFalso{}
+	filmes := &filmeRepoFalso{erro: shared.NaoEncontrado("filme", "filme-1")}
+	uc := CriarSessao{Sessoes: sessoes, Filmes: filmes, Salas: &salaRepoFalso{}, GerarID: idFixo}
+
+	_, err := uc.Executar(context.Background(), dadosSessao())
+	var ausente shared.RecursoAusente
+	if !errors.As(err, &ausente) || ausente.Recurso != "filme" {
+		t.Fatalf("o ausente deveria ser o filme, obteve %v", err)
+	}
+	if sessoes.criada.ID != "" {
+		t.Fatal("não deveria gravar sessão de filme inexistente")
+	}
+}
+
+func TestCriarSessaoRecusaSalaInexistente(t *testing.T) {
+	sessoes := &sessaoRepoFalso{}
+	salas := &salaRepoFalso{erroBusca: shared.NaoEncontrado("sala", "sala-1")}
+	uc := CriarSessao{Sessoes: sessoes, Filmes: &filmeRepoFalso{}, Salas: salas, GerarID: idFixo}
+
+	_, err := uc.Executar(context.Background(), dadosSessao())
+	var ausente shared.RecursoAusente
+	if !errors.As(err, &ausente) || ausente.Recurso != "sala" {
+		t.Fatalf("o ausente deveria ser a sala, obteve %v", err)
+	}
+	if sessoes.criada.ID != "" {
+		t.Fatal("não deveria gravar sessão em sala inexistente")
+	}
+}
+
+func TestAtualizarSessaoIgnoraAPropriaNaChecagemDeOcupacao(t *testing.T) {
+	sessoes := &sessaoRepoFalso{sessao: sessaoReservavel()}
+	uc := AtualizarSessao{Sessoes: sessoes, Filmes: &filmeRepoFalso{duracao: 100}, Salas: &salaRepoFalso{}}
+
+	if _, err := uc.Executar(context.Background(), "sessao-1", dadosSessao()); err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if sessoes.excetoRecebido != "sessao-1" {
+		t.Fatalf("excetoID = %q, esperava a própria sessão", sessoes.excetoRecebido)
+	}
+}
+
+func TestAtualizarSessaoInexistenteNaoGrava(t *testing.T) {
+	sessoes := &sessaoRepoFalso{erroBusca: shared.NaoEncontrado("sessao", "sessao-1")}
+	uc := AtualizarSessao{Sessoes: sessoes, Filmes: &filmeRepoFalso{}, Salas: &salaRepoFalso{}}
+
+	_, err := uc.Executar(context.Background(), "sessao-1", dadosSessao())
+	if !errors.Is(err, shared.ErrNaoEncontrado) {
+		t.Fatalf("esperava ErrNaoEncontrado, obteve %v", err)
+	}
+	if sessoes.atualizada.ID != "" {
+		t.Fatal("não deveria gravar sessão inexistente")
+	}
+}
+
+func TestRemoverSessaoCancela(t *testing.T) {
+	sessoes := &sessaoRepoFalso{}
+	if err := (RemoverSessao{Repo: sessoes}).Executar(context.Background(), "sessao-1"); err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if sessoes.cancelada != "sessao-1" {
+		t.Fatalf("cancelada = %q", sessoes.cancelada)
 	}
 }

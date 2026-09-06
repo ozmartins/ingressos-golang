@@ -21,17 +21,22 @@ type SessaoRepository struct{ pool *pgxpool.Pool }
 
 func NovoSessaoRepository(p *pgxpool.Pool) *SessaoRepository { return &SessaoRepository{pool: p} }
 
+// O pgx não converte um `[]StatusSessao` para o `text[]` que o `ANY` espera.
+func statusVisiveis() []string {
+	visiveis := make([]string, len(catalogo.StatusVisiveisNaGrade))
+	for i, st := range catalogo.StatusVisiveisNaGrade {
+		visiveis[i] = string(st)
+	}
+	return visiveis
+}
+
 func (r *SessaoRepository) Consultar(
 	ctx context.Context,
 	filtro usecase.FiltroSessoes,
 	req shared.PageRequest,
 ) (shared.Page[catalogo.SessaoDetalhada], error) {
 	condicoes := []string{"s.status = ANY($1)"}
-	visiveis := make([]string, len(catalogo.StatusVisiveisNaGrade))
-	for i, st := range catalogo.StatusVisiveisNaGrade {
-		visiveis[i] = string(st)
-	}
-	filtros := []any{visiveis}
+	filtros := []any{statusVisiveis()}
 
 	if filtro.FilmeID != "" {
 		filtros = append(filtros, filtro.FilmeID)
@@ -95,12 +100,8 @@ func (r *SessaoRepository) avisarSobreSessoesOrfas(ctx context.Context, filtro u
 	if filtro.CinemaID != "" || filtro.Data != nil || filtro.FilmeID != "" {
 		return
 	}
-	visiveis := make([]string, len(catalogo.StatusVisiveisNaGrade))
-	for i, st := range catalogo.StatusVisiveisNaGrade {
-		visiveis[i] = string(st)
-	}
 	var bruto int
-	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM sessoes WHERE status = ANY($1)`, visiveis).Scan(&bruto); err != nil {
+	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM sessoes WHERE status = ANY($1)`, statusVisiveis()).Scan(&bruto); err != nil {
 		return
 	}
 	if bruto > totalResolvido {
@@ -108,6 +109,68 @@ func (r *SessaoRepository) avisarSobreSessoesOrfas(ctx context.Context, filtro u
 			slog.Int("omitidas", bruto-totalResolvido),
 			slog.String("causa", "filme ou sala inexistente"))
 	}
+}
+
+func (r *SessaoRepository) Criar(ctx context.Context, s catalogo.Sessao) error {
+	const sqlInserir = `INSERT INTO sessoes (id, filme_id, sala_id, data_hora_inicio, idioma, preco_base, status)
+	                    VALUES ($1, $2, $3, $4, $5, $6, $7)`
+	_, err := r.pool.Exec(ctx, sqlInserir, s.ID, s.FilmeID, s.SalaID, s.DataHoraInicio,
+		string(s.Idioma), s.PrecoBase.String(), string(s.Status))
+	if err != nil {
+		return fmt.Errorf("inserindo sessão: %w", err)
+	}
+	return nil
+}
+
+func (r *SessaoRepository) Atualizar(ctx context.Context, s catalogo.Sessao) error {
+	const sqlAtualizar = `UPDATE sessoes SET filme_id = $2, sala_id = $3, data_hora_inicio = $4,
+	                          idioma = $5, preco_base = $6, status = $7,
+	                          atualizado_em = CURRENT_TIMESTAMP
+	                      WHERE id = $1`
+	etiqueta, err := r.pool.Exec(ctx, sqlAtualizar, s.ID, s.FilmeID, s.SalaID, s.DataHoraInicio,
+		string(s.Idioma), s.PrecoBase.String(), string(s.Status))
+	if err != nil {
+		return fmt.Errorf("atualizando sessão: %w", err)
+	}
+	if etiqueta.RowsAffected() == 0 {
+		return shared.NaoEncontrado("sessao", s.ID)
+	}
+	return nil
+}
+
+func (r *SessaoRepository) Cancelar(ctx context.Context, sessaoID string) error {
+	const sqlCancelar = `UPDATE sessoes SET status = $2, atualizado_em = CURRENT_TIMESTAMP
+	                     WHERE id = $1`
+	etiqueta, err := r.pool.Exec(ctx, sqlCancelar, sessaoID, string(catalogo.SessaoCancelada))
+	if err != nil {
+		return fmt.Errorf("cancelando sessão: %w", err)
+	}
+	if etiqueta.RowsAffected() == 0 {
+		return shared.NaoEncontrado("sessao", sessaoID)
+	}
+	return nil
+}
+
+// A duração de cada sessão concorrente é a do filme dela, então a janela sai do
+// próprio SQL: nenhuma linha precisa subir para o Go só para ser descartada.
+func (r *SessaoRepository) SalaOcupada(
+	ctx context.Context,
+	salaID string,
+	inicio, fim time.Time,
+	excetoID string,
+) (bool, error) {
+	const sql = `SELECT EXISTS(
+	                 SELECT 1 FROM sessoes s JOIN filmes f ON f.id = s.filme_id
+	                 WHERE s.sala_id = $1 AND s.status = ANY($2) AND s.id <> $3
+	                   AND s.data_hora_inicio < $4
+	                   AND s.data_hora_inicio + (f.duracao_minutos * INTERVAL '1 minute') > $5)`
+
+	var ocupada bool
+	err := r.pool.QueryRow(ctx, sql, salaID, statusVisiveis(), excetoID, fim, inicio).Scan(&ocupada)
+	if err != nil {
+		return false, fmt.Errorf("verificando ocupação da sala: %w", err)
+	}
+	return ocupada, nil
 }
 
 func (r *SessaoRepository) BuscarPorID(ctx context.Context, sessaoID string) (catalogo.Sessao, error) {
@@ -123,7 +186,7 @@ func (r *SessaoRepository) BuscarPorID(ctx context.Context, sessaoID string) (ca
 	err := r.pool.QueryRow(ctx, sql, sessaoID).
 		Scan(&s.ID, &s.FilmeID, &s.SalaID, &s.DataHoraInicio, &idio, &preco, &st)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return catalogo.Sessao{}, fmt.Errorf("%w: sessão %s", shared.ErrNaoEncontrado, sessaoID)
+		return catalogo.Sessao{}, shared.NaoEncontrado("sessao", sessaoID)
 	}
 	if err != nil {
 		return catalogo.Sessao{}, fmt.Errorf("buscando sessão: %w", err)

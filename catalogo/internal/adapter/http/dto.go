@@ -1,6 +1,7 @@
 package http
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/catalogo"
@@ -134,11 +135,36 @@ type salaDTO struct {
 	Numero          int    `json:"numero"`
 	TipoTela        string `json:"tipo_tela"`
 	CapacidadeTotal int    `json:"capacidade_total"`
+	Ativo           bool   `json:"ativo"`
 }
 
 func paraSalaDTO(s catalogo.Sala) salaDTO {
 	return salaDTO{ID: s.ID, CinemaID: s.CinemaID, Numero: s.Numero,
-		TipoTela: string(s.TipoTela), CapacidadeTotal: s.CapacidadeTotal}
+		TipoTela: string(s.TipoTela), CapacidadeTotal: s.CapacidadeTotal, Ativo: s.Ativo}
+}
+
+// Campos ponteiro pelo mesmo motivo de `filmeEntradaDTO`: no PUT, que substitui
+// a sala inteira, um `numero` omitido é erro, não zero. `cinema_id` não entra:
+// ele vem do caminho, e aceitá-lo no corpo permitiria discordar dele.
+type salaEntradaDTO struct {
+	Numero          *int    `json:"numero"`
+	TipoTela        *string `json:"tipo_tela"`
+	CapacidadeTotal *int    `json:"capacidade_total"`
+	Ativo           *bool   `json:"ativo"`
+}
+
+func (d salaEntradaDTO) paraDadosSala() catalogo.DadosSala {
+	dados := catalogo.DadosSala{Ativo: d.Ativo}
+	if d.Numero != nil {
+		dados.Numero = *d.Numero
+	}
+	if d.TipoTela != nil {
+		dados.TipoTela = *d.TipoTela
+	}
+	if d.CapacidadeTotal != nil {
+		dados.CapacidadeTotal = *d.CapacidadeTotal
+	}
+	return dados
 }
 
 type sessaoDTO struct {
@@ -161,6 +187,69 @@ func paraSessaoDTO(s catalogo.SessaoDetalhada) sessaoDTO {
 		TipoTela: string(s.TipoTela), DataHoraInicio: s.DataHoraInicio.UTC().Format(time.RFC3339),
 		Idioma: string(s.Idioma), PrecoBase: s.PrecoBase.String(),
 	}
+}
+
+// A linha da grade traz o filme e o cinema resolvidos; o recurso traz a sessão
+// como ela é gravada. São representações diferentes da mesma entidade, e é a
+// segunda que o POST, o PUT e a busca por identificador devolvem.
+type sessaoRecursoDTO struct {
+	ID             string `json:"id"`
+	FilmeID        string `json:"filme_id"`
+	SalaID         string `json:"sala_id"`
+	DataHoraInicio string `json:"data_hora_inicio"`
+	Idioma         string `json:"idioma"`
+	PrecoBase      string `json:"preco_base"`
+	Status         string `json:"status"`
+}
+
+func paraSessaoRecursoDTO(s catalogo.Sessao) sessaoRecursoDTO {
+	return sessaoRecursoDTO{
+		ID: s.ID, FilmeID: s.FilmeID, SalaID: s.SalaID,
+		DataHoraInicio: s.DataHoraInicio.UTC().Format(time.RFC3339),
+		Idioma:         string(s.Idioma), PrecoBase: s.PrecoBase.String(),
+		Status: string(s.Status),
+	}
+}
+
+// Campos ponteiro pelo mesmo motivo de `filmeEntradaDTO`. `data_hora_inicio`
+// chega como texto para que um instante mal formatado vire erro de corpo, e não
+// a data zero do Go.
+type sessaoEntradaDTO struct {
+	FilmeID        *string `json:"filme_id"`
+	SalaID         *string `json:"sala_id"`
+	DataHoraInicio *string `json:"data_hora_inicio"`
+	Idioma         *string `json:"idioma"`
+	PrecoBase      *string `json:"preco_base"`
+	Status         *string `json:"status"`
+}
+
+func (d sessaoEntradaDTO) paraDadosSessao() (catalogo.DadosSessao, error) {
+	var dados catalogo.DadosSessao
+	if d.FilmeID != nil {
+		dados.FilmeID = *d.FilmeID
+	}
+	if d.SalaID != nil {
+		dados.SalaID = *d.SalaID
+	}
+	if d.Idioma != nil {
+		dados.Idioma = *d.Idioma
+	}
+	if d.PrecoBase != nil {
+		dados.PrecoBase = *d.PrecoBase
+	}
+	if d.Status != nil {
+		dados.Status = *d.Status
+	}
+	if d.DataHoraInicio != nil && *d.DataHoraInicio != "" {
+		inicio, err := time.Parse(time.RFC3339, *d.DataHoraInicio)
+		if err != nil {
+			return catalogo.DadosSessao{}, fmt.Errorf(
+				"%w: data_hora_inicio deve ser um instante RFC 3339, como \"2026-09-20T19:30:00Z\"",
+				shared.ErrValidacao)
+		}
+		dados.DataHoraInicio = inicio
+	}
+	return dados, nil
 }
 
 type solicitacaoReservaDTO struct {

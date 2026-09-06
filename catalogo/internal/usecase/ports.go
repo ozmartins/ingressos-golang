@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"time"
 
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/catalogo"
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/reserva"
@@ -35,8 +36,19 @@ type CinemaRepository interface {
 	Existe(ctx context.Context, cinemaID string) (bool, error)
 }
 
+type FiltroSalas struct {
+	Ativo *bool
+}
+
 type SalaRepository interface {
-	ListarPorCinema(ctx context.Context, cinemaID string, req shared.PageRequest) (shared.Page[catalogo.Sala], error)
+	ListarPorCinema(ctx context.Context, cinemaID string, filtro FiltroSalas, req shared.PageRequest) (shared.Page[catalogo.Sala], error)
+	BuscarPorID(ctx context.Context, salaID string) (catalogo.Sala, error)
+	Criar(ctx context.Context, s catalogo.Sala) error
+	Atualizar(ctx context.Context, s catalogo.Sala) error
+	Desativar(ctx context.Context, salaID string) error
+	// O número identifica a sala na grade: dois "3" ativos no mesmo cinema a
+	// tornariam ambígua. `excetoID` deixa a sala se manter no próprio número.
+	NumeroEmUso(ctx context.Context, cinemaID string, numero int, excetoID string) (bool, error)
 }
 
 type FiltroSessoes struct {
@@ -54,6 +66,12 @@ type DataDoDia struct {
 type SessaoRepository interface {
 	Consultar(ctx context.Context, filtro FiltroSessoes, req shared.PageRequest) (shared.Page[catalogo.SessaoDetalhada], error)
 	BuscarPorID(ctx context.Context, sessaoID string) (catalogo.Sessao, error)
+	Criar(ctx context.Context, s catalogo.Sessao) error
+	Atualizar(ctx context.Context, s catalogo.Sessao) error
+	Cancelar(ctx context.Context, sessaoID string) error
+	// Uma sala projeta um filme de cada vez: a janela é `[inicio, fim)`, e o fim
+	// de cada sessão concorrente sai da duração do filme dela.
+	SalaOcupada(ctx context.Context, salaID string, inicio, fim time.Time, excetoID string) (bool, error)
 }
 
 type EstoqueGateway interface {

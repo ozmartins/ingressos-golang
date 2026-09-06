@@ -102,7 +102,17 @@ func executar() error {
 			AtualizarCinema:  usecase.AtualizarCinema{Repo: cinemas},
 			RemoverCinema:    usecase.RemoverCinema{Repo: cinemas},
 			ListarSalas:      usecase.ListarSalas{Cinemas: cinemas, Salas: salas},
+			BuscarSala:       usecase.BuscarSala{Salas: salas},
+			CriarSala:        usecase.CriarSala{Cinemas: cinemas, Salas: salas, GerarID: uuid.NewString},
+			AtualizarSala:    usecase.AtualizarSala{Cinemas: cinemas, Salas: salas},
+			RemoverSala:      usecase.RemoverSala{Salas: salas},
 			ConsultarSessoes: usecase.ConsultarSessoes{Repo: sessoes},
+			BuscarSessao:     usecase.BuscarSessao{Repo: sessoes},
+			CriarSessao: usecase.CriarSessao{
+				Sessoes: sessoes, Filmes: filmes, Salas: salas, GerarID: uuid.NewString,
+			},
+			AtualizarSessao: usecase.AtualizarSessao{Sessoes: sessoes, Filmes: filmes, Salas: salas},
+			RemoverSessao:   usecase.RemoverSessao{Repo: sessoes},
 			ReservarPoltronas: usecase.ReservarPoltronas{
 				Sessoes: sessoes,
 				Estoque: clienteEstoque,

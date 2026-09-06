@@ -62,7 +62,7 @@ func (r *FilmeRepository) BuscarPorID(ctx context.Context, filmeID string) (cata
 	linha := r.pool.QueryRow(ctx, `SELECT `+colunasFilme+` FROM filmes WHERE id = $1`, filmeID)
 	f, err := lerFilme(linha.Scan)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return catalogo.Filme{}, fmt.Errorf("%w: filme %s", shared.ErrNaoEncontrado, filmeID)
+		return catalogo.Filme{}, shared.NaoEncontrado("filme", filmeID)
 	}
 	if err != nil {
 		return catalogo.Filme{}, err
@@ -93,7 +93,7 @@ func (r *FilmeRepository) Atualizar(ctx context.Context, f catalogo.Filme) error
 		return fmt.Errorf("atualizando filme: %w", err)
 	}
 	if etiqueta.RowsAffected() == 0 {
-		return fmt.Errorf("%w: filme %s", shared.ErrNaoEncontrado, f.ID)
+		return shared.NaoEncontrado("filme", f.ID)
 	}
 	return nil
 }
@@ -106,7 +106,7 @@ func (r *FilmeRepository) MarcarForaDeCartaz(ctx context.Context, filmeID string
 		return fmt.Errorf("removendo filme do cartaz: %w", err)
 	}
 	if etiqueta.RowsAffected() == 0 {
-		return fmt.Errorf("%w: filme %s", shared.ErrNaoEncontrado, filmeID)
+		return shared.NaoEncontrado("filme", filmeID)
 	}
 	return nil
 }

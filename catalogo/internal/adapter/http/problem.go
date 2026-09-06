@@ -31,9 +31,11 @@ const (
 	catCorpoInvalido       = "corpo-invalido"
 	catNaoAutenticado      = "nao-autenticado"
 	catCinemaNaoEncontrado = "cinema-nao-encontrado"
+	catSalaNaoEncontrada   = "sala-nao-encontrada"
 	catFilmeNaoEncontrado  = "filme-nao-encontrado"
 	catSessaoNaoEncontrada = "sessao-nao-encontrada"
 	catSessaoNaoReservavel = "sessao-nao-reservavel"
+	catConflito            = "conflito"
 	catPoltronasIndisp     = "poltronas-indisponiveis"
 	catEstoqueIndisponivel = "estoque-indisponivel"
 	catRespostaInvalida    = "resposta-invalida-do-parceiro"
@@ -50,9 +52,11 @@ var categorias = map[string]descricaoCategoria{
 	catCorpoInvalido:       {"Corpo da requisição inválido", http.StatusBadRequest},
 	catNaoAutenticado:      {"Não autenticado", http.StatusUnauthorized},
 	catCinemaNaoEncontrado: {"Cinema não encontrado", http.StatusNotFound},
+	catSalaNaoEncontrada:   {"Sala não encontrada", http.StatusNotFound},
 	catFilmeNaoEncontrado:  {"Filme não encontrado", http.StatusNotFound},
 	catSessaoNaoEncontrada: {"Sessão não encontrada", http.StatusNotFound},
 	catSessaoNaoReservavel: {"Sessão não aceita reservas", http.StatusUnprocessableEntity},
+	catConflito:            {"Conflito com o estado atual", http.StatusConflict},
 	catPoltronasIndisp:     {"Poltronas indisponíveis", http.StatusConflict},
 	catEstoqueIndisponivel: {"Serviço temporariamente indisponível", http.StatusServiceUnavailable},
 	catRespostaInvalida:    {"Resposta inválida do serviço parceiro", http.StatusBadGateway},
@@ -84,8 +88,10 @@ func EscreverErroDeDominio(w http.ResponseWriter, r *http.Request, err error, co
 	switch {
 	case errors.Is(err, shared.ErrValidacao):
 		EscreverProblem(w, r, catParametroInvalido, mensagemLimpa(err))
+	case errors.Is(err, shared.ErrConflito):
+		EscreverProblem(w, r, catConflito, mensagemLimpa(err))
 	case errors.Is(err, shared.ErrNaoEncontrado):
-		EscreverProblem(w, r, categoriaNaoEncontrado(contexto), mensagemLimpa(err))
+		EscreverProblem(w, r, categoriaNaoEncontrado(err, contexto), mensagemLimpa(err))
 	case errors.Is(err, shared.ErrSessaoNaoReservavel):
 		EscreverProblem(w, r, catSessaoNaoReservavel, mensagemLimpa(err))
 	case errors.Is(err, shared.ErrPoltronasIndisponiveis):
@@ -100,14 +106,22 @@ func EscreverErroDeDominio(w http.ResponseWriter, r *http.Request, err error, co
 	}
 }
 
-// O recurso ausente muda o `type` do problema, e é o chamador quem sabe qual
-// recurso procurava: o erro de domínio é o mesmo nos três casos.
-func categoriaNaoEncontrado(contexto string) string {
+// O recurso ausente muda o `type` do problema. Quando o erro diz qual recurso
+// faltou, é ele quem manda: numa escrita de sessão o ausente pode ser o filme
+// ou a sala, e o caminho não denuncia isso. O contexto do handler fica como
+// resposta para os erros que não se identificam.
+func categoriaNaoEncontrado(err error, contexto string) string {
+	var ausente shared.RecursoAusente
+	if errors.As(err, &ausente) {
+		contexto = ausente.Recurso
+	}
 	switch contexto {
 	case "sessao":
 		return catSessaoNaoEncontrada
 	case "filme":
 		return catFilmeNaoEncontrado
+	case "sala":
+		return catSalaNaoEncontrada
 	default:
 		return catCinemaNaoEncontrado
 	}
@@ -118,6 +132,7 @@ func mensagemLimpa(err error) string {
 	for _, prefixo := range []string{
 		shared.ErrValidacao.Error() + ": ",
 		shared.ErrNaoEncontrado.Error() + ": ",
+		shared.ErrConflito.Error() + ": ",
 		shared.ErrSessaoNaoReservavel.Error() + ": ",
 	} {
 		if strings.HasPrefix(msg, prefixo) {

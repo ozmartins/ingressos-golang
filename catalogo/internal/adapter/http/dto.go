@@ -129,29 +129,48 @@ func (d cinemaEntradaDTO) paraDadosCinema() catalogo.DadosCinema {
 	return dados
 }
 
+type fileiraDTO struct {
+	Fileira  string `json:"fileira"`
+	Assentos int    `json:"assentos"`
+	Tipo     string `json:"tipo"`
+}
+
 type salaDTO struct {
-	ID              string `json:"id"`
-	CinemaID        string `json:"cinema_id"`
-	Numero          int    `json:"numero"`
-	TipoTela        string `json:"tipo_tela"`
-	CapacidadeTotal int    `json:"capacidade_total"`
-	Ativo           bool   `json:"ativo"`
+	ID       string       `json:"id"`
+	CinemaID string       `json:"cinema_id"`
+	Numero   int          `json:"numero"`
+	TipoTela string       `json:"tipo_tela"`
+	Fileiras []fileiraDTO `json:"fileiras"`
+	// Derivada do layout, não informada pelo cliente: é a soma dos assentos das
+	// fileiras. Continua na resposta porque é o que a maioria dos clientes quer.
+	CapacidadeTotal int  `json:"capacidade_total"`
+	Ativo           bool `json:"ativo"`
 }
 
 func paraSalaDTO(s catalogo.Sala) salaDTO {
+	fileiras := make([]fileiraDTO, 0, len(s.Layout.Fileiras))
+	for _, f := range s.Layout.Fileiras {
+		fileiras = append(fileiras, fileiraDTO{
+			Fileira: f.Letra, Assentos: f.Assentos, Tipo: string(f.Tipo)})
+	}
 	return salaDTO{ID: s.ID, CinemaID: s.CinemaID, Numero: s.Numero,
-		TipoTela: string(s.TipoTela), CapacidadeTotal: s.CapacidadeTotal, Ativo: s.Ativo}
+		TipoTela: string(s.TipoTela), Fileiras: fileiras,
+		CapacidadeTotal: s.CapacidadeTotal(), Ativo: s.Ativo}
 }
 
 // Campos ponteiro pelo mesmo motivo de `filmeEntradaDTO`: no PUT, que substitui
 // a sala inteira, um `numero` omitido é erro, não zero. `cinema_id` entra no
 // corpo agora que a sala não vive mais dentro do caminho do cinema.
 type salaEntradaDTO struct {
-	CinemaID        *string `json:"cinema_id"`
-	Numero          *int    `json:"numero"`
-	TipoTela        *string `json:"tipo_tela"`
-	CapacidadeTotal *int    `json:"capacidade_total"`
-	Ativo           *bool   `json:"ativo"`
+	CinemaID *string `json:"cinema_id"`
+	Numero   *int    `json:"numero"`
+	TipoTela *string `json:"tipo_tela"`
+	Fileiras *[]struct {
+		Fileira  *string `json:"fileira"`
+		Assentos *int    `json:"assentos"`
+		Tipo     *string `json:"tipo"`
+	} `json:"fileiras"`
+	Ativo *bool `json:"ativo"`
 }
 
 // O formato do `cinema_id` é conferido aqui, e não no domínio: um identificador
@@ -172,8 +191,21 @@ func (d salaEntradaDTO) paraDadosSala() (catalogo.DadosSala, error) {
 	if d.TipoTela != nil {
 		dados.TipoTela = *d.TipoTela
 	}
-	if d.CapacidadeTotal != nil {
-		dados.CapacidadeTotal = *d.CapacidadeTotal
+	if d.Fileiras != nil {
+		dados.Fileiras = make([]catalogo.DadosFileira, 0, len(*d.Fileiras))
+		for _, f := range *d.Fileiras {
+			var fileira catalogo.DadosFileira
+			if f.Fileira != nil {
+				fileira.Fileira = *f.Fileira
+			}
+			if f.Assentos != nil {
+				fileira.Assentos = *f.Assentos
+			}
+			if f.Tipo != nil {
+				fileira.Tipo = *f.Tipo
+			}
+			dados.Fileiras = append(dados.Fileiras, fileira)
+		}
 	}
 	return dados, nil
 }

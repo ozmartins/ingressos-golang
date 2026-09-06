@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -18,18 +19,45 @@ type SalaRepository struct{ pool *pgxpool.Pool }
 
 func NovoSalaRepository(p *pgxpool.Pool) *SalaRepository { return &SalaRepository{pool: p} }
 
-const colunasSala = `id, cinema_id, numero, tipo_tela, capacidade_total, ativo`
+const colunasSala = `id, cinema_id, numero, tipo_tela, layout, ativo`
+
+// A forma do layout na coluna JSONB. Os nomes são os mesmos do corpo da API e os
+// mesmos que o estoque lê no anúncio de sessão criada — uma tradução a menos
+// para quem um dia ligar as duas pontas.
+type fileiraJSON struct {
+	Fileira  string `json:"fileira"`
+	Assentos int    `json:"assentos"`
+	Tipo     string `json:"tipo"`
+}
 
 func lerSala(scan func(...any) error) (catalogo.Sala, error) {
 	var (
-		s    catalogo.Sala
-		tipo string
+		s      catalogo.Sala
+		tipo   string
+		layout []fileiraJSON
 	)
-	if err := scan(&s.ID, &s.CinemaID, &s.Numero, &tipo, &s.CapacidadeTotal, &s.Ativo); err != nil {
+	if err := scan(&s.ID, &s.CinemaID, &s.Numero, &tipo, &layout, &s.Ativo); err != nil {
 		return s, fmt.Errorf("lendo sala: %w", err)
 	}
 	s.TipoTela = catalogo.TipoTela(tipo)
+
+	fileiras := make([]catalogo.Fileira, 0, len(layout))
+	for _, f := range layout {
+		fileiras = append(fileiras, catalogo.Fileira{
+			Letra: f.Fileira, Assentos: f.Assentos, Tipo: catalogo.TipoPoltrona(f.Tipo)})
+	}
+	s.Layout = catalogo.LayoutSala{Fileiras: fileiras}
 	return s, nil
+}
+
+// O domínio já validou e ordenou as fileiras; aqui só se troca a forma.
+func layoutParaJSON(l catalogo.LayoutSala) ([]byte, error) {
+	fileiras := make([]fileiraJSON, 0, len(l.Fileiras))
+	for _, f := range l.Fileiras {
+		fileiras = append(fileiras, fileiraJSON{
+			Fileira: f.Letra, Assentos: f.Assentos, Tipo: string(f.Tipo)})
+	}
+	return json.Marshal(fileiras)
 }
 
 func (r *SalaRepository) Listar(
@@ -70,20 +98,28 @@ func (r *SalaRepository) BuscarPorID(ctx context.Context, salaID string) (catalo
 }
 
 func (r *SalaRepository) Criar(ctx context.Context, s catalogo.Sala) error {
-	const sqlInserir = `INSERT INTO salas (id, cinema_id, numero, tipo_tela, capacidade_total, ativo)
-	                    VALUES ($1, $2, $3, $4, $5, $6)`
-	_, err := r.pool.Exec(ctx, sqlInserir, s.ID, s.CinemaID, s.Numero, string(s.TipoTela), s.CapacidadeTotal, s.Ativo)
+	layout, err := layoutParaJSON(s.Layout)
 	if err != nil {
+		return fmt.Errorf("inserindo sala: %w", err)
+	}
+	const sqlInserir = `INSERT INTO salas (id, cinema_id, numero, tipo_tela, layout, ativo)
+	                    VALUES ($1, $2, $3, $4, $5, $6)`
+	if _, err := r.pool.Exec(ctx, sqlInserir,
+		s.ID, s.CinemaID, s.Numero, string(s.TipoTela), layout, s.Ativo); err != nil {
 		return fmt.Errorf("inserindo sala: %w", err)
 	}
 	return nil
 }
 
 func (r *SalaRepository) Atualizar(ctx context.Context, s catalogo.Sala) error {
-	const sqlAtualizar = `UPDATE salas SET numero = $2, tipo_tela = $3, capacidade_total = $4,
+	layout, err := layoutParaJSON(s.Layout)
+	if err != nil {
+		return fmt.Errorf("atualizando sala: %w", err)
+	}
+	const sqlAtualizar = `UPDATE salas SET numero = $2, tipo_tela = $3, layout = $4,
 	                          ativo = $5, atualizado_em = CURRENT_TIMESTAMP
 	                      WHERE id = $1`
-	etiqueta, err := r.pool.Exec(ctx, sqlAtualizar, s.ID, s.Numero, string(s.TipoTela), s.CapacidadeTotal, s.Ativo)
+	etiqueta, err := r.pool.Exec(ctx, sqlAtualizar, s.ID, s.Numero, string(s.TipoTela), layout, s.Ativo)
 	if err != nil {
 		return fmt.Errorf("atualizando sala: %w", err)
 	}

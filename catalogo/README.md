@@ -79,6 +79,13 @@ não é uma operação da API. O `DELETE` também é lógico, pelo mesmo motivo 
 cinema — as sessões referenciam a sala —, e o número liberado volta a ficar
 disponível para a sala que a substituir.
 
+A sala declara sua planta em `fileiras`: cada fileira tem uma letra, uma
+quantidade de assentos e um tipo (`NORMAL`, `PCD` ou `NAMORADEIRA`, os mesmos que
+o estoque aceita), e a fileira é uniforme — um assento PCD no meio de uma fileira
+comum se declara como fileira própria. `capacidade_total` deixou de ser um número
+digitado: ela é a soma dos assentos, calculada pelo serviço, e sai só na
+resposta. Mandá-la no corpo da escrita responde `400`.
+
 ## Executando localmente
 
 O compose da raiz do repositório sobe o catálogo com tudo de que ele depende —

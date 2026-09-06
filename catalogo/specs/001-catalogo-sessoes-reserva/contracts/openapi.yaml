@@ -22,7 +22,8 @@ tags:
   - name: Salas
     description: |
       Salas de exibição. Cada uma pertence a um cinema, informado no corpo e
-      disponível como filtro da listagem.
+      disponível como filtro da listagem, e declara sua planta em fileiras — a
+      capacidade da sala é a soma delas, não um número à parte.
   - name: Sessões
     description: Grade de sessões disponíveis para o espectador.
   - name: Reservas
@@ -279,7 +280,7 @@ paths:
       description: |
         O identificador é gerado pelo serviço e devolvido no corpo e no header
         `Location`. O `cinema_id` vem do corpo e precisa existir. Sem `ativo`, a
-        sala nasce ativa.
+        sala nasce ativa, e uma fileira sem `tipo` nasce `NORMAL`.
       security:
         - clientCredentials: []
       requestBody:
@@ -643,20 +644,52 @@ components:
         ativo: { type: boolean, default: true }
       additionalProperties: false
 
+    Fileira:
+      type: object
+      description: |
+        Uma fileira da planta da sala. É uniforme: todos os seus assentos são do
+        mesmo tipo. Um assento PCD no meio de uma fileira comum se declara como
+        fileira própria.
+      required: [fileira, assentos]
+      properties:
+        fileira:
+          type: string
+          pattern: '^[A-Z]{1,5}$'
+          description: |
+            A letra da fileira, normalizada para maiúsculas. Sem dígito e com no
+            máximo cinco letras, que é o que o rótulo da poltrona comporta do
+            lado de quem materializa os assentos.
+        assentos: { type: integer, minimum: 1 }
+        tipo:
+          type: string
+          enum: [NORMAL, PCD, NAMORADEIRA]
+          default: NORMAL
+      additionalProperties: false
+
     Sala:
       type: object
-      required: [id, cinema_id, numero, tipo_tela, capacidade_total, ativo]
+      required: [id, cinema_id, numero, tipo_tela, fileiras, capacidade_total, ativo]
       properties:
         id: { type: string, format: uuid }
         cinema_id: { type: string, format: uuid }
         numero: { type: integer }
         tipo_tela: { type: string, enum: ['2D', '3D', IMAX, VIP] }
-        capacidade_total: { type: integer }
+        fileiras:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/Fileira' }
+          description: A planta da sala, em ordem alfabética de fileira.
+        capacidade_total:
+          type: integer
+          readOnly: true
+          description: |
+            A soma dos assentos das fileiras. É calculada pelo serviço e não
+            entra no corpo da escrita.
         ativo: { type: boolean }
 
     SalaEntrada:
       type: object
-      required: [cinema_id, numero, tipo_tela, capacidade_total]
+      required: [cinema_id, numero, tipo_tela, fileiras]
       properties:
         cinema_id:
           type: string
@@ -667,7 +700,13 @@ components:
           minimum: 1
           description: Único entre as salas ativas do cinema
         tipo_tela: { type: string, enum: ['2D', '3D', IMAX, VIP] }
-        capacidade_total: { type: integer, minimum: 1 }
+        fileiras:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/Fileira' }
+          description: |
+            A planta da sala. A capacidade sai daqui: não há campo de capacidade
+            no corpo da escrita.
         ativo: { type: boolean, default: true }
 
     SalaAtualizacao:
@@ -675,7 +714,7 @@ components:
       description: |
         O corpo do PUT. Igual ao do cadastro, menos o `cinema_id`: o vínculo com
         o cinema é do cadastro, não do estado que a substituição redesenha.
-      required: [numero, tipo_tela, capacidade_total]
+      required: [numero, tipo_tela, fileiras]
       properties:
         cinema_id:
           type: string
@@ -688,7 +727,13 @@ components:
           minimum: 1
           description: Único entre as salas ativas do cinema
         tipo_tela: { type: string, enum: ['2D', '3D', IMAX, VIP] }
-        capacidade_total: { type: integer, minimum: 1 }
+        fileiras:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/Fileira' }
+          description: |
+            A planta da sala. A capacidade sai daqui: não há campo de capacidade
+            no corpo da escrita.
         ativo: { type: boolean, default: true }
 
     Sessao:

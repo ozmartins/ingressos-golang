@@ -10,10 +10,13 @@ import (
 
 func dadosSalaValidos() DadosSala {
 	return DadosSala{
-		CinemaID:        "b1b2c3d4-0000-4000-8000-000000000001",
-		Numero:          3,
-		TipoTela:        "IMAX",
-		CapacidadeTotal: 180,
+		CinemaID: "b1b2c3d4-0000-4000-8000-000000000001",
+		Numero:   3,
+		TipoTela: "IMAX",
+		Fileiras: []DadosFileira{
+			{Fileira: "A", Assentos: 12},
+			{Fileira: "B", Assentos: 12},
+		},
 	}
 }
 
@@ -27,6 +30,9 @@ func TestNovaSalaSemAtivoNasceAtiva(t *testing.T) {
 	}
 	if sala.TipoTela != TelaIMAX {
 		t.Fatalf("tipo_tela = %q", sala.TipoTela)
+	}
+	if sala.CapacidadeTotal() != 24 {
+		t.Fatalf("a capacidade deveria ser a soma das fileiras; obteve %d", sala.CapacidadeTotal())
 	}
 }
 
@@ -49,7 +55,7 @@ func TestNovaSalaRecusaEntradasInvalidas(t *testing.T) {
 		"sem cinema":         func(d *DadosSala) { d.CinemaID = "" },
 		"numero zero":        func(d *DadosSala) { d.Numero = 0 },
 		"numero negativo":    func(d *DadosSala) { d.Numero = -1 },
-		"capacidade zero":    func(d *DadosSala) { d.CapacidadeTotal = 0 },
+		"sem fileiras":       func(d *DadosSala) { d.Fileiras = nil },
 		"sem tipo de tela":   func(d *DadosSala) { d.TipoTela = "" },
 		"tela desconhecida":  func(d *DadosSala) { d.TipoTela = "4DX" },
 		"tela em minúsculas": func(d *DadosSala) { d.TipoTela = "imax" },

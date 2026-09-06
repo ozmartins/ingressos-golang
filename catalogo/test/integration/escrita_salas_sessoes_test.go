@@ -5,6 +5,7 @@ package integration
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 
@@ -22,10 +23,14 @@ const (
 
 func dadosSala(numero int) catalogo.DadosSala {
 	return catalogo.DadosSala{
-		CinemaID:        cinemaDasFixtures,
-		Numero:          numero,
-		TipoTela:        "VIP",
-		CapacidadeTotal: 80,
+		CinemaID: cinemaDasFixtures,
+		Numero:   numero,
+		TipoTela: "VIP",
+		Fileiras: []catalogo.DadosFileira{
+			{Fileira: "A", Assentos: 40},
+			{Fileira: "B", Assentos: 36},
+			{Fileira: "C", Assentos: 4, Tipo: "PCD"},
+		},
 	}
 }
 
@@ -47,12 +52,14 @@ func TestEscritaDeSalaRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BuscarPorID: %v", err)
 	}
-	if lida != sala {
+	// A sala carrega o layout, que é uma fatia: a comparação precisa ser profunda.
+	if !reflect.DeepEqual(lida, sala) {
 		t.Fatalf("a sala lida difere da gravada:\n gravada: %+v\n lida:    %+v", sala, lida)
 	}
 
 	dados := dadosSala(9)
-	dados.TipoTela, dados.CapacidadeTotal = "2D", 200
+	dados.TipoTela = "2D"
+	dados.Fileiras = []catalogo.DadosFileira{{Fileira: "A", Assentos: 200}}
 	alterada, err := catalogo.NovaSala(id, dados)
 	if err != nil {
 		t.Fatal(err)
@@ -60,7 +67,7 @@ func TestEscritaDeSalaRoundTrip(t *testing.T) {
 	if err := repo.Atualizar(ctx, alterada); err != nil {
 		t.Fatalf("Atualizar: %v", err)
 	}
-	if relida, err := repo.BuscarPorID(ctx, id); err != nil || relida != alterada {
+	if relida, err := repo.BuscarPorID(ctx, id); err != nil || !reflect.DeepEqual(relida, alterada) {
 		t.Fatalf("a atualização não persistiu: %+v (%v)", relida, err)
 	}
 

@@ -34,8 +34,9 @@ func carregarVolume(t *testing.T, fator int) {
 		  SELECT gen_random_uuid()::text, 'Cinema ' || lpad(i::text, 4, '0'), 'Cidade', 'SC', 'Rua X'
 		  FROM generate_series(1, $1) AS i`, []any{50 * fator}},
 
-		{`INSERT INTO salas (id, cinema_id, numero, tipo_tela, capacidade_total)
-		  SELECT gen_random_uuid()::text, c.id, s.n, '2D', 100
+		{`INSERT INTO salas (id, cinema_id, numero, tipo_tela, layout)
+		  SELECT gen_random_uuid()::text, c.id, s.n, '2D',
+		         '[{"fileira":"A","assentos":50,"tipo":"NORMAL"},{"fileira":"B","assentos":50,"tipo":"NORMAL"}]'
 		  FROM cinemas c, generate_series(1, $1) AS s(n)`, []any{6}},
 
 		{`INSERT INTO sessoes (id, filme_id, sala_id, data_hora_inicio, idioma, preco_base, status)

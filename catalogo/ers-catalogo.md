@@ -59,10 +59,14 @@ CREATE TABLE salas (
     cinema_id VARCHAR(36) NOT NULL REFERENCES cinemas(id),
     numero INT NOT NULL,
     tipo_tela VARCHAR(50) NOT NULL, -- 2D, 3D, IMAX, VIP
-    capacidade_total INT NOT NULL,
+    layout JSONB NOT NULL, -- fileiras: [{"fileira":"A","assentos":12,"tipo":"NORMAL"}]
     criado_em TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 ```
+
+> A planta da sala mora em `layout`, uma fileira por elemento, com o tipo de
+> poltrona (`NORMAL`, `PCD`, `NAMORADEIRA`) valendo para a fileira inteira. Não
+> há coluna de capacidade: ela é a soma dos assentos, calculada na leitura.
 
 ### 3.4. `sessoes`
 ```sql

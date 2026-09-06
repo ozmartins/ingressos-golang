@@ -253,7 +253,7 @@ func TestAtualizarSalaRecusaTrocaDeCinema(t *testing.T) {
 	uc := AtualizarSala{Cinemas: &cinemaRepoFalso{existe: true}, Salas: salas}
 
 	_, err := uc.Executar(context.Background(), "sala-1", catalogo.DadosSala{
-		CinemaID: "cinema-b", Numero: 3, TipoTela: "2D", CapacidadeTotal: 90,
+		CinemaID: "cinema-b", Numero: 3, TipoTela: "2D", Fileiras: fileirasSala(),
 	})
 	if !errors.Is(err, shared.ErrConflito) {
 		t.Fatalf("esperava ErrConflito, obteve %v", err)
@@ -268,7 +268,7 @@ func TestAtualizarSalaSemCinemaIDMantemOCinemaAtual(t *testing.T) {
 	uc := AtualizarSala{Cinemas: &cinemaRepoFalso{existe: true}, Salas: salas}
 
 	sala, err := uc.Executar(context.Background(), "sala-1", catalogo.DadosSala{
-		Numero: 4, TipoTela: "3D", CapacidadeTotal: 90,
+		Numero: 4, TipoTela: "3D", Fileiras: fileirasSala(),
 	})
 	if err != nil {
 		t.Fatalf("não esperava erro, obteve %v", err)
@@ -567,8 +567,12 @@ func TestRemoverCinemaDesativa(t *testing.T) {
 	}
 }
 
+func fileirasSala() []catalogo.DadosFileira {
+	return []catalogo.DadosFileira{{Fileira: "A", Assentos: 10}, {Fileira: "B", Assentos: 8}}
+}
+
 func dadosSala() catalogo.DadosSala {
-	return catalogo.DadosSala{CinemaID: "cinema-1", Numero: 3, TipoTela: "IMAX", CapacidadeTotal: 180}
+	return catalogo.DadosSala{CinemaID: "cinema-1", Numero: 3, TipoTela: "IMAX", Fileiras: fileirasSala()}
 }
 
 func TestCriarSalaRecusaCinemaInexistente(t *testing.T) {

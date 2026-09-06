@@ -63,6 +63,7 @@ func aplicarMigracoes(ctx context.Context) error {
 		"../../migrations/000002_criar_indices.up.sql",
 		"../../migrations/000003_ativar_cinemas.up.sql",
 		"../../migrations/000004_escrita_salas_sessoes.up.sql",
+		"../../migrations/000005_layout_das_salas.up.sql",
 	} {
 		sql, err := os.ReadFile(arquivo)
 		if err != nil {

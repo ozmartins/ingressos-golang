@@ -16,10 +16,16 @@ INSERT INTO cinemas (id, nome, cidade, estado, endereco) VALUES
  ('b1b2c3d4-0000-4000-8000-000000000001','CineMark - Shopping Centro','Florianópolis','SC','Rua Felipe Schmidt, 100'),
  ('b1b2c3d4-0000-4000-8000-000000000002','Arte Cine - Beiramar','Florianópolis','SC','Av. Beira-Mar Norte, 2000');
 
-INSERT INTO salas (id, cinema_id, numero, tipo_tela, capacidade_total) VALUES
- ('d1b2c3d4-0000-4000-8000-000000000001','b1b2c3d4-0000-4000-8000-000000000001',1,'2D',120),
- ('d1b2c3d4-0000-4000-8000-000000000002','b1b2c3d4-0000-4000-8000-000000000001',3,'IMAX',300),
- ('d1b2c3d4-0000-4000-8000-000000000003','b1b2c3d4-0000-4000-8000-000000000002',1,'VIP',60);
+INSERT INTO salas (id, cinema_id, numero, tipo_tela, layout) VALUES
+ ('d1b2c3d4-0000-4000-8000-000000000001','b1b2c3d4-0000-4000-8000-000000000001',1,'2D',
+  '[{"fileira":"A","assentos":58,"tipo":"NORMAL"},{"fileira":"B","assentos":58,"tipo":"NORMAL"},
+    {"fileira":"C","assentos":4,"tipo":"PCD"}]'),
+ ('d1b2c3d4-0000-4000-8000-000000000002','b1b2c3d4-0000-4000-8000-000000000001',3,'IMAX',
+  '[{"fileira":"A","assentos":98,"tipo":"NORMAL"},{"fileira":"B","assentos":98,"tipo":"NORMAL"},
+    {"fileira":"C","assentos":98,"tipo":"NORMAL"},{"fileira":"D","assentos":6,"tipo":"PCD"}]'),
+ ('d1b2c3d4-0000-4000-8000-000000000003','b1b2c3d4-0000-4000-8000-000000000002',1,'VIP',
+  '[{"fileira":"A","assentos":24,"tipo":"NORMAL"},{"fileira":"B","assentos":24,"tipo":"NORMAL"},
+    {"fileira":"C","assentos":12,"tipo":"NAMORADEIRA"}]');
 
 INSERT INTO sessoes (id, filme_id, sala_id, data_hora_inicio, idioma, preco_base, status) VALUES
  ('e1b2c3d4-0000-4000-8000-000000000001','c394c8b3-76a1-4328-b803-02f5923b7a15','d1b2c3d4-0000-4000-8000-000000000002','2026-09-01T20:30:00Z','LEGENDADO',42.00,'AGENDADA'),

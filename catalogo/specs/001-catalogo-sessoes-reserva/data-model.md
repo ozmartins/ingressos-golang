@@ -68,10 +68,14 @@ Ambiente de exibição dentro de um cinema.
 | `cinema_id` | `VARCHAR(36)` FK NOT NULL | `string` | Pertence a exatamente um cinema |
 | `numero` | `INT` NOT NULL | `int` | Único dentro do cinema (invariante de negócio; a DDL não a impõe) |
 | `tipo_tela` | `VARCHAR(50)` NOT NULL | `TipoTela` | `2D` \| `3D` \| `IMAX` \| `VIP` |
-| `capacidade_total` | `INT` NOT NULL | `int` | > 0 |
+| `layout` | `JSONB` NOT NULL | `LayoutSala` | Ao menos uma fileira |
 | `criado_em` | `TIMESTAMPTZ` | — | Não exposto |
 
-**Nota**: `capacidade_total` é informativa para o cliente. **Não** é usada para validar poltronas — o mapa de assentos pertence ao estoque (premissa da spec).
+**Layout**: a planta da sala, uma entrada por fileira: `letra` (de 1 a 5 letras de A a Z, normalizada para maiúsculas, única na sala), `assentos` (> 0) e `tipo` (`NORMAL` \| `PCD` \| `NAMORADEIRA`, `NORMAL` quando omitido). A fileira é uniforme — um assento PCD no meio de uma fileira comum se declara como fileira própria. As fileiras são gravadas e devolvidas em ordem alfabética.
+
+Os três tipos de poltrona são os que o serviço de estoque aceita ao provisionar a matriz de uma sessão; o catálogo não pode inventar um quarto, porque quem materializa a poltrona é o outro lado.
+
+**Nota**: `capacidade_total` deixou de ser coluna: é a soma dos assentos das fileiras, calculada na leitura e exposta só na resposta. Continua informativa para o cliente e **não** é usada para validar poltronas — o mapa de assentos de cada sessão pertence ao estoque (premissa da spec). O que o catálogo passa a ser dono é da *planta da sala*, que é coisa diferente do mapa de uma sessão.
 
 ---
 

@@ -29,20 +29,24 @@ func ParseTipoTela(v string) (TipoTela, error) {
 }
 
 type Sala struct {
-	ID              string
-	CinemaID        string
-	Numero          int
-	TipoTela        TipoTela
-	CapacidadeTotal int
-	Ativo           bool
+	ID       string
+	CinemaID string
+	Numero   int
+	TipoTela TipoTela
+	Layout   LayoutSala
+	Ativo    bool
 }
 
+// A capacidade não é um campo da sala: é a soma das fileiras. Guardá-la ao lado
+// do layout criaria dois números para a mesma coisa, livres para divergir.
+func (s Sala) CapacidadeTotal() int { return s.Layout.CapacidadeTotal() }
+
 type DadosSala struct {
-	CinemaID        string
-	Numero          int
-	TipoTela        string
-	CapacidadeTotal int
-	Ativo           *bool
+	CinemaID string
+	Numero   int
+	TipoTela string
+	Fileiras []DadosFileira
+	Ativo    *bool
 }
 
 func NovaSala(id string, d DadosSala) (Sala, error) {
@@ -51,13 +55,16 @@ func NovaSala(id string, d DadosSala) (Sala, error) {
 		return Sala{}, fmt.Errorf("%w: cinema_id é obrigatório", shared.ErrValidacao)
 	case d.Numero <= 0:
 		return Sala{}, fmt.Errorf("%w: numero deve ser maior que zero", shared.ErrValidacao)
-	case d.CapacidadeTotal <= 0:
-		return Sala{}, fmt.Errorf("%w: capacidade_total deve ser maior que zero", shared.ErrValidacao)
 	case d.TipoTela == "":
 		return Sala{}, fmt.Errorf("%w: tipo_tela é obrigatório", shared.ErrValidacao)
 	}
 
 	tipo, err := ParseTipoTela(d.TipoTela)
+	if err != nil {
+		return Sala{}, err
+	}
+
+	layout, err := NovoLayoutSala(d.Fileiras)
 	if err != nil {
 		return Sala{}, err
 	}
@@ -69,11 +76,11 @@ func NovaSala(id string, d DadosSala) (Sala, error) {
 	}
 
 	return Sala{
-		ID:              id,
-		CinemaID:        d.CinemaID,
-		Numero:          d.Numero,
-		TipoTela:        tipo,
-		CapacidadeTotal: d.CapacidadeTotal,
-		Ativo:           ativo,
+		ID:       id,
+		CinemaID: d.CinemaID,
+		Numero:   d.Numero,
+		TipoTela: tipo,
+		Layout:   layout,
+		Ativo:    ativo,
 	}, nil
 }

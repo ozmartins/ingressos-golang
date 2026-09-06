@@ -13,12 +13,21 @@ const (
 	salaID          = "c1c2c3c4-0000-4000-8000-000000000001"
 	outroCinemaID   = "b1b2c3d4-0000-4000-8000-000000000999"
 	caminhoDasSalas = "/api/v1/salas"
-	corpoSalaValido = `{"cinema_id":"` + cinemaID + `","numero":7,"tipo_tela":"IMAX","capacidade_total":180}`
+	// Três fileiras somando 26 lugares: é essa soma que a resposta precisa
+	// devolver em `capacidade_total`, já que o corpo não a informa.
+	fileirasValidas = `"fileiras":[{"fileira":"A","assentos":12},` +
+		`{"fileira":"F","assentos":8,"tipo":"PCD"},` +
+		`{"fileira":"J","assentos":6,"tipo":"NAMORADEIRA"}]`
+	corpoSalaValido = `{"cinema_id":"` + cinemaID + `","numero":7,"tipo_tela":"IMAX",` + fileirasValidas + `}`
 )
 
 func salaDeTeste() catalogo.Sala {
 	return catalogo.Sala{ID: salaID, CinemaID: cinemaID, Numero: 3,
-		TipoTela: catalogo.TelaIMAX, CapacidadeTotal: 120, Ativo: true}
+		TipoTela: catalogo.TelaIMAX, Ativo: true,
+		Layout: catalogo.LayoutSala{Fileiras: []catalogo.Fileira{
+			{Letra: "A", Assentos: 60, Tipo: catalogo.PoltronaNormal},
+			{Letra: "B", Assentos: 60, Tipo: catalogo.PoltronaNormal},
+		}}}
 }
 
 func montarComSalas(t *testing.T, itens []catalogo.Sala) *ambiente {
@@ -46,7 +55,7 @@ func TestGetSalasFiltraPorCinema(t *testing.T) {
 		t.Fatalf("status %d", resp.StatusCode)
 	}
 	e := decodificarEnvelope(t, corpo)
-	for _, campo := range []string{"id", "cinema_id", "numero", "tipo_tela", "capacidade_total", "ativo"} {
+	for _, campo := range []string{"id", "cinema_id", "numero", "tipo_tela", "fileiras", "capacidade_total", "ativo"} {
 		if _, ok := e.Itens[0][campo]; !ok {
 			t.Errorf("campo obrigatório %q ausente", campo)
 		}
@@ -183,6 +192,38 @@ func TestPostSalaCriaEDevolveLocation(t *testing.T) {
 	}
 }
 
+// A capacidade não é digitada: ela sai da planta. E a planta volta ordenada por
+// fileira, independentemente da ordem em que o corpo a listou.
+func TestPostSalaDerivaACapacidadeDoLayout(t *testing.T) {
+	amb := montarComSalas(t, nil)
+	foraDeOrdem := `{"cinema_id":"` + cinemaID + `","numero":7,"tipo_tela":"IMAX",` +
+		`"fileiras":[{"fileira":"J","assentos":6,"tipo":"NAMORADEIRA"},` +
+		`{"fileira":"A","assentos":12},{"fileira":"F","assentos":8,"tipo":"PCD"}]}`
+	resp, corpo := requisitar(t, amb.servidor, http.MethodPost, caminhoDasSalas, "token-bom", foraDeOrdem)
+
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("status %d (corpo: %s)", resp.StatusCode, corpo)
+	}
+	sala := decodificarSala(t, corpo)
+	if sala["capacidade_total"] != float64(26) {
+		t.Fatalf("capacidade_total = %v, esperava a soma 26", sala["capacidade_total"])
+	}
+
+	fileiras, ok := sala["fileiras"].([]any)
+	if !ok || len(fileiras) != 3 {
+		t.Fatalf("fileiras = %v, esperava as três da planta", sala["fileiras"])
+	}
+	for i, esperada := range []string{"A", "F", "J"} {
+		if fileiras[i].(map[string]any)["fileira"] != esperada {
+			t.Errorf("fileira %d = %v, esperava %q", i, fileiras[i], esperada)
+		}
+	}
+	// Sem `tipo` no corpo, a fileira nasce normal — o mesmo padrão de `ativo`.
+	if fileiras[0].(map[string]any)["tipo"] != "NORMAL" {
+		t.Errorf("fileira sem tipo deveria nascer NORMAL: %v", fileiras[0])
+	}
+}
+
 func TestPostSalaSemTokenDevolve401(t *testing.T) {
 	amb := montarComSalas(t, nil)
 	resp, corpo := requisitar(t, amb.servidor, http.MethodPost, caminhoDasSalas, "", corpoSalaValido)
@@ -198,16 +239,30 @@ func TestPostSalaSemTokenDevolve401(t *testing.T) {
 func TestPostSalaRecusaCorpoInvalido(t *testing.T) {
 	amb := montarComSalas(t, nil)
 	casos := map[string]string{
-		"sem cinema_id":   `{"numero":7,"tipo_tela":"IMAX","capacidade_total":180}`,
-		"cinema_id vazio": `{"cinema_id":"","numero":7,"tipo_tela":"IMAX","capacidade_total":180}`,
+		"sem cinema_id":   `{"numero":7,"tipo_tela":"IMAX",` + fileirasValidas + `}`,
+		"cinema_id vazio": `{"cinema_id":"","numero":7,"tipo_tela":"IMAX",` + fileirasValidas + `}`,
 		"cinema_id malformado": `{"cinema_id":"nao-e-uuid","numero":7,"tipo_tela":"IMAX",` +
-			`"capacidade_total":180}`,
-		"sem numero":         `{"cinema_id":"` + cinemaID + `","tipo_tela":"IMAX","capacidade_total":180}`,
-		"numero zero":        `{"cinema_id":"` + cinemaID + `","numero":0,"tipo_tela":"IMAX","capacidade_total":180}`,
-		"tela desconhecida":  `{"cinema_id":"` + cinemaID + `","numero":7,"tipo_tela":"4DX","capacidade_total":180}`,
-		"capacidade zero":    `{"cinema_id":"` + cinemaID + `","numero":7,"tipo_tela":"IMAX","capacidade_total":0}`,
-		"campo desconhecido": `{"cinema_id":"` + cinemaID + `","numero":7,"tipo_tela":"IMAX","capacidade_total":180,"cor":"azul"}`,
-		"json quebrado":      `{"numero":`,
+			fileirasValidas + `}`,
+		"sem numero":        `{"cinema_id":"` + cinemaID + `","tipo_tela":"IMAX",` + fileirasValidas + `}`,
+		"numero zero":       `{"cinema_id":"` + cinemaID + `","numero":0,"tipo_tela":"IMAX",` + fileirasValidas + `}`,
+		"tela desconhecida": `{"cinema_id":"` + cinemaID + `","numero":7,"tipo_tela":"4DX",` + fileirasValidas + `}`,
+		"sem fileiras":      `{"cinema_id":"` + cinemaID + `","numero":7,"tipo_tela":"IMAX"}`,
+		"fileiras vazias":   `{"cinema_id":"` + cinemaID + `","numero":7,"tipo_tela":"IMAX","fileiras":[]}`,
+		"fileira repetida": `{"cinema_id":"` + cinemaID + `","numero":7,"tipo_tela":"IMAX",` +
+			`"fileiras":[{"fileira":"A","assentos":10},{"fileira":"a","assentos":8}]}`,
+		"fileira com dígito": `{"cinema_id":"` + cinemaID + `","numero":7,"tipo_tela":"IMAX",` +
+			`"fileiras":[{"fileira":"A1","assentos":10}]}`,
+		"assentos zero": `{"cinema_id":"` + cinemaID + `","numero":7,"tipo_tela":"IMAX",` +
+			`"fileiras":[{"fileira":"A","assentos":0}]}`,
+		"tipo de poltrona desconhecido": `{"cinema_id":"` + cinemaID + `","numero":7,"tipo_tela":"IMAX",` +
+			`"fileiras":[{"fileira":"A","assentos":10,"tipo":"PUFE"}]}`,
+		// A capacidade é derivada: quem ainda a mandar leva 400, porque os
+		// handlers recusam campo desconhecido.
+		"capacidade_total no corpo": `{"cinema_id":"` + cinemaID + `","numero":7,"tipo_tela":"IMAX",` +
+			fileirasValidas + `,"capacidade_total":180}`,
+		"campo desconhecido": `{"cinema_id":"` + cinemaID + `","numero":7,"tipo_tela":"IMAX",` +
+			fileirasValidas + `,"cor":"azul"}`,
+		"json quebrado": `{"numero":`,
 	}
 	for nome, corpoPedido := range casos {
 		t.Run(nome, func(t *testing.T) {
@@ -236,7 +291,7 @@ func TestPostSalaEmCinemaInexistenteDevolve404DeCinema(t *testing.T) {
 
 func TestPostSalaComNumeroJaUsadoDevolve409(t *testing.T) {
 	amb := montarComSalas(t, []catalogo.Sala{salaDeTeste()})
-	repetida := `{"cinema_id":"` + cinemaID + `","numero":3,"tipo_tela":"2D","capacidade_total":90}`
+	repetida := `{"cinema_id":"` + cinemaID + `","numero":3,"tipo_tela":"2D",` + fileirasValidas + `}`
 	resp, corpo := requisitar(t, amb.servidor, http.MethodPost, caminhoDasSalas, "token-bom", repetida)
 
 	if resp.StatusCode != http.StatusConflict {
@@ -249,7 +304,7 @@ func TestPostSalaComNumeroJaUsadoDevolve409(t *testing.T) {
 
 func TestPutSalaSubstituiASala(t *testing.T) {
 	amb := montarComSalas(t, []catalogo.Sala{salaDeTeste()})
-	novo := `{"cinema_id":"` + cinemaID + `","numero":9,"tipo_tela":"VIP","capacidade_total":60}`
+	novo := `{"cinema_id":"` + cinemaID + `","numero":9,"tipo_tela":"VIP",` + fileirasValidas + `}`
 	resp, corpo := requisitar(t, amb.servidor, http.MethodPut, caminhoDasSalas+"/"+salaID, "token-bom", novo)
 
 	if resp.StatusCode != http.StatusOK {
@@ -261,14 +316,14 @@ func TestPutSalaSubstituiASala(t *testing.T) {
 	}
 
 	_, corpoBusca := obter(t, amb.servidor, caminhoDasSalas+"/"+salaID)
-	if relida := decodificarSala(t, corpoBusca); relida["capacidade_total"] != float64(60) {
+	if relida := decodificarSala(t, corpoBusca); relida["capacidade_total"] != float64(26) {
 		t.Fatalf("a substituição não persistiu: %v", relida)
 	}
 }
 
 func TestPutSalaPodeManterOProprioNumero(t *testing.T) {
 	amb := montarComSalas(t, []catalogo.Sala{salaDeTeste()})
-	mesmoNumero := `{"cinema_id":"` + cinemaID + `","numero":3,"tipo_tela":"2D","capacidade_total":90}`
+	mesmoNumero := `{"cinema_id":"` + cinemaID + `","numero":3,"tipo_tela":"2D",` + fileirasValidas + `}`
 	resp, corpo := requisitar(t, amb.servidor, http.MethodPut, caminhoDasSalas+"/"+salaID, "token-bom", mesmoNumero)
 
 	if resp.StatusCode != http.StatusOK {
@@ -278,7 +333,7 @@ func TestPutSalaPodeManterOProprioNumero(t *testing.T) {
 
 func TestPutSalaSemCinemaIDMantemOCinema(t *testing.T) {
 	amb := montarComSalas(t, []catalogo.Sala{salaDeTeste()})
-	semCinema := `{"numero":9,"tipo_tela":"VIP","capacidade_total":60}`
+	semCinema := `{"numero":9,"tipo_tela":"VIP",` + fileirasValidas + `}`
 	resp, corpo := requisitar(t, amb.servidor, http.MethodPut, caminhoDasSalas+"/"+salaID, "token-bom", semCinema)
 
 	if resp.StatusCode != http.StatusOK {
@@ -292,7 +347,7 @@ func TestPutSalaSemCinemaIDMantemOCinema(t *testing.T) {
 // O vínculo com o cinema é do cadastro, não do corpo do PUT: a sala não migra.
 func TestPutSalaComOutroCinemaDevolve409(t *testing.T) {
 	amb := montarComSalas(t, []catalogo.Sala{salaDeTeste()})
-	migrando := `{"cinema_id":"` + outroCinemaID + `","numero":3,"tipo_tela":"2D","capacidade_total":90}`
+	migrando := `{"cinema_id":"` + outroCinemaID + `","numero":3,"tipo_tela":"2D",` + fileirasValidas + `}`
 	resp, corpo := requisitar(t, amb.servidor, http.MethodPut, caminhoDasSalas+"/"+salaID, "token-bom", migrando)
 
 	if resp.StatusCode != http.StatusConflict {

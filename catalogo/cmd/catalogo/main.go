@@ -12,7 +12,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 
+	adaptadoramqp "github.com/oseias/ingressos-golang/catalogo/internal/adapter/amqp"
 	"github.com/oseias/ingressos-golang/catalogo/internal/adapter/estoque"
 	adapterhttp "github.com/oseias/ingressos-golang/catalogo/internal/adapter/http"
 	"github.com/oseias/ingressos-golang/catalogo/internal/adapter/identidade"
@@ -84,10 +87,30 @@ func executar() error {
 
 	defer func() { _ = clienteEstoque.Fechar() }()
 
+	broker, err := adaptadoramqp.Conectar(cfg.RabbitMQURL)
+
+	if err != nil {
+		return err
+	}
+
+	defer broker.Fechar()
+
 	filmes := postgres.NovoFilmeRepository(pool)
 	cinemas := postgres.NovoCinemaRepository(pool)
 	salas := postgres.NovoSalaRepository(pool)
 	sessoes := postgres.NovoSessaoRepository(pool)
+	caixa := postgres.NovaCaixaDeSaida(pool)
+
+	// A caixa é drenada fora do caminho da requisição: criar uma sessão não
+	// espera pelo broker, e o fato sai quando ele estiver de pé.
+	publicador := &adaptadoramqp.Publicador{
+		Conexao:   broker,
+		Caixa:     caixa,
+		Log:       logger,
+		Intervalo: cfg.OutboxIntervalo,
+		Lote:      cfg.OutboxLote,
+	}
+	publicador.Iniciar(ctx)
 
 	router := adapterhttp.NovoRouter(adapterhttp.Dependencias{
 		Handlers: adapterhttp.Handlers{
@@ -110,6 +133,7 @@ func executar() error {
 			BuscarSessao:     usecase.BuscarSessao{Repo: sessoes},
 			CriarSessao: usecase.CriarSessao{
 				Sessoes: sessoes, Filmes: filmes, Salas: salas, GerarID: uuid.NewString,
+				Agora: time.Now, TraceContextDe: contextoDeRastreamento,
 			},
 			AtualizarSessao: usecase.AtualizarSessao{Sessoes: sessoes, Filmes: filmes, Salas: salas},
 			RemoverSessao:   usecase.RemoverSessao{Repo: sessoes},
@@ -153,4 +177,16 @@ func executar() error {
 	ctxDesligamento, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	return servidor.Shutdown(ctxDesligamento)
+}
+
+// O contexto W3C da requisição, capturado para viajar nos cabeçalhos do fato. O
+// publicador roda fora da requisição, e sem isso o span de quem consome nasceria
+// órfão.
+func contextoDeRastreamento(ctx context.Context) map[string]string {
+	portador := propagation.MapCarrier{}
+	otel.GetTextMapPropagator().Inject(ctx, portador)
+	if len(portador) == 0 {
+		return nil
+	}
+	return portador
 }

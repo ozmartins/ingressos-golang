@@ -196,6 +196,7 @@ type sessoesFalsas struct {
 	sessao      catalogo.Sessao
 	erro        error
 	itens       []catalogo.Sessao
+	fatos       []usecase.FatoPendente
 	salaOcupada bool
 }
 
@@ -219,8 +220,9 @@ func (s *sessoesFalsas) BuscarPorID(_ context.Context, id string) (catalogo.Sess
 	return catalogo.Sessao{}, shared.NaoEncontrado("sessao", id)
 }
 
-func (s *sessoesFalsas) Criar(_ context.Context, sessao catalogo.Sessao) error {
+func (s *sessoesFalsas) Criar(_ context.Context, sessao catalogo.Sessao, fato usecase.FatoPendente) error {
 	s.itens = append(s.itens, sessao)
+	s.fatos = append(s.fatos, fato)
 	return nil
 }
 

@@ -12,6 +12,7 @@ func ambienteMinimo(t *testing.T) {
 	t.Setenv("KEYCLOAK_ISSUER_URL", "http://localhost:8081/realms/cinema")
 	t.Setenv("KEYCLOAK_AUDIENCE", "cinema-app")
 	t.Setenv("ESTOQUE_GRPC_ADDR", "localhost:50051")
+	t.Setenv("RABBITMQ_URL", "amqp://cinema:cinema@localhost:5672/")
 }
 
 func TestCarregarAplicaPadroes(t *testing.T) {
@@ -32,6 +33,9 @@ func TestCarregarAplicaPadroes(t *testing.T) {
 	if c.PaginacaoTamanhoPadrao != 20 || c.PaginacaoTamanhoMaximo != 100 {
 		t.Fatalf("padrões de paginação errados: %d/%d", c.PaginacaoTamanhoPadrao, c.PaginacaoTamanhoMaximo)
 	}
+	if c.OutboxIntervalo != time.Second || c.OutboxLote != 100 {
+		t.Fatalf("padrões da caixa de saída errados: %s/%d", c.OutboxIntervalo, c.OutboxLote)
+	}
 }
 
 func TestCarregarRecusaVariavelObrigatoriaAusente(t *testing.T) {
@@ -51,11 +55,12 @@ func TestCarregarAgregaTodasAsFalhas(t *testing.T) {
 	t.Setenv("KEYCLOAK_ISSUER_URL", "")
 	t.Setenv("KEYCLOAK_AUDIENCE", "")
 	t.Setenv("ESTOQUE_GRPC_ADDR", "")
+	t.Setenv("RABBITMQ_URL", "")
 	_, err := Carregar()
 	if err == nil {
 		t.Fatal("esperava erro")
 	}
-	for _, campo := range []string{"DATABASE_URL", "KEYCLOAK_ISSUER_URL", "KEYCLOAK_AUDIENCE", "ESTOQUE_GRPC_ADDR"} {
+	for _, campo := range []string{"DATABASE_URL", "KEYCLOAK_ISSUER_URL", "KEYCLOAK_AUDIENCE", "ESTOQUE_GRPC_ADDR", "RABBITMQ_URL"} {
 		if !strings.Contains(err.Error(), campo) {
 			t.Errorf("erro não menciona %s: %v", campo, err)
 		}

@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -53,6 +54,7 @@ type sessaoRepoFalso struct {
 	erroBusca        error
 	buscasFeitas     int
 	criada           catalogo.Sessao
+	fatoEnfileirado  FatoPendente
 	atualizada       catalogo.Sessao
 	cancelada        string
 	salaOcupada      bool
@@ -72,8 +74,9 @@ func (s *sessaoRepoFalso) BuscarPorID(_ context.Context, id string) (catalogo.Se
 	return s.sessao, nil
 }
 
-func (s *sessaoRepoFalso) Criar(_ context.Context, sessao catalogo.Sessao) error {
+func (s *sessaoRepoFalso) Criar(_ context.Context, sessao catalogo.Sessao, fato FatoPendente) error {
 	s.criada = sessao
+	s.fatoEnfileirado = fato
 	return nil
 }
 
@@ -665,6 +668,84 @@ func dadosSessao() catalogo.DadosSessao {
 }
 
 func idFixo() string { return "id-gerado" }
+
+// O anúncio da sessão sai junto com ela, e leva a planta da sala expandida
+// assento a assento — é dela que quem consome monta a matriz de poltronas.
+func TestCriarSessaoEnfileiraOAnuncioComAPlantaDaSala(t *testing.T) {
+	layout, err := catalogo.NovoLayoutSala([]catalogo.DadosFileira{
+		{Fileira: "A", Assentos: 2},
+		{Fileira: "B", Assentos: 1, Tipo: "PCD"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sessoes := &sessaoRepoFalso{}
+	salas := &salaRepoFalso{sala: catalogo.Sala{ID: "sala-1", Layout: layout}}
+	uc := CriarSessao{
+		Sessoes: sessoes, Filmes: &filmeRepoFalso{}, Salas: salas, GerarID: idFixo,
+		Agora:          func() time.Time { return time.Date(2026, 9, 6, 18, 0, 0, 0, time.UTC) },
+		TraceContextDe: func(context.Context) map[string]string { return map[string]string{"traceparent": "00-abc-def-01"} },
+	}
+
+	sessao, err := uc.Executar(context.Background(), dadosSessao())
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+
+	fato := sessoes.fatoEnfileirado
+	if fato.RoutingKey != RoutingKeySessaoCriada {
+		t.Errorf("routing key = %q, esperava %q", fato.RoutingKey, RoutingKeySessaoCriada)
+	}
+	// É pelo `message_id` que quem consome descarta a repetição.
+	if fato.MessageID != sessao.ID {
+		t.Errorf("message_id = %q, esperava o id da sessão %q", fato.MessageID, sessao.ID)
+	}
+	if fato.TraceContext["traceparent"] == "" {
+		t.Error("o contexto de rastreamento da requisição deveria viajar com o fato")
+	}
+
+	var evento EventoSessaoCriada
+	if err := json.Unmarshal(fato.Payload, &evento); err != nil {
+		t.Fatalf("o corpo do fato não é JSON válido: %v", err)
+	}
+	if evento.Evento != "SESSAO_CRIADA" || evento.Versao != 1 {
+		t.Errorf("envelope inesperado: %+v", evento)
+	}
+	if evento.SessaoID != sessao.ID || evento.SalaID != sessao.SalaID {
+		t.Errorf("o fato deveria identificar a sessão e a sala: %+v", evento)
+	}
+	if evento.OcorridoEm != "2026-09-06T18:00:00Z" {
+		t.Errorf("ocorrido_em = %q", evento.OcorridoEm)
+	}
+
+	esperadas := []PoltronaNoFato{
+		{Fileira: "A", Numero: 1, Tipo: "NORMAL"},
+		{Fileira: "A", Numero: 2, Tipo: "NORMAL"},
+		{Fileira: "B", Numero: 1, Tipo: "PCD"},
+	}
+	if len(evento.Poltronas) != len(esperadas) {
+		t.Fatalf("anunciou %d poltronas, esperava %d", len(evento.Poltronas), len(esperadas))
+	}
+	for i, esperada := range esperadas {
+		if evento.Poltronas[i] != esperada {
+			t.Errorf("poltrona %d = %+v, esperava %+v", i, evento.Poltronas[i], esperada)
+		}
+	}
+}
+
+// A sessão que não chega a ser criada não anuncia nada.
+func TestCriarSessaoRecusadaNaoEnfileiraAnuncio(t *testing.T) {
+	sessoes := &sessaoRepoFalso{salaOcupada: true}
+	uc := CriarSessao{Sessoes: sessoes, Filmes: &filmeRepoFalso{}, Salas: &salaRepoFalso{}, GerarID: idFixo}
+
+	if _, err := uc.Executar(context.Background(), dadosSessao()); err == nil {
+		t.Fatal("esperava recusa por sala ocupada")
+	}
+	if sessoes.fatoEnfileirado.MessageID != "" {
+		t.Fatalf("não deveria anunciar sessão que não existe: %+v", sessoes.fatoEnfileirado)
+	}
+}
 
 func TestCriarSessaoRecusaSalaOcupada(t *testing.T) {
 	sessoes := &sessaoRepoFalso{salaOcupada: true}

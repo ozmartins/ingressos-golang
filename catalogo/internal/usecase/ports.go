@@ -66,10 +66,21 @@ type DataDoDia struct {
 	Dia int
 }
 
+// Um fato pronto para sair, do jeito que ele será publicado. O núcleo o produz;
+// o adaptador o grava na mesma transação do efeito que o produziu e, depois,
+// entrega ao intermediário — a resposta ao cliente não espera por isso.
+type FatoPendente struct {
+	MessageID    string
+	RoutingKey   string
+	Payload      []byte
+	TraceContext map[string]string
+}
+
 type SessaoRepository interface {
 	Consultar(ctx context.Context, filtro FiltroSessoes, req shared.PageRequest) (shared.Page[catalogo.SessaoDetalhada], error)
 	BuscarPorID(ctx context.Context, sessaoID string) (catalogo.Sessao, error)
-	Criar(ctx context.Context, s catalogo.Sessao) error
+	// A sessão e o anúncio dela são gravados juntos ou não são gravados.
+	Criar(ctx context.Context, s catalogo.Sessao, fato FatoPendente) error
 	Atualizar(ctx context.Context, s catalogo.Sessao) error
 	Cancelar(ctx context.Context, sessaoID string) error
 	// Uma sala projeta um filme de cada vez: a janela é `[inicio, fim)`, e o fim

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/catalogo"
+	"github.com/oseias/ingressos-golang/catalogo/internal/usecase"
 )
 
 func gradeDeTeste(n int) []catalogo.SessaoDetalhada {
@@ -218,6 +219,54 @@ func TestPostSessaoPublicaEDevolveLocation(t *testing.T) {
 	respBusca, corpoBusca := obter(t, amb.servidor, "/api/v1/sessoes/"+id)
 	if respBusca.StatusCode != http.StatusOK {
 		t.Fatalf("a sessão criada deveria ser legível: status %d (corpo: %s)", respBusca.StatusCode, corpoBusca)
+	}
+}
+
+// Criar a sessão pela API enfileira o anúncio dela, com a planta da sala já
+// expandida. A resposta não espera pela publicação — o fato fica na caixa.
+func TestPostSessaoEnfileiraOAnuncio(t *testing.T) {
+	amb := montarComSessoes(t, nil)
+	resp, corpo := requisitar(t, amb.servidor, http.MethodPost, "/api/v1/sessoes", "token-bom", corpoSessaoValido)
+
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("status %d (corpo: %s)", resp.StatusCode, corpo)
+	}
+	if len(amb.sessoes.fatos) != 1 {
+		t.Fatalf("enfileirou %d fato(s), esperava 1", len(amb.sessoes.fatos))
+	}
+
+	fato := amb.sessoes.fatos[0]
+	if fato.RoutingKey != usecase.RoutingKeySessaoCriada {
+		t.Errorf("routing key = %q", fato.RoutingKey)
+	}
+	if fato.MessageID != decodificarSessao(t, corpo)["id"] {
+		t.Errorf("o message_id deveria ser o id da sessão, veio %q", fato.MessageID)
+	}
+
+	var evento usecase.EventoSessaoCriada
+	if err := json.Unmarshal(fato.Payload, &evento); err != nil {
+		t.Fatalf("o corpo do fato não é JSON válido: %v", err)
+	}
+	if esperado := salaDeTeste().CapacidadeTotal(); len(evento.Poltronas) != esperado {
+		t.Fatalf("anunciou %d poltronas, esperava a capacidade da sala (%d)", len(evento.Poltronas), esperado)
+	}
+}
+
+// Uma sessão recusada não anuncia nada: nada foi criado.
+func TestPostSessaoRecusadaNaoEnfileiraAnuncio(t *testing.T) {
+	amb := montar(t, func(a *ambiente) {
+		a.salas.itens = []catalogo.Sala{salaDeTeste()}
+		a.filmes.itens = []catalogo.Filme{{ID: filmeDaSessao, Titulo: "Duna: Parte 2",
+			DuracaoMinutos: 166, Status: catalogo.StatusEmCartaz}}
+		a.sessoes.salaOcupada = true
+	})
+	resp, corpo := requisitar(t, amb.servidor, http.MethodPost, "/api/v1/sessoes", "token-bom", corpoSessaoValido)
+
+	if resp.StatusCode != http.StatusConflict {
+		t.Fatalf("status %d, esperava 409 (corpo: %s)", resp.StatusCode, corpo)
+	}
+	if len(amb.sessoes.fatos) != 0 {
+		t.Fatalf("não deveria anunciar sessão que não existe: %+v", amb.sessoes.fatos)
 	}
 }
 

@@ -59,6 +59,8 @@ linters:
               desc: "driver de banco é detalhe de adaptador"
             - pkg: "google.golang.org/grpc"
               desc: "transporte é detalhe de adaptador"
+            - pkg: "github.com/rabbitmq/amqp091-go"
+              desc: "o intermediário de mensagens é detalhe de adaptador; o núcleo produz o fato, não o publica"
             - pkg: "net/http"
               desc: "framework web é detalhe de adaptador"
             - pkg: "github.com/coreos/go-oidc"

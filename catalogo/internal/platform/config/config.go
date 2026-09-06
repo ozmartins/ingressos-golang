@@ -22,6 +22,10 @@ type Config struct {
 	EstoqueGRPCAddr string
 	EstoqueTimeout  time.Duration
 
+	RabbitMQURL     string
+	OutboxIntervalo time.Duration
+	OutboxLote      int
+
 	BreakerFalhasConsecutivas uint32
 	BreakerIntervaloAberto    time.Duration
 
@@ -46,6 +50,7 @@ func Carregar() (Config, error) {
 		KeycloakIssuerURL: os.Getenv("KEYCLOAK_ISSUER_URL"),
 		KeycloakAudience:  os.Getenv("KEYCLOAK_AUDIENCE"),
 		EstoqueGRPCAddr:   os.Getenv("ESTOQUE_GRPC_ADDR"),
+		RabbitMQURL:       os.Getenv("RABBITMQ_URL"),
 		OTLPEndpoint:      os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		LogLevel:          comPadrao("LOG_LEVEL", "info"),
 	}
@@ -58,6 +63,7 @@ func Carregar() (Config, error) {
 		{"KEYCLOAK_ISSUER_URL", c.KeycloakIssuerURL},
 		{"KEYCLOAK_AUDIENCE", c.KeycloakAudience},
 		{"ESTOQUE_GRPC_ADDR", c.EstoqueGRPCAddr},
+		{"RABBITMQ_URL", c.RabbitMQURL},
 	} {
 		if strings.TrimSpace(obrigatorio.valor) == "" {
 			falhas = append(falhas, erroCampo{obrigatorio.campo, "obrigatória e ausente"})
@@ -90,6 +96,22 @@ func Carregar() (Config, error) {
 		falhas = append(falhas, erroCampo{"BREAKER_INTERVALO_ABERTO", "deve ser maior que zero"})
 	} else {
 		c.BreakerIntervaloAberto = v
+	}
+
+	if v, err := duracao("OUTBOX_INTERVALO", time.Second); err != nil {
+		falhas = append(falhas, erroCampo{"OUTBOX_INTERVALO", err.Error()})
+	} else if v <= 0 {
+		falhas = append(falhas, erroCampo{"OUTBOX_INTERVALO", "deve ser maior que zero"})
+	} else {
+		c.OutboxIntervalo = v
+	}
+
+	if v, err := inteiro("OUTBOX_LOTE", 100); err != nil {
+		falhas = append(falhas, erroCampo{"OUTBOX_LOTE", err.Error()})
+	} else if v < 1 {
+		falhas = append(falhas, erroCampo{"OUTBOX_LOTE", "deve ser maior ou igual a 1"})
+	} else {
+		c.OutboxLote = v
 	}
 
 	padrao, errPadrao := inteiro("PAGINACAO_TAMANHO_PADRAO", 20)

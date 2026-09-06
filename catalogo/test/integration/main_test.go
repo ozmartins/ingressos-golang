@@ -64,6 +64,7 @@ func aplicarMigracoes(ctx context.Context) error {
 		"../../migrations/000003_ativar_cinemas.up.sql",
 		"../../migrations/000004_escrita_salas_sessoes.up.sql",
 		"../../migrations/000005_layout_das_salas.up.sql",
+		"../../migrations/000006_caixa_de_saida.up.sql",
 	} {
 		sql, err := os.ReadFile(arquivo)
 		if err != nil {
@@ -79,7 +80,7 @@ func aplicarMigracoes(ctx context.Context) error {
 func carregarFixtures(t *testing.T) {
 	t.Helper()
 	ctx := context.Background()
-	if _, err := pool.Exec(ctx, `TRUNCATE sessoes, salas, cinemas, filmes CASCADE`); err != nil {
+	if _, err := pool.Exec(ctx, `TRUNCATE outbox_eventos, sessoes, salas, cinemas, filmes CASCADE`); err != nil {
 		t.Fatalf("limpando tabelas: %v", err)
 	}
 	sql, err := os.ReadFile("../fixtures/catalogo_exemplo.sql")

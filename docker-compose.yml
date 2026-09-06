@@ -122,6 +122,7 @@ services:
       KEYCLOAK_ISSUER_URL: http://keycloak:8081/realms/cinema
       KEYCLOAK_AUDIENCE: cinema-app
       ESTOQUE_GRPC_ADDR: estoque-simulado:50051
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       LOG_LEVEL: info
     ports: ["${PORTA_CATALOGO:-8082}:8080"]
     depends_on:
@@ -131,6 +132,11 @@ services:
         condition: service_healthy
       estoque-simulado:
         condition: service_started
+      # O catálogo anuncia a sessão criada. A caixa de saída o deixa subir e
+      # atender sem o broker, mas ele o exige na largada como qualquer outra
+      # configuração obrigatória.
+      rabbitmq:
+        condition: service_healthy
 
   estoque:
     build:

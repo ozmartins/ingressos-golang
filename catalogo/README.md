@@ -1,8 +1,9 @@
 # Servico-Catalogo
 
 Ponto de entrada para clientes navegarem pelo catálogo de filmes, cinemas, salas
-e sessões, e para iniciarem a reserva de poltronas. Expõe uma API REST pública e
-atua como cliente gRPC do `Servico-Estoque` no momento da reserva.
+e sessões, e para iniciarem a reserva de poltronas. Expõe uma API REST pública,
+atua como cliente gRPC do `Servico-Estoque` no momento da reserva e anuncia no
+RabbitMQ a sessão criada, com a planta da sala.
 
 Especificação, plano e tarefas: [`specs/001-catalogo-sessoes-reserva/`](specs/001-catalogo-sessoes-reserva/).
 Princípios que governam o código: [`.specify/memory/constitution.md`](.specify/memory/constitution.md).
@@ -33,7 +34,29 @@ Quem já leu `ers-catalogo.md` precisa saber destas duas mudanças deliberadas:
    passa a `FORA_DE_CARTAZ` — porque as sessões gravadas referenciam o filme e
    apagá-lo romperia a grade.
 
-O catálogo de erros está em [`specs/001-catalogo-sessoes-reserva/contracts/errors.md`](specs/001-catalogo-sessoes-reserva/contracts/errors.md).
+O catálogo de erros está em [`specs/001-catalogo-sessoes-reserva/contracts/errors.md`](specs/001-catalogo-sessoes-reserva/contracts/errors.md),
+e o contrato do fato publicado em [`contracts/eventos.md`](specs/001-catalogo-sessoes-reserva/contracts/eventos.md).
+
+## O fato `sessao.criada`
+
+Criar uma sessão publica `sessao.criada` no exchange `cinema.eventos`, com a
+planta da sala expandida assento a assento — é dela que o `Servico-Estoque`
+provisiona a matriz de poltronas daquela sessão. O catálogo declara só o
+exchange: fila é de quem consome.
+
+O fato é gravado numa caixa de saída (`catalogo.outbox_eventos`) **na mesma
+transação** que insere a sessão, e um processo à parte a drena e republica até o
+broker confirmar. Disso decorrem três coisas que quem integra precisa saber:
+
+- a resposta do `POST` não espera pela publicação — uma sessão é criada com
+  sucesso mesmo com o broker fora do ar, e o fato sai quando ele voltar;
+- a entrega é **ao menos uma vez**: a mesma mensagem pode chegar repetida, e o
+  consumidor descarta pelo `sessao_id`, que também vai no `message_id`;
+- alterar ou cancelar uma sessão **não** emite fato — não há consumidor para
+  isso, e o contrato registra a consequência.
+
+O contexto de rastreamento da requisição viaja nos cabeçalhos da mensagem, de
+modo que o span de quem consome não nasça órfão.
 
 ## Superfície da API
 
@@ -173,12 +196,13 @@ verificação. O console de admin continua em `http://localhost:8081` (admin/adm
 ### Rodando o serviço fora do contêiner
 
 ```bash
-docker compose -f ../docker-compose.yml up -d keycloak estoque-simulado migrate-catalogo
+docker compose -f ../docker-compose.yml up -d keycloak estoque-simulado rabbitmq migrate-catalogo
 echo "127.0.0.1 keycloak" | sudo tee -a /etc/hosts   # uma vez, pelo emissor fixo
 export DATABASE_URL="postgres://catalogo:catalogo@localhost:5434/cinema?sslmode=disable"   # precisa da query string: `make migrate-up` anexa `&search_path=catalogo`
 export KEYCLOAK_ISSUER_URL="http://keycloak:8081/realms/cinema"
 export KEYCLOAK_AUDIENCE="cinema-app"
 export ESTOQUE_GRPC_ADDR="localhost:50052"   # o simulado; a 50051 é do estoque real
+export RABBITMQ_URL="amqp://guest:guest@localhost:5672/"
 export HTTP_PORT=8082
 make run
 ```
@@ -195,6 +219,7 @@ docker build -t servico-catalogo .
 docker run --rm -p 8080:8080 \
   -e DATABASE_URL="..." -e KEYCLOAK_ISSUER_URL="..." \
   -e KEYCLOAK_AUDIENCE="cinema-app" -e ESTOQUE_GRPC_ADDR="..." \
+  -e RABBITMQ_URL="amqp://guest:guest@rabbitmq:5672/" \
   servico-catalogo
 curl -s localhost:8080/health
 ```
@@ -210,6 +235,7 @@ malformada, e a mensagem lista todas as pendências de uma vez:
 | `KEYCLOAK_ISSUER_URL` | Emissor OIDC das credenciais |
 | `KEYCLOAK_AUDIENCE` | Audiência esperada no token |
 | `ESTOQUE_GRPC_ADDR` | Endereço gRPC do `Servico-Estoque` |
+| `RABBITMQ_URL` | Broker onde o fato `sessao.criada` é publicado |
 
 Opcionais, com padrão:
 
@@ -221,6 +247,8 @@ Opcionais, com padrão:
 | `BREAKER_INTERVALO_ABERTO` | `30s` | Tempo em recusa rápida antes de tentar de novo |
 | `PAGINACAO_TAMANHO_PADRAO` | `20` | Tamanho de página quando não informado |
 | `PAGINACAO_TAMANHO_MAXIMO` | `100` | Teto de `page_size`; acima disso a requisição é recusada |
+| `OUTBOX_INTERVALO` | `1s` | De quanto em quanto tempo a caixa de saída é drenada |
+| `OUTBOX_LOTE` | `100` | Fatos lidos por drenagem |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | — | Coletor de rastros e métricas; sem ele o serviço roda e apenas não exporta |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn` ou `error` |
 
@@ -233,7 +261,7 @@ cmd/            composição — o único lugar onde o núcleo encontra a infrae
 internal/
   domain/       entidades e regras; não importa nada de infraestrutura
   usecase/      casos de uso e as portas que eles exigem
-  adapter/      http (entrada), postgres, estoque, identidade (saída)
+  adapter/      http (entrada), postgres, estoque, amqp, identidade (saída)
   platform/     configuração, observabilidade, saúde
 ```
 
@@ -253,7 +281,9 @@ Os testes de integração sobem um PostgreSQL em contêiner e um `Servico-Estoqu
 simulado em memória. Provam, entre outras coisas: que uma recusa local nunca
 contata o estoque; que 50 solicitações paralelas pelas mesmas poltronas resultam
 em exatamente uma confirmação; que o contexto de rastreamento recebido chega ao
-estoque; e que as listagens usam os índices esperados.
+estoque; que as listagens usam os índices esperados; e que o anúncio da sessão e a
+própria sessão são gravados de forma indivisível — uma sessão recusada não deixa
+fato na caixa, e um fato cuja publicação falha volta na drenagem seguinte.
 
 ## Limite conhecido
 

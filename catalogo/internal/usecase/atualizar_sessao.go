@@ -22,7 +22,7 @@ func (uc AtualizarSessao) Executar(ctx context.Context, sessaoID string, dados c
 	if err != nil {
 		return catalogo.Sessao{}, err
 	}
-	if err := conferirGrade(ctx, uc.Filmes, uc.Salas, uc.Sessoes, sessao, sessaoID); err != nil {
+	if _, err := conferirGrade(ctx, uc.Filmes, uc.Salas, uc.Sessoes, sessao, sessaoID); err != nil {
 		return catalogo.Sessao{}, err
 	}
 	if err := uc.Sessoes.Atualizar(ctx, sessao); err != nil {

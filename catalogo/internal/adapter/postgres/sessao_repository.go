@@ -111,15 +111,18 @@ func (r *SessaoRepository) avisarSobreSessoesOrfas(ctx context.Context, filtro u
 	}
 }
 
-func (r *SessaoRepository) Criar(ctx context.Context, s catalogo.Sessao) error {
-	const sqlInserir = `INSERT INTO sessoes (id, filme_id, sala_id, data_hora_inicio, idioma, preco_base, status)
-	                    VALUES ($1, $2, $3, $4, $5, $6, $7)`
-	_, err := r.pool.Exec(ctx, sqlInserir, s.ID, s.FilmeID, s.SalaID, s.DataHoraInicio,
-		string(s.Idioma), s.PrecoBase.String(), string(s.Status))
-	if err != nil {
-		return fmt.Errorf("inserindo sessão: %w", err)
-	}
-	return nil
+// A sessão e o fato que a anuncia vão na mesma transação: se o processo morrer
+// entre as duas escritas, nenhuma delas aconteceu.
+func (r *SessaoRepository) Criar(ctx context.Context, s catalogo.Sessao, fato usecase.FatoPendente) error {
+	return emTransacao(ctx, r.pool, func(tx pgx.Tx) error {
+		const sqlInserir = `INSERT INTO sessoes (id, filme_id, sala_id, data_hora_inicio, idioma, preco_base, status)
+		                    VALUES ($1, $2, $3, $4, $5, $6, $7)`
+		if _, err := tx.Exec(ctx, sqlInserir, s.ID, s.FilmeID, s.SalaID, s.DataHoraInicio,
+			string(s.Idioma), s.PrecoBase.String(), string(s.Status)); err != nil {
+			return fmt.Errorf("inserindo sessão: %w", err)
+		}
+		return enfileirarFato(ctx, tx, fato)
+	})
 }
 
 func (r *SessaoRepository) Atualizar(ctx context.Context, s catalogo.Sessao) error {

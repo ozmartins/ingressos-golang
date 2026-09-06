@@ -87,6 +87,36 @@ func TestNovoLayoutSalaRecusaEntradasInvalidas(t *testing.T) {
 	}
 }
 
+// A planta é anunciada poltrona a poltrona: é essa lista que o estoque consome
+// para provisionar a matriz de uma sessão.
+func TestLayoutSalaExpandeEmPoltronasNumeradas(t *testing.T) {
+	layout, err := NovoLayoutSala([]DadosFileira{
+		{Fileira: "B", Assentos: 2, Tipo: "PCD"},
+		{Fileira: "A", Assentos: 3},
+	})
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+
+	poltronas := layout.Poltronas()
+	if len(poltronas) != layout.CapacidadeTotal() {
+		t.Fatalf("expandiu %d poltronas, esperava %d", len(poltronas), layout.CapacidadeTotal())
+	}
+
+	esperadas := []PoltronaDoLayout{
+		{Fileira: "A", Numero: 1, Tipo: PoltronaNormal},
+		{Fileira: "A", Numero: 2, Tipo: PoltronaNormal},
+		{Fileira: "A", Numero: 3, Tipo: PoltronaNormal},
+		{Fileira: "B", Numero: 1, Tipo: PoltronaPCD},
+		{Fileira: "B", Numero: 2, Tipo: PoltronaPCD},
+	}
+	for i, esperada := range esperadas {
+		if poltronas[i] != esperada {
+			t.Errorf("poltrona %d = %+v, esperava %+v", i, poltronas[i], esperada)
+		}
+	}
+}
+
 func TestParseTipoPoltronaListaOsValoresAceitos(t *testing.T) {
 	_, err := ParseTipoPoltrona("PUFE")
 	if err == nil {

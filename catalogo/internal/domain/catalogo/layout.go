@@ -53,6 +53,25 @@ func (l LayoutSala) CapacidadeTotal() int {
 	return total
 }
 
+// Uma poltrona da planta: a expansão de uma fileira em assentos numerados de 1
+// em diante. O catálogo não guarda poltrona — quem as materializa é o estoque —,
+// mas precisa enumerá-las para anunciar a sessão.
+type PoltronaDoLayout struct {
+	Fileira string
+	Numero  int
+	Tipo    TipoPoltrona
+}
+
+func (l LayoutSala) Poltronas() []PoltronaDoLayout {
+	poltronas := make([]PoltronaDoLayout, 0, l.CapacidadeTotal())
+	for _, f := range l.Fileiras {
+		for n := 1; n <= f.Assentos; n++ {
+			poltronas = append(poltronas, PoltronaDoLayout{Fileira: f.Letra, Numero: n, Tipo: f.Tipo})
+		}
+	}
+	return poltronas
+}
+
 type DadosFileira struct {
 	Fileira  string
 	Assentos int

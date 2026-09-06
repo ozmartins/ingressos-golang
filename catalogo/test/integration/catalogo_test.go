@@ -129,7 +129,7 @@ func TestListarCinemasESalas(t *testing.T) {
 	salas := pgadapter.NovoSalaRepository(pool)
 	uc := usecase.ListarSalas{Cinemas: cinemas, Salas: salas}
 
-	pc, err := cinemas.Listar(context.Background(), pagina(t, 1, 20))
+	pc, err := cinemas.Listar(context.Background(), usecase.FiltroCinemas{}, pagina(t, 1, 20))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -242,5 +242,107 @@ func TestEscritaDeFilmeInexistenteDevolveNaoEncontrado(t *testing.T) {
 	}
 	if err := repo.MarcarForaDeCartaz(ctx, ausente); !errors.Is(err, shared.ErrNaoEncontrado) {
 		t.Errorf("MarcarForaDeCartaz: esperava ErrNaoEncontrado, obteve %v", err)
+	}
+}
+
+func dadosCinema() catalogo.DadosCinema {
+	return catalogo.DadosCinema{
+		Nome: "CineMark - Beiramar", Cidade: "Florianópolis",
+		Estado: "SC", Endereco: "Rua Y, 200",
+	}
+}
+
+func TestCicloDeVidaDoCinema(t *testing.T) {
+	carregarFixtures(t)
+	repo := pgadapter.NovoCinemaRepository(pool)
+	ctx := context.Background()
+	const id = "b1b2c3d4-0000-4000-8000-0000000000aa"
+
+	novo, err := catalogo.NovoCinema(id, dadosCinema())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.Criar(ctx, novo); err != nil {
+		t.Fatalf("Criar: %v", err)
+	}
+
+	lido, err := repo.BuscarPorID(ctx, id)
+	if err != nil {
+		t.Fatalf("BuscarPorID: %v", err)
+	}
+	if lido != novo {
+		t.Fatalf("o cinema lido difere do gravado: %+v", lido)
+	}
+
+	dados := dadosCinema()
+	dados.Nome = "CineMark - Beiramar Shopping"
+	alterado, err := catalogo.NovoCinema(id, dados)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.Atualizar(ctx, alterado); err != nil {
+		t.Fatalf("Atualizar: %v", err)
+	}
+
+	ativos, err := repo.Listar(ctx, usecase.FiltroCinemas{Ativo: &alterado.Ativo}, pagina(t, 1, 20))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ativos.Total != 3 {
+		t.Fatalf("esperava os 2 cinemas das fixtures mais o novo, obteve %d", ativos.Total)
+	}
+
+	if err := repo.Desativar(ctx, id); err != nil {
+		t.Fatalf("Desativar: %v", err)
+	}
+
+	depois, err := repo.Listar(ctx, usecase.FiltroCinemas{Ativo: &alterado.Ativo}, pagina(t, 1, 20))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if depois.Total != 2 {
+		t.Fatalf("o cinema desativado deveria sair da listagem pública, total = %d", depois.Total)
+	}
+
+	// A remoção é lógica: a linha permanece e as salas seguem apontando para ela.
+	inativo, err := repo.BuscarPorID(ctx, id)
+	if err != nil {
+		t.Fatalf("o cinema desativado deveria seguir legível: %v", err)
+	}
+	if inativo.Ativo {
+		t.Fatal("o cinema deveria estar inativo depois do Desativar")
+	}
+	if existe, err := repo.Existe(ctx, id); err != nil || !existe {
+		t.Fatalf("Existe responde pela linha, não pela situação: %v, %v", existe, err)
+	}
+
+	todos, err := repo.Listar(ctx, usecase.FiltroCinemas{}, pagina(t, 1, 20))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if todos.Total != 3 {
+		t.Fatalf("sem filtro o repositório deveria ver as 3 linhas, obteve %d", todos.Total)
+	}
+}
+
+func TestEscritaDeCinemaInexistenteDevolveNaoEncontrado(t *testing.T) {
+	carregarFixtures(t)
+	repo := pgadapter.NovoCinemaRepository(pool)
+	ctx := context.Background()
+	const ausente = "b1b2c3d4-0000-4000-8000-0000000000ff"
+
+	if _, err := repo.BuscarPorID(ctx, ausente); !errors.Is(err, shared.ErrNaoEncontrado) {
+		t.Errorf("BuscarPorID: esperava ErrNaoEncontrado, obteve %v", err)
+	}
+
+	cinema, err := catalogo.NovoCinema(ausente, dadosCinema())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.Atualizar(ctx, cinema); !errors.Is(err, shared.ErrNaoEncontrado) {
+		t.Errorf("Atualizar: esperava ErrNaoEncontrado, obteve %v", err)
+	}
+	if err := repo.Desativar(ctx, ausente); !errors.Is(err, shared.ErrNaoEncontrado) {
+		t.Errorf("Desativar: esperava ErrNaoEncontrado, obteve %v", err)
 	}
 }

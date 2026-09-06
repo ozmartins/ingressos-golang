@@ -44,6 +44,10 @@ O catálogo de erros está em [`specs/001-catalogo-sessoes-reserva/contracts/err
 | `PUT` | `/api/v1/filmes/{id}` | Bearer |
 | `DELETE` | `/api/v1/filmes/{id}` | Bearer |
 | `GET` | `/api/v1/cinemas` | pública |
+| `GET` | `/api/v1/cinemas/{id}` | pública |
+| `POST` | `/api/v1/cinemas` | Bearer |
+| `PUT` | `/api/v1/cinemas/{id}` | Bearer |
+| `DELETE` | `/api/v1/cinemas/{id}` | Bearer |
 | `GET` | `/api/v1/cinemas/{id}/salas` | pública |
 | `GET` | `/api/v1/sessoes` | pública |
 | `POST` | `/api/v1/sessoes/{id}/reservar` | Bearer |
@@ -54,6 +58,12 @@ corpo e no header `Location`; o `PUT` é substituição total, e campo opcional
 omitido volta a ficar ausente; sem `status` no corpo o filme fica `EM_CARTAZ`;
 e `GET /filmes/{id}` enxerga qualquer situação, inclusive `FORA_DE_CARTAZ` — o
 recorte público vale só para a listagem.
+
+A escrita de cinemas segue as mesmas regras, com uma diferença no `DELETE`: a
+remoção marca o cinema como inativo em vez de apagar a linha, porque as salas o
+referenciam e as sessões referenciam as salas. O cinema some de
+`GET /cinemas`, segue legível em `GET /cinemas/{id}` e é alcançável pelo filtro
+`GET /cinemas?ativo=false`.
 
 ## Executando localmente
 

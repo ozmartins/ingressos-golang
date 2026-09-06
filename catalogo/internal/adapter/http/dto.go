@@ -93,10 +93,39 @@ type cinemaDTO struct {
 	Cidade   string `json:"cidade"`
 	Estado   string `json:"estado"`
 	Endereco string `json:"endereco"`
+	Ativo    bool   `json:"ativo"`
 }
 
 func paraCinemaDTO(c catalogo.Cinema) cinemaDTO {
-	return cinemaDTO{ID: c.ID, Nome: c.Nome, Cidade: c.Cidade, Estado: c.Estado, Endereco: c.Endereco}
+	return cinemaDTO{ID: c.ID, Nome: c.Nome, Cidade: c.Cidade, Estado: c.Estado,
+		Endereco: c.Endereco, Ativo: c.Ativo}
+}
+
+// Campos ponteiro pelo mesmo motivo de `filmeEntradaDTO`: no PUT, que substitui
+// o cinema inteiro, um `nome` omitido é erro, não string vazia.
+type cinemaEntradaDTO struct {
+	Nome     *string `json:"nome"`
+	Cidade   *string `json:"cidade"`
+	Estado   *string `json:"estado"`
+	Endereco *string `json:"endereco"`
+	Ativo    *bool   `json:"ativo"`
+}
+
+func (d cinemaEntradaDTO) paraDadosCinema() catalogo.DadosCinema {
+	dados := catalogo.DadosCinema{Ativo: d.Ativo}
+	if d.Nome != nil {
+		dados.Nome = *d.Nome
+	}
+	if d.Cidade != nil {
+		dados.Cidade = *d.Cidade
+	}
+	if d.Estado != nil {
+		dados.Estado = *d.Estado
+	}
+	if d.Endereco != nil {
+		dados.Endereco = *d.Endereco
+	}
+	return dados
 }
 
 type salaDTO struct {

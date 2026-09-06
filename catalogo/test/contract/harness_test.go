@@ -81,9 +81,50 @@ type cinemasFalsos struct {
 	existe bool
 }
 
-func (c *cinemasFalsos) Listar(_ context.Context, req shared.PageRequest) (shared.Page[catalogo.Cinema], error) {
-	return recortar(c.itens, req), nil
+func (c *cinemasFalsos) Listar(_ context.Context, filtro usecase.FiltroCinemas, req shared.PageRequest) (shared.Page[catalogo.Cinema], error) {
+	var selecionados []catalogo.Cinema
+	for _, cinema := range c.itens {
+		if filtro.Ativo == nil || cinema.Ativo == *filtro.Ativo {
+			selecionados = append(selecionados, cinema)
+		}
+	}
+	return recortar(selecionados, req), nil
 }
+
+func (c *cinemasFalsos) BuscarPorID(_ context.Context, id string) (catalogo.Cinema, error) {
+	for _, cinema := range c.itens {
+		if cinema.ID == id {
+			return cinema, nil
+		}
+	}
+	return catalogo.Cinema{}, fmt.Errorf("%w: cinema %s", shared.ErrNaoEncontrado, id)
+}
+
+func (c *cinemasFalsos) Criar(_ context.Context, cinema catalogo.Cinema) error {
+	c.itens = append(c.itens, cinema)
+	return nil
+}
+
+func (c *cinemasFalsos) Atualizar(_ context.Context, cinema catalogo.Cinema) error {
+	for i, existente := range c.itens {
+		if existente.ID == cinema.ID {
+			c.itens[i] = cinema
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: cinema %s", shared.ErrNaoEncontrado, cinema.ID)
+}
+
+func (c *cinemasFalsos) Desativar(_ context.Context, id string) error {
+	for i, existente := range c.itens {
+		if existente.ID == id {
+			c.itens[i].Ativo = false
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: cinema %s", shared.ErrNaoEncontrado, id)
+}
+
 func (c *cinemasFalsos) Existe(context.Context, string) (bool, error) { return c.existe, nil }
 
 type salasFalsas struct{ itens []catalogo.Sala }
@@ -175,6 +216,10 @@ func montar(t *testing.T, ajustar func(*ambiente)) *ambiente {
 			AtualizarFilme:   usecase.AtualizarFilme{Repo: filmes},
 			RemoverFilme:     usecase.RemoverFilme{Repo: filmes},
 			ListarCinemas:    usecase.ListarCinemas{Repo: amb.cinemas},
+			BuscarCinema:     usecase.BuscarCinema{Repo: amb.cinemas},
+			CriarCinema:      usecase.CriarCinema{Repo: amb.cinemas, GerarID: gerarID()},
+			AtualizarCinema:  usecase.AtualizarCinema{Repo: amb.cinemas},
+			RemoverCinema:    usecase.RemoverCinema{Repo: amb.cinemas},
 			ListarSalas:      usecase.ListarSalas{Cinemas: amb.cinemas, Salas: salas},
 			ConsultarSessoes: usecase.ConsultarSessoes{Repo: amb.sessoes},
 			ReservarPoltronas: usecase.ReservarPoltronas{
@@ -202,6 +247,10 @@ func montarComFilmes(t *testing.T, itens []catalogo.Filme) *httptest.Server {
 			AtualizarFilme:   usecase.AtualizarFilme{Repo: filmes},
 			RemoverFilme:     usecase.RemoverFilme{Repo: filmes},
 			ListarCinemas:    usecase.ListarCinemas{Repo: cinemas},
+			BuscarCinema:     usecase.BuscarCinema{Repo: cinemas},
+			CriarCinema:      usecase.CriarCinema{Repo: cinemas, GerarID: gerarID()},
+			AtualizarCinema:  usecase.AtualizarCinema{Repo: cinemas},
+			RemoverCinema:    usecase.RemoverCinema{Repo: cinemas},
 			ListarSalas:      usecase.ListarSalas{Cinemas: cinemas, Salas: &salasFalsas{}},
 			ConsultarSessoes: usecase.ConsultarSessoes{Repo: &sessoesFalsas{}},
 			Limites:          adapterhttp.LimitesPaginacao{Padrao: 20, Maximo: 100},

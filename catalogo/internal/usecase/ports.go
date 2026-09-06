@@ -20,8 +20,18 @@ type FilmeRepository interface {
 	MarcarForaDeCartaz(ctx context.Context, filmeID string) error
 }
 
+type FiltroCinemas struct {
+	Ativo *bool
+}
+
 type CinemaRepository interface {
-	Listar(ctx context.Context, req shared.PageRequest) (shared.Page[catalogo.Cinema], error)
+	Listar(ctx context.Context, filtro FiltroCinemas, req shared.PageRequest) (shared.Page[catalogo.Cinema], error)
+	BuscarPorID(ctx context.Context, cinemaID string) (catalogo.Cinema, error)
+	Criar(ctx context.Context, c catalogo.Cinema) error
+	Atualizar(ctx context.Context, c catalogo.Cinema) error
+	Desativar(ctx context.Context, cinemaID string) error
+	// Existe responde pela linha, não pela situação: as salas de um cinema
+	// desativado seguem consultáveis, como as sessões de um filme fora de cartaz.
 	Existe(ctx context.Context, cinemaID string) (bool, error)
 }
 

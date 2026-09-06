@@ -2,31 +2,94 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/catalogo"
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/shared"
+	"github.com/oseias/ingressos-golang/catalogo/internal/usecase"
 )
 
 type CinemaRepository struct{ pool *pgxpool.Pool }
 
 func NovoCinemaRepository(p *pgxpool.Pool) *CinemaRepository { return &CinemaRepository{pool: p} }
 
-func (r *CinemaRepository) Listar(ctx context.Context, req shared.PageRequest) (shared.Page[catalogo.Cinema], error) {
-	const sqlPagina = `SELECT id, nome, cidade, estado, endereco FROM cinemas
-	                   ORDER BY nome, id LIMIT $1 OFFSET $2`
-	const sqlTotal = `SELECT COUNT(*) FROM cinemas`
+const colunasCinema = `id, nome, cidade, estado, endereco, ativo`
 
-	return consultarPaginado(ctx, r.pool, sqlPagina, sqlTotal, nil, req,
-		func(scan func(...any) error) (catalogo.Cinema, error) {
-			var c catalogo.Cinema
-			if err := scan(&c.ID, &c.Nome, &c.Cidade, &c.Estado, &c.Endereco); err != nil {
-				return c, fmt.Errorf("lendo cinema: %w", err)
-			}
-			return c, nil
-		})
+func lerCinema(scan func(...any) error) (catalogo.Cinema, error) {
+	var c catalogo.Cinema
+	if err := scan(&c.ID, &c.Nome, &c.Cidade, &c.Estado, &c.Endereco, &c.Ativo); err != nil {
+		return c, fmt.Errorf("lendo cinema: %w", err)
+	}
+	return c, nil
+}
+
+func (r *CinemaRepository) Listar(
+	ctx context.Context,
+	filtro usecase.FiltroCinemas,
+	req shared.PageRequest,
+) (shared.Page[catalogo.Cinema], error) {
+	// Filtro nulo significa "qualquer situação": um só SQL atende os dois casos.
+	filtros := []any{filtro.Ativo}
+
+	const sqlPagina = `SELECT ` + colunasCinema + ` FROM cinemas
+	                   WHERE ($1::boolean IS NULL OR ativo = $1)
+	                   ORDER BY nome, id LIMIT $2 OFFSET $3`
+	const sqlTotal = `SELECT COUNT(*) FROM cinemas WHERE ($1::boolean IS NULL OR ativo = $1)`
+
+	return consultarPaginado(ctx, r.pool, sqlPagina, sqlTotal, filtros, req, lerCinema)
+}
+
+func (r *CinemaRepository) BuscarPorID(ctx context.Context, cinemaID string) (catalogo.Cinema, error) {
+	linha := r.pool.QueryRow(ctx, `SELECT `+colunasCinema+` FROM cinemas WHERE id = $1`, cinemaID)
+	c, err := lerCinema(linha.Scan)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return catalogo.Cinema{}, fmt.Errorf("%w: cinema %s", shared.ErrNaoEncontrado, cinemaID)
+	}
+	if err != nil {
+		return catalogo.Cinema{}, err
+	}
+	return c, nil
+}
+
+func (r *CinemaRepository) Criar(ctx context.Context, c catalogo.Cinema) error {
+	const sqlInserir = `INSERT INTO cinemas (id, nome, cidade, estado, endereco, ativo)
+	                    VALUES ($1, $2, $3, $4, $5, $6)`
+	_, err := r.pool.Exec(ctx, sqlInserir, c.ID, c.Nome, c.Cidade, c.Estado, c.Endereco, c.Ativo)
+	if err != nil {
+		return fmt.Errorf("inserindo cinema: %w", err)
+	}
+	return nil
+}
+
+func (r *CinemaRepository) Atualizar(ctx context.Context, c catalogo.Cinema) error {
+	const sqlAtualizar = `UPDATE cinemas SET nome = $2, cidade = $3, estado = $4,
+	                          endereco = $5, ativo = $6, atualizado_em = CURRENT_TIMESTAMP
+	                      WHERE id = $1`
+	etiqueta, err := r.pool.Exec(ctx, sqlAtualizar, c.ID, c.Nome, c.Cidade, c.Estado, c.Endereco, c.Ativo)
+	if err != nil {
+		return fmt.Errorf("atualizando cinema: %w", err)
+	}
+	if etiqueta.RowsAffected() == 0 {
+		return fmt.Errorf("%w: cinema %s", shared.ErrNaoEncontrado, c.ID)
+	}
+	return nil
+}
+
+func (r *CinemaRepository) Desativar(ctx context.Context, cinemaID string) error {
+	const sqlDesativar = `UPDATE cinemas SET ativo = FALSE, atualizado_em = CURRENT_TIMESTAMP
+	                      WHERE id = $1`
+	etiqueta, err := r.pool.Exec(ctx, sqlDesativar, cinemaID)
+	if err != nil {
+		return fmt.Errorf("desativando cinema: %w", err)
+	}
+	if etiqueta.RowsAffected() == 0 {
+		return fmt.Errorf("%w: cinema %s", shared.ErrNaoEncontrado, cinemaID)
+	}
+	return nil
 }
 
 func (r *CinemaRepository) Existe(ctx context.Context, cinemaID string) (bool, error) {

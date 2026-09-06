@@ -61,6 +61,7 @@ func aplicarMigracoes(ctx context.Context) error {
 	for _, arquivo := range []string{
 		"../../migrations/000001_criar_esquema.up.sql",
 		"../../migrations/000002_criar_indices.up.sql",
+		"../../migrations/000003_ativar_cinemas.up.sql",
 	} {
 		sql, err := os.ReadFile(arquivo)
 		if err != nil {

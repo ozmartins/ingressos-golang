@@ -18,11 +18,11 @@ tags:
   - name: Filmes
     description: Catálogo de filmes em exibição.
   - name: Cinemas
-    description: Cinemas da rede e as salas de cada um.
+    description: Cadastro dos cinemas da rede e as salas de cada um.
   - name: Sessões
     description: |
-      Grade de sessões e a reserva de poltronas — única operação de escrita da
-      API, e a única que exige credencial.
+      Grade de sessões e a reserva de poltronas — a escrita que parte do
+      espectador, e não da operação do catálogo.
   - name: Operacional
     description: Endpoints consumidos pelo orquestrador, fora do prefixo versionado.
 
@@ -138,10 +138,16 @@ paths:
     get:
       tags: [Cinemas]
       summary: Lista cinemas
+      description: |
+        Sem o parâmetro `ativo`, retorna apenas os cinemas ativos.
       security: []
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
+        - name: ativo
+          in: query
+          required: false
+          schema: { type: boolean }
       responses:
         '200':
           description: Página de cinemas
@@ -149,6 +155,89 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/PaginaCinemas' }
         '400': { $ref: '#/components/responses/EntradaInvalida' }
+    post:
+      tags: [Cinemas]
+      summary: Cadastra um cinema
+      description: |
+        O identificador é gerado pelo serviço e devolvido no corpo e no header
+        `Location`. Sem `ativo` no corpo, o cinema nasce ativo.
+      security:
+        - clientCredentials: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CinemaEntrada' }
+      responses:
+        '201':
+          description: Cinema cadastrado
+          headers:
+            Location:
+              description: Caminho do cinema recém-criado
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Cinema' }
+        '400': { $ref: '#/components/responses/EntradaInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+
+  /cinemas/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Cinemas]
+      summary: Busca um cinema pelo identificador
+      description: |
+        Devolve o cinema em qualquer situação, inclusive inativo: o recorte
+        público vale apenas para a listagem.
+      security: []
+      responses:
+        '200':
+          description: Cinema encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Cinema' }
+        '400': { $ref: '#/components/responses/EntradaInvalida' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+    put:
+      tags: [Cinemas]
+      summary: Substitui um cinema
+      description: |
+        Substituição total: o corpo descreve o estado final do cinema, e campo
+        opcional omitido volta ao padrão. Sem `ativo`, o cinema fica ativo.
+      security:
+        - clientCredentials: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CinemaEntrada' }
+      responses:
+        '200':
+          description: Cinema atualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Cinema' }
+        '400': { $ref: '#/components/responses/EntradaInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+    delete:
+      tags: [Cinemas]
+      summary: Retira um cinema da rede
+      description: |
+        Remoção lógica: o cinema passa a inativo e some da listagem pública, mas
+        a linha permanece — as salas o referenciam, e as sessões referenciam as
+        salas. Segue disponível em `GET /cinemas/{id}` e no filtro `ativo=false`.
+      security:
+        - clientCredentials: []
+      responses:
+        '204': { $ref: '#/components/responses/SemConteudo' }
+        '400': { $ref: '#/components/responses/EntradaInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
 
   /cinemas/{id}/salas:
     get:
@@ -337,13 +426,30 @@ components:
 
     Cinema:
       type: object
-      required: [id, nome, cidade, estado, endereco]
+      required: [id, nome, cidade, estado, endereco, ativo]
       properties:
         id: { type: string, format: uuid }
         nome: { type: string }
         cidade: { type: string }
         estado: { type: string, minLength: 2, maxLength: 2 }
         endereco: { type: string }
+        ativo: { type: boolean }
+
+    CinemaEntrada:
+      type: object
+      description: Corpo de escrita de um cinema; o `id` nunca vem do cliente.
+      required: [nome, cidade, estado, endereco]
+      properties:
+        nome: { type: string, minLength: 1, maxLength: 255 }
+        cidade: { type: string, minLength: 1, maxLength: 100 }
+        estado:
+          type: string
+          minLength: 2
+          maxLength: 2
+          description: Sigla da unidade federativa, normalizada para maiúsculas
+        endereco: { type: string, minLength: 1 }
+        ativo: { type: boolean, default: true }
+      additionalProperties: false
 
     Sala:
       type: object

@@ -97,6 +97,10 @@ func executar() error {
 			AtualizarFilme:   usecase.AtualizarFilme{Repo: filmes},
 			RemoverFilme:     usecase.RemoverFilme{Repo: filmes},
 			ListarCinemas:    usecase.ListarCinemas{Repo: cinemas},
+			BuscarCinema:     usecase.BuscarCinema{Repo: cinemas},
+			CriarCinema:      usecase.CriarCinema{Repo: cinemas, GerarID: uuid.NewString},
+			AtualizarCinema:  usecase.AtualizarCinema{Repo: cinemas},
+			RemoverCinema:    usecase.RemoverCinema{Repo: cinemas},
 			ListarSalas:      usecase.ListarSalas{Cinemas: cinemas, Salas: salas},
 			ConsultarSessoes: usecase.ConsultarSessoes{Repo: sessoes},
 			ReservarPoltronas: usecase.ReservarPoltronas{

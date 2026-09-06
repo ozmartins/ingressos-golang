@@ -22,6 +22,10 @@ type Handlers struct {
 	AtualizarFilme    usecase.AtualizarFilme
 	RemoverFilme      usecase.RemoverFilme
 	ListarCinemas     usecase.ListarCinemas
+	BuscarCinema      usecase.BuscarCinema
+	CriarCinema       usecase.CriarCinema
+	AtualizarCinema   usecase.AtualizarCinema
+	RemoverCinema     usecase.RemoverCinema
 	ListarSalas       usecase.ListarSalas
 	ConsultarSessoes  usecase.ConsultarSessoes
 	ReservarPoltronas usecase.ReservarPoltronas
@@ -145,12 +149,101 @@ func (h Handlers) GetCinemas(w http.ResponseWriter, r *http.Request) {
 		EscreverErroDeDominio(w, r, err, "")
 		return
 	}
-	pagina, err := h.ListarCinemas.Executar(r.Context(), req)
+
+	var filtro usecase.FiltroCinemas
+	if bruto := r.URL.Query().Get("ativo"); bruto != "" {
+		ativo, err := parseBooleano(bruto, "ativo")
+		if err != nil {
+			EscreverErroDeDominio(w, r, err, "")
+			return
+		}
+		filtro.Ativo = ativo
+	}
+
+	pagina, err := h.ListarCinemas.Executar(r.Context(), filtro, req)
 	if err != nil {
 		EscreverErroDeDominio(w, r, err, "cinema")
 		return
 	}
 	escreverJSON(w, http.StatusOK, envelope(pagina, paraCinemaDTO))
+}
+
+func (h Handlers) GetCinema(w http.ResponseWriter, r *http.Request) {
+	cinemaID := r.PathValue("id")
+	if err := validarUUID(cinemaID, "id"); err != nil {
+		EscreverErroDeDominio(w, r, err, "")
+		return
+	}
+	cinema, err := h.BuscarCinema.Executar(r.Context(), cinemaID)
+	if err != nil {
+		EscreverErroDeDominio(w, r, err, "cinema")
+		return
+	}
+	escreverJSON(w, http.StatusOK, paraCinemaDTO(cinema))
+}
+
+func (h Handlers) PostCinema(w http.ResponseWriter, r *http.Request) {
+	corpo, ok := lerEntradaDeCinema(w, r)
+	if !ok {
+		return
+	}
+	cinema, err := h.CriarCinema.Executar(r.Context(), corpo.paraDadosCinema())
+	if err != nil {
+		escreverErroDeEscritaDeCinema(w, r, err)
+		return
+	}
+	w.Header().Set("Location", "/api/v1/cinemas/"+cinema.ID)
+	escreverJSON(w, http.StatusCreated, paraCinemaDTO(cinema))
+}
+
+func (h Handlers) PutCinema(w http.ResponseWriter, r *http.Request) {
+	cinemaID := r.PathValue("id")
+	if err := validarUUID(cinemaID, "id"); err != nil {
+		EscreverErroDeDominio(w, r, err, "")
+		return
+	}
+	corpo, ok := lerEntradaDeCinema(w, r)
+	if !ok {
+		return
+	}
+	cinema, err := h.AtualizarCinema.Executar(r.Context(), cinemaID, corpo.paraDadosCinema())
+	if err != nil {
+		escreverErroDeEscritaDeCinema(w, r, err)
+		return
+	}
+	escreverJSON(w, http.StatusOK, paraCinemaDTO(cinema))
+}
+
+func (h Handlers) DeleteCinema(w http.ResponseWriter, r *http.Request) {
+	cinemaID := r.PathValue("id")
+	if err := validarUUID(cinemaID, "id"); err != nil {
+		EscreverErroDeDominio(w, r, err, "")
+		return
+	}
+	if err := h.RemoverCinema.Executar(r.Context(), cinemaID); err != nil {
+		EscreverErroDeDominio(w, r, err, "cinema")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func lerEntradaDeCinema(w http.ResponseWriter, r *http.Request) (cinemaEntradaDTO, bool) {
+	var corpo cinemaEntradaDTO
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64*1024))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&corpo); err != nil {
+		EscreverProblem(w, r, catCorpoInvalido, "Corpo da requisição não é um JSON válido para esta operação.")
+		return cinemaEntradaDTO{}, false
+	}
+	return corpo, true
+}
+
+func escreverErroDeEscritaDeCinema(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, shared.ErrValidacao) {
+		EscreverProblem(w, r, catCorpoInvalido, mensagemLimpa(err))
+		return
+	}
+	EscreverErroDeDominio(w, r, err, "cinema")
 }
 
 func (h Handlers) GetSalasDoCinema(w http.ResponseWriter, r *http.Request) {
@@ -262,6 +355,21 @@ func validarUUID(v, campo string) error {
 		}
 	}
 	return nil
+}
+
+// `strconv.ParseBool` aceitaria "1", "t" e "TRUE"; o contrato promete apenas
+// `true` e `false`, e o erro precisa listar o que é aceito.
+func parseBooleano(v, campo string) (*bool, error) {
+	switch v {
+	case "true":
+		valor := true
+		return &valor, nil
+	case "false":
+		valor := false
+		return &valor, nil
+	default:
+		return nil, fmt.Errorf("%w: %s aceita apenas true ou false", shared.ErrValidacao, campo)
+	}
 }
 
 func parseData(v string) (*usecase.DataDoDia, error) {

@@ -76,11 +76,42 @@ func (e *estoqueFalso) BloquearPoltronas(context.Context, reserva.SolicitacaoRes
 	return e.resultado, e.erro
 }
 
-type cinemaRepoFalso struct{ existe bool }
+type cinemaRepoFalso struct {
+	existe         bool
+	filtroRecebido FiltroCinemas
+	criado         catalogo.Cinema
+	atualizado     catalogo.Cinema
+	desativado     string
+	erro           error
+}
 
-func (c *cinemaRepoFalso) Listar(_ context.Context, req shared.PageRequest) (shared.Page[catalogo.Cinema], error) {
+func (c *cinemaRepoFalso) Listar(_ context.Context, filtro FiltroCinemas, req shared.PageRequest) (shared.Page[catalogo.Cinema], error) {
+	c.filtroRecebido = filtro
 	return shared.NovaPage([]catalogo.Cinema{}, 0, req), nil
 }
+
+func (c *cinemaRepoFalso) BuscarPorID(_ context.Context, id string) (catalogo.Cinema, error) {
+	if c.erro != nil {
+		return catalogo.Cinema{}, c.erro
+	}
+	return catalogo.Cinema{ID: id}, nil
+}
+
+func (c *cinemaRepoFalso) Criar(_ context.Context, cinema catalogo.Cinema) error {
+	c.criado = cinema
+	return c.erro
+}
+
+func (c *cinemaRepoFalso) Atualizar(_ context.Context, cinema catalogo.Cinema) error {
+	c.atualizado = cinema
+	return c.erro
+}
+
+func (c *cinemaRepoFalso) Desativar(_ context.Context, id string) error {
+	c.desativado = id
+	return c.erro
+}
+
 func (c *cinemaRepoFalso) Existe(context.Context, string) (bool, error) { return c.existe, nil }
 
 type salaRepoFalso struct{ chamado bool }
@@ -327,5 +358,99 @@ func TestRemoverFilmePropagaNaoEncontrado(t *testing.T) {
 	err := RemoverFilme{Repo: repo}.Executar(context.Background(), "inexistente")
 	if !errors.Is(err, shared.ErrNaoEncontrado) {
 		t.Fatalf("esperava ErrNaoEncontrado, obteve %v", err)
+	}
+}
+
+func dadosCinemaValidos() catalogo.DadosCinema {
+	return catalogo.DadosCinema{
+		Nome:     "CineMark - Shopping Centro",
+		Cidade:   "Florianópolis",
+		Estado:   "sc",
+		Endereco: "Rua X, 100",
+	}
+}
+
+func TestListarCinemasSemFiltroAplicaRecortePublico(t *testing.T) {
+	repo := &cinemaRepoFalso{}
+	if _, err := (ListarCinemas{Repo: repo}).Executar(context.Background(), FiltroCinemas{}, pagina()); err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if repo.filtroRecebido.Ativo == nil || !*repo.filtroRecebido.Ativo {
+		t.Fatalf("sem filtro explícito, o repositório deveria receber ativo=true: %+v", repo.filtroRecebido.Ativo)
+	}
+}
+
+func TestListarCinemasRespeitaFiltroExplicito(t *testing.T) {
+	repo := &cinemaRepoFalso{}
+	inativo := false
+	if _, err := (ListarCinemas{Repo: repo}).Executar(context.Background(), FiltroCinemas{Ativo: &inativo}, pagina()); err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if repo.filtroRecebido.Ativo == nil || *repo.filtroRecebido.Ativo {
+		t.Fatal("o filtro explícito ativo=false deveria chegar ao repositório")
+	}
+}
+
+func TestCriarCinemaUsaOIdentificadorGerado(t *testing.T) {
+	repo := &cinemaRepoFalso{}
+	uc := CriarCinema{Repo: repo, GerarID: func() string { return "id-fixo" }}
+
+	cinema, err := uc.Executar(context.Background(), dadosCinemaValidos())
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if cinema.ID != "id-fixo" || repo.criado.ID != "id-fixo" {
+		t.Fatalf("o id gerado deveria chegar ao repositório e à resposta: %+v", repo.criado)
+	}
+	if !cinema.Ativo {
+		t.Fatal("sem `ativo` no corpo, o cinema deveria nascer ativo")
+	}
+	if cinema.Estado != "SC" {
+		t.Fatalf("a sigla deveria ser normalizada para maiúsculas, veio %q", cinema.Estado)
+	}
+}
+
+func TestCriarCinemaInvalidoNaoChegaAoRepositorio(t *testing.T) {
+	repo := &cinemaRepoFalso{}
+	uc := CriarCinema{Repo: repo, GerarID: func() string { return "id-fixo" }}
+
+	dados := dadosCinemaValidos()
+	dados.Estado = "SCA"
+	_, err := uc.Executar(context.Background(), dados)
+
+	if !errors.Is(err, shared.ErrValidacao) {
+		t.Fatalf("esperava erro de validação, obteve %v", err)
+	}
+	if repo.criado.ID != "" {
+		t.Fatal("cinema inválido não pode ser gravado")
+	}
+}
+
+func TestAtualizarCinemaPreservaOIdentificadorDaRota(t *testing.T) {
+	repo := &cinemaRepoFalso{}
+	cinema, err := AtualizarCinema{Repo: repo}.Executar(context.Background(), "id-da-rota", dadosCinemaValidos())
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if cinema.ID != "id-da-rota" || repo.atualizado.ID != "id-da-rota" {
+		t.Fatalf("o id da rota deveria identificar o cinema atualizado: %+v", repo.atualizado)
+	}
+}
+
+func TestAtualizarCinemaPropagaNaoEncontrado(t *testing.T) {
+	repo := &cinemaRepoFalso{erro: shared.ErrNaoEncontrado}
+	_, err := AtualizarCinema{Repo: repo}.Executar(context.Background(), "id-da-rota", dadosCinemaValidos())
+	if !errors.Is(err, shared.ErrNaoEncontrado) {
+		t.Fatalf("esperava ErrNaoEncontrado, obteve %v", err)
+	}
+}
+
+func TestRemoverCinemaDesativa(t *testing.T) {
+	repo := &cinemaRepoFalso{}
+	if err := (RemoverCinema{Repo: repo}).Executar(context.Background(), "id-x"); err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if repo.desativado != "id-x" {
+		t.Fatalf("esperava remoção lógica de id-x, obteve %q", repo.desativado)
 	}
 }

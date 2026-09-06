@@ -7,6 +7,7 @@
 // a versão anterior continua funcionando sem recompilar:
 //   - novo RPC `ConsultarMapaPoltronas` (FR-029..FR-031)
 //   - novo campo `motivo` = 5 em `RespostaBloqueio` (FR-046)
+//   - novo campo `valor_total` = 4 em `SolicitacaoBloqueio`
 //
 // Geração: buf generate (ver buf.gen.yaml na raiz do serviço)
 
@@ -33,6 +34,16 @@ message SolicitacaoBloqueio {
   // Sem repetições; no máximo POLTRONAS_MAX_POR_BLOQUEIO itens (padrão 10).
   repeated string poltronas_ids = 2;
   string usuario_id = 3; // UUID da claim `sub`, validado pelo Servico-Catalogo
+  // Valor a cobrar pela reserva, como texto decimal com duas casas ("84.00").
+  // Texto, e não um numérico do proto, pelo mesmo motivo que o preço da sessão
+  // é texto no catálogo: nenhum ponto flutuante binário representa centavo sem
+  // erro, e este valor vira cobrança.
+  //
+  // Quem tem autoridade sobre o preço é o Servico-Catalogo, dono do cadastro da
+  // sessão: ele o calcula a partir do `preco_base` e o informa aqui. Este
+  // serviço não recalcula nem confere o valor — apenas o guarda e o repassa a
+  // quem cobra, no fato `reserva.criada`.
+  string valor_total = 4;
 }
 
 message RespostaBloqueio {

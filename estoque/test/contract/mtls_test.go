@@ -69,8 +69,7 @@ func tentarBloqueio(t *testing.T, endereco string, cred credentials.TransportCre
 	defer cancelar()
 
 	_, err = pb.NewServicoEstoqueClient(conn).BloquearPoltronas(ctx, &pb.SolicitacaoBloqueio{
-		SessaoId: sessaoProvisionada, PoltronasIds: []string{"A1"}, UsuarioId: usuario,
-	})
+		SessaoId: sessaoProvisionada, PoltronasIds: []string{"A1"}, UsuarioId: usuario, ValorTotal: valorDeTeste})
 	return err
 }
 

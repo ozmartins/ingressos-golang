@@ -25,7 +25,7 @@ func TestInvarianteApos1000Ciclos(t *testing.T) {
 		numero := 1 + aleatorio.Intn(10)
 		rotulo := poltrona.MontarRotulo(fileira, numero)
 
-		resultado, err := c.Bloquear.Executar(ctx, sessao, usuario, []string{rotulo})
+		resultado, err := c.Bloquear.Executar(ctx, sessao, usuario, []string{rotulo}, valorDeTeste)
 		if err != nil {
 			t.Fatalf("ciclo %d: bloqueio falhou: %v", i, err)
 		}

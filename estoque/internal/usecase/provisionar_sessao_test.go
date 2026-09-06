@@ -61,7 +61,7 @@ func TestProvisionarEhIdempotenteENaoReiniciaEstado(t *testing.T) {
 		t.Fatalf("erro inesperado: %v", err)
 	}
 	if _, err := montarBloqueio(estoque, prazo, log).
-		Executar(context.Background(), sessao, usuario, []string{"A1"}); err != nil {
+		Executar(context.Background(), sessao, usuario, []string{"A1"}, valorDeTeste); err != nil {
 		t.Fatalf("erro inesperado: %v", err)
 	}
 

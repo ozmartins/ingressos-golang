@@ -19,7 +19,7 @@ func TestBloqueioGravaTudoNaMesmaTransacao(t *testing.T) {
 	sessao := c.novaSessao(t, []string{"A"}, 5)
 	ctx := context.Background()
 
-	resultado, err := c.Bloquear.Executar(ctx, sessao, usuario, []string{"A1", "A2"})
+	resultado, err := c.Bloquear.Executar(ctx, sessao, usuario, []string{"A1", "A2"}, valorDeTeste)
 	if err != nil || !resultado.Concedido {
 		t.Fatalf("bloqueio: %v", err)
 	}
@@ -77,11 +77,11 @@ func TestBloqueioRecusadoNaoAlteraEstado(t *testing.T) {
 	sessao := c.novaSessao(t, []string{"A"}, 3)
 	ctx := context.Background()
 
-	if _, err := c.Bloquear.Executar(ctx, sessao, usuario, []string{"A1"}); err != nil {
+	if _, err := c.Bloquear.Executar(ctx, sessao, usuario, []string{"A1"}, valorDeTeste); err != nil {
 		t.Fatalf("primeiro bloqueio: %v", err)
 	}
 
-	resultado, err := c.Bloquear.Executar(ctx, sessao, "outra-pessoa", []string{"A1", "A2", "A3"})
+	resultado, err := c.Bloquear.Executar(ctx, sessao, "outra-pessoa", []string{"A1", "A2", "A3"}, valorDeTeste)
 	if err != nil {
 		t.Fatalf("indisponibilidade não é erro: %v", err)
 	}
@@ -106,7 +106,7 @@ func TestBloqueioRecusadoNaoAlteraEstado(t *testing.T) {
 func TestBloqueioRecusaSessaoNaoProvisionada(t *testing.T) {
 	c := montarCenario(t, false)
 
-	_, err := c.Bloquear.Executar(context.Background(), "sessao-inexistente", usuario, []string{"A1"})
+	_, err := c.Bloquear.Executar(context.Background(), "sessao-inexistente", usuario, []string{"A1"}, valorDeTeste)
 	if !errors.Is(err, shared.ErrSessaoNaoProvisionada) {
 		t.Fatalf("erro = %v, esperado ErrSessaoNaoProvisionada", err)
 	}
@@ -116,7 +116,7 @@ func TestBloqueioRecusaRotuloInexistenteNaSessao(t *testing.T) {
 	c := montarCenario(t, false)
 	sessao := c.novaSessao(t, []string{"A"}, 2)
 
-	_, err := c.Bloquear.Executar(context.Background(), sessao, usuario, []string{"A1", "Z9"})
+	_, err := c.Bloquear.Executar(context.Background(), sessao, usuario, []string{"A1", "Z9"}, valorDeTeste)
 	if !errors.Is(err, shared.ErrPoltronaInexistente) {
 		t.Fatalf("erro = %v, esperado ErrPoltronaInexistente", err)
 	}
@@ -143,7 +143,7 @@ func TestConcorrenciaExatamenteUmVencedor(t *testing.T) {
 		go func(i int) {
 			defer fim.Done()
 			largada.Wait()
-			resultado, err := c.Bloquear.Executar(ctx, sessao, usuario, []string{"A1", "A2"})
+			resultado, err := c.Bloquear.Executar(ctx, sessao, usuario, []string{"A1", "A2"}, valorDeTeste)
 			concedidos[i] = err == nil && resultado.Concedido
 			if err != nil && !errors.Is(err, shared.ErrPoltronasIndisponiveis) {
 				erros[i] = err
@@ -190,7 +190,7 @@ func TestBancoIndisponivelRecusaSemConceder(t *testing.T) {
 
 	c.Banco.Fechar()
 
-	_, err := c.Bloquear.Executar(context.Background(), sessao, usuario, []string{"A1"})
+	_, err := c.Bloquear.Executar(context.Background(), sessao, usuario, []string{"A1"}, valorDeTeste)
 	if err == nil {
 		t.Fatal("esperava recusa com o banco indisponível")
 	}

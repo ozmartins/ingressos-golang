@@ -7,6 +7,7 @@
 // a versão anterior continua funcionando sem recompilar:
 //   - novo RPC `ConsultarMapaPoltronas` (FR-029..FR-031)
 //   - novo campo `motivo` = 5 em `RespostaBloqueio` (FR-046)
+//   - novo campo `valor_total` = 4 em `SolicitacaoBloqueio`
 //
 // Geração: buf generate (ver buf.gen.yaml na raiz do serviço)
 

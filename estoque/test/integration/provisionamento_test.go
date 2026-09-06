@@ -58,7 +58,7 @@ func TestProvisionamentoDisponibilizaMatrizParaBloqueio(t *testing.T) {
 		t.Errorf("tipos não preservados: %s %s", mapa[1].Tipo, mapa[2].Tipo)
 	}
 
-	resultado, err := c.Bloquear.Executar(ctx, sessaoID, usuario, []string{"A1"})
+	resultado, err := c.Bloquear.Executar(ctx, sessaoID, usuario, []string{"A1"}, valorDeTeste)
 	if err != nil || !resultado.Concedido {
 		t.Fatalf("matriz provisionada devia aceitar bloqueio: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestReanuncioNaoDuplicaNemReiniciaEstado(t *testing.T) {
 	if _, err := c.Provisionar.Executar(ctx, filaSessao, sessaoID, evento); err != nil {
 		t.Fatalf("provisionar: %v", err)
 	}
-	if _, err := c.Bloquear.Executar(ctx, sessaoID, usuario, []string{"A1"}); err != nil {
+	if _, err := c.Bloquear.Executar(ctx, sessaoID, usuario, []string{"A1"}, valorDeTeste); err != nil {
 		t.Fatalf("bloqueio: %v", err)
 	}
 
@@ -135,7 +135,7 @@ func TestBloqueioAntesDoProvisionamento(t *testing.T) {
 	ctx := context.Background()
 	sessaoID := uuid.NewString()
 
-	_, err := c.Bloquear.Executar(ctx, sessaoID, usuario, []string{"A1"})
+	_, err := c.Bloquear.Executar(ctx, sessaoID, usuario, []string{"A1"}, valorDeTeste)
 	if !errors.Is(err, shared.ErrSessaoNaoProvisionada) {
 		t.Fatalf("erro = %v, esperado ErrSessaoNaoProvisionada", err)
 	}
@@ -145,7 +145,7 @@ func TestBloqueioAntesDoProvisionamento(t *testing.T) {
 		t.Fatalf("provisionar: %v", err)
 	}
 
-	resultado, err := c.Bloquear.Executar(ctx, sessaoID, usuario, []string{"A1"})
+	resultado, err := c.Bloquear.Executar(ctx, sessaoID, usuario, []string{"A1"}, valorDeTeste)
 	if err != nil || !resultado.Concedido {
 		t.Fatalf("bloqueio após provisionamento: %v", err)
 	}
@@ -161,7 +161,7 @@ func TestMapaCoerenteDuranteBloqueioConcorrente(t *testing.T) {
 		defer close(fim)
 		for i := 1; i <= 5; i++ {
 			_, _ = c.Bloquear.Executar(ctx, sessao, usuario,
-				[]string{poltrona.MontarRotulo("A", i)})
+				[]string{poltrona.MontarRotulo("A", i)}, valorDeTeste)
 		}
 	}()
 

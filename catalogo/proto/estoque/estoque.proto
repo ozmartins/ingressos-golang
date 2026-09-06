@@ -18,6 +18,10 @@ message SolicitacaoBloqueio {
   string sessao_id = 1;
   repeated string poltronas_ids = 2;
   string usuario_id = 3; // UUID extraído da claim `sub` do JWT pelo Servico-Catalogo
+  // Valor a cobrar pela reserva, como texto decimal ("84.00"). Este serviço é a
+  // autoridade do preço — ele o calcula a partir do `preco_base` da sessão — e o
+  // estoque apenas o guarda e o repassa a quem cobra.
+  string valor_total = 4;
 }
 
 message RespostaBloqueio {

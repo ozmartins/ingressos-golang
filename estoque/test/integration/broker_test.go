@@ -221,7 +221,7 @@ func TestSessaoCriadaProvisionaPeloConsumo(t *testing.T) {
 		return c.contarPorStatus(t, sessaoID)["LIVRE"] == 2
 	}, "matriz não foi provisionada pelo consumo de sessao.criada")
 
-	resultado, err := c.Bloquear.Executar(context.Background(), sessaoID, usuario, []string{"A1"})
+	resultado, err := c.Bloquear.Executar(context.Background(), sessaoID, usuario, []string{"A1"}, valorDeTeste)
 	if err != nil || !resultado.Concedido {
 		t.Fatalf("sessão provisionada por evento devia aceitar bloqueio: %v", err)
 	}

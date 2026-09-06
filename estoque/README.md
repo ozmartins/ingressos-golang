@@ -173,5 +173,11 @@ verificado por teste (`test/arquitetura_test.go`) e pelo linter, não por revis�
   foi adotado por ele sem alteração. Falta o outro lado do ciclo de vida: alterar
   ou cancelar uma sessão não emite fato, e mover uma sessão já anunciada para
   outra sala deixa a matriz daqui apontando para a planta antiga.
+- A solicitação de bloqueio passou a exigir `valor_total`, e a reserva o guarda
+  para repassá-lo em `reserva.criada` — sem ele o `Servico-Pagamento` não tem o
+  que cobrar. O valor não é decidido aqui: quem tem autoridade sobre o preço é o
+  catálogo, dono do cadastro da sessão. No REST, onde o chamador é o cliente
+  final, o valor é declarado por ele — é superfície de operação e teste, e a
+  ressalva está no contrato.
 - O `Servico-Catalogo` ainda disca em texto claro. Ativar `TLS_CLIENT_AUTH=require`
   em produção exige que ele passe a apresentar certificado de cliente.

@@ -18,6 +18,9 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/usecase"
 )
 
+// O valor é decidido pelo catálogo; aqui só precisa ser um decimal válido.
+const valorDeTeste = "84.00"
+
 const usuario = "c394c8b3-76a1-4328-b803-02f5923b7a15"
 
 type registrador struct{ t *testing.T }

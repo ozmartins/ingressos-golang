@@ -33,6 +33,9 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/usecase"
 )
 
+// O valor é decidido pelo catálogo; aqui só precisa ser um decimal válido.
+const valorDeTeste = "84.00"
+
 const (
 	sessaoProvisionada = "f781a9b2-11e2-4f81-a901-8890bc123456"
 	usuario            = "c394c8b3-76a1-4328-b803-02f5923b7a15"

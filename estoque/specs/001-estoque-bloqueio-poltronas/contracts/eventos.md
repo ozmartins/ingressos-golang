@@ -25,11 +25,21 @@ do instante da publicação — a caixa de saída publica de forma assíncrona.
   "sessao_id": "f781a9b2-11e2-4f81-a901-8890bc123456",
   "usuario_id": "c394c8b3-76a1-4328-b803-02f5923b7a15",
   "poltronas_ids": ["A1", "A2"],
+  "valor_total": "84.00",
   "expira_em": "2026-08-29T21:43:00Z"
 }
 ```
 
 `poltronas_ids` traz os **mesmos rótulos recebidos na solicitação** (FR-016).
+
+`valor_total` é texto decimal, e não número JSON, pelo mesmo motivo que o preço
+é texto no catálogo: nenhum ponto flutuante binário representa centavo sem erro,
+e este valor vira cobrança. Ele chega na solicitação de bloqueio e é repassado
+sem interpretação — quem tem autoridade sobre o preço é o `Servico-Catalogo`,
+dono do cadastro da sessão. Este serviço confere apenas o formato.
+
+O campo é **adição compatível**: quem já consumia o fato sem ele continua
+funcionando, e por isso a versão segue `1`.
 A publicação passa pela caixa de saída transacional: a reserva é persistida
 primeiro e o evento é reenviado até ser aceito pelo broker (FR-018), portanto a
 entrega é **ao menos uma vez** — consumidores devem deduplicar por `reserva_id`.

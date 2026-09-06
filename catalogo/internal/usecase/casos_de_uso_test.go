@@ -97,13 +97,15 @@ func (s *sessaoRepoFalso) SalaOcupada(_ context.Context, salaID string, inicio, 
 }
 
 type estoqueFalso struct {
-	chamadas  int
-	resultado reserva.ResultadoReserva
-	erro      error
+	chamadas    int
+	solicitacao reserva.SolicitacaoReserva
+	resultado   reserva.ResultadoReserva
+	erro        error
 }
 
-func (e *estoqueFalso) BloquearPoltronas(context.Context, reserva.SolicitacaoReserva) (reserva.ResultadoReserva, error) {
+func (e *estoqueFalso) BloquearPoltronas(_ context.Context, s reserva.SolicitacaoReserva) (reserva.ResultadoReserva, error) {
 	e.chamadas++
+	e.solicitacao = s
 	return e.resultado, e.erro
 }
 
@@ -289,6 +291,46 @@ func sessaoReservavel() catalogo.Sessao {
 		ID:             "f781a9b2-11e2-4f81-a901-8890bc123456",
 		Status:         catalogo.SessaoAgendada,
 		DataHoraInicio: time.Date(2026, 9, 1, 20, 30, 0, 0, time.UTC),
+		PrecoBase:      catalogo.DinheiroDeCentavos(4250),
+	}
+}
+
+// O cliente pede poltronas; quanto custam é decisão do catálogo, dono do
+// cadastro da sessão. Quem cobra recebe este valor pelo fato do estoque.
+func TestReservarPoltronasDerivaOValorDoPrecoDaSessao(t *testing.T) {
+	est := &estoqueFalso{resultado: reserva.ResultadoReserva{
+		ReservaID: "9982a1b3-44c1-4221-a123-902183120192",
+		ExpiraEm:  agoraFixo().Add(10 * time.Minute),
+	}}
+	uc := ReservarPoltronas{Sessoes: &sessaoRepoFalso{sessao: sessaoReservavel()}, Estoque: est, Agora: agoraFixo}
+
+	s := solicitacao()
+	s.PoltronasIDs = []string{"A1", "A2", "F1"}
+	if _, err := uc.Executar(context.Background(), s); err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+
+	// 42,50 × 3 poltronas, sem centavo perdido no caminho.
+	if got := est.solicitacao.ValorTotal; got != "127.50" {
+		t.Fatalf("valor_total = %q, esperado \"127.50\"", got)
+	}
+}
+
+// O valor é derivado, não recebido: o que o cliente mandar é ignorado.
+func TestReservarPoltronasIgnoraValorInformadoPeloCliente(t *testing.T) {
+	est := &estoqueFalso{resultado: reserva.ResultadoReserva{
+		ReservaID: "9982a1b3-44c1-4221-a123-902183120192",
+		ExpiraEm:  agoraFixo().Add(10 * time.Minute),
+	}}
+	uc := ReservarPoltronas{Sessoes: &sessaoRepoFalso{sessao: sessaoReservavel()}, Estoque: est, Agora: agoraFixo}
+
+	s := solicitacao()
+	s.ValorTotal = "0.01"
+	if _, err := uc.Executar(context.Background(), s); err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if got := est.solicitacao.ValorTotal; got == "0.01" {
+		t.Fatal("o valor informado pelo cliente não deveria chegar ao estoque")
 	}
 }
 

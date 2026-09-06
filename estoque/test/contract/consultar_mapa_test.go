@@ -31,8 +31,7 @@ func TestConsultarMapaDevolveEstadoCorrente(t *testing.T) {
 	}
 
 	if _, err := cliente.BloquearPoltronas(context.Background(), &pb.SolicitacaoBloqueio{
-		SessaoId: sessaoProvisionada, PoltronasIds: []string{"A1"}, UsuarioId: usuario,
-	}); err != nil {
+		SessaoId: sessaoProvisionada, PoltronasIds: []string{"A1"}, UsuarioId: usuario, ValorTotal: valorDeTeste}); err != nil {
 		t.Fatalf("bloqueio: %v", err)
 	}
 

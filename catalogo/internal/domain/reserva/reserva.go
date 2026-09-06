@@ -11,6 +11,9 @@ type SolicitacaoReserva struct {
 	SessaoID     string
 	PoltronasIDs []string
 	UsuarioID    string
+	// Texto decimal, calculado pelo serviço a partir do preço da sessão — o
+	// cliente não informa preço. Vai ao estoque, que o repassa a quem cobra.
+	ValorTotal string
 }
 
 func (s SolicitacaoReserva) Validar() error {

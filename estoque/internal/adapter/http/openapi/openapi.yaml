@@ -53,8 +53,22 @@ components:
   schemas:
     SolicitacaoBloqueio:
       type: object
-      required: [poltronas_ids]
+      required: [poltronas_ids, valor_total]
       properties:
+        valor_total:
+          type: string
+          pattern: '^[0-9]+(\.[0-9]{1,2})?$'
+          description: |
+            Valor a cobrar pela reserva, como texto decimal — não número, porque
+            nenhum ponto flutuante binário representa centavo sem erro e este
+            valor vira cobrança. Precisa ser maior que zero.
+
+            **Ressalva desta superfície:** quem tem autoridade sobre o preço é o
+            `Servico-Catalogo`, dono do cadastro da sessão, e é ele que abre a
+            reserva em produção — pelo gRPC, informando o valor que calculou. No
+            REST o chamador é o cliente final, que aqui declara o próprio valor;
+            é superfície de operação e de teste, não o caminho de compra.
+          example: "84.00"
         poltronas_ids:
           type: array
           description: |

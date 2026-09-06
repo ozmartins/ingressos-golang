@@ -19,6 +19,9 @@ type EventoReservaCriada struct {
 	UsuarioID    string   `json:"usuario_id"`
 	PoltronasIDs []string `json:"poltronas_ids"`
 	ExpiraEm     string   `json:"expira_em"`
+	// Texto decimal, vindo de quem tem autoridade sobre o preço. Quem cobra
+	// precisa dele: sem valor não há cobrança.
+	ValorTotal string `json:"valor_total"`
 }
 
 const RoutingKeyReservaCriada = "reserva.criada"
@@ -40,14 +43,14 @@ type ResultadoBloqueio struct {
 	Mensagem  string
 }
 
-func (uc BloquearPoltronas) Executar(ctx context.Context, sessaoID, usuarioID string, rotulos []string) (ResultadoBloqueio, error) {
-	sol, err := reserva.NovaSolicitacao(sessaoID, usuarioID, rotulos, uc.Limite)
+func (uc BloquearPoltronas) Executar(ctx context.Context, sessaoID, usuarioID string, rotulos []string, valorTotal string) (ResultadoBloqueio, error) {
+	sol, err := reserva.NovaSolicitacao(sessaoID, usuarioID, rotulos, valorTotal, uc.Limite)
 	if err != nil {
 		return ResultadoBloqueio{}, err
 	}
 
 	agora := uc.Relogio.Agora()
-	r := reserva.Nova(sol.SessaoID, sol.UsuarioID, sol.Rotulos, agora, uc.TTL)
+	r := reserva.Nova(sol, agora, uc.TTL)
 
 	fato, err := uc.montarFato(ctx, r)
 	if err != nil {
@@ -81,6 +84,7 @@ func (uc BloquearPoltronas) montarFato(ctx context.Context, r reserva.Reserva) (
 		UsuarioID:    r.UsuarioID,
 		PoltronasIDs: r.Rotulos,
 		ExpiraEm:     r.ExpiraEm.Format(time.RFC3339),
+		ValorTotal:   r.ValorTotal,
 	})
 	if err != nil {
 		return FatoPendente{}, err

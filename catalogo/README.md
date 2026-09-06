@@ -58,6 +58,17 @@ broker confirmar. Disso decorrem três coisas que quem integra precisa saber:
 O contexto de rastreamento da requisição viaja nos cabeçalhos da mensagem, de
 modo que o span de quem consome não nasça órfão.
 
+## O preço da reserva sai daqui
+
+`POST /sessoes/{id}/reservar` não recebe preço: o corpo pede poltronas, e o
+serviço calcula `valor_total` como o `preco_base` da sessão vezes o número de
+poltronas — a mesma escolha feita com `capacidade_total`, e pelo mesmo motivo. O
+valor segue ao estoque na solicitação de bloqueio e chega a quem cobra pelo fato
+`reserva.criada`.
+
+Este serviço é a autoridade do preço porque é o dono do cadastro da sessão.
+Recalculá-lo em qualquer outro lugar duplicaria a regra.
+
 ## Superfície da API
 
 | Método | Caminho | Credencial |

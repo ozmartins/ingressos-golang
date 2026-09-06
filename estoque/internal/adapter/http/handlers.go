@@ -13,7 +13,7 @@ import (
 )
 
 type CasoDeUsoBloqueio interface {
-	Executar(ctx context.Context, sessaoID, usuarioID string, rotulos []string) (usecase.ResultadoBloqueio, error)
+	Executar(ctx context.Context, sessaoID, usuarioID string, rotulos []string, valorTotal string) (usecase.ResultadoBloqueio, error)
 }
 
 type CasoDeUsoMapa interface {
@@ -29,6 +29,12 @@ type API struct {
 
 type solicitacaoBloqueio struct {
 	PoltronasIDs []string `json:"poltronas_ids"`
+	// As duas superfícies chamam o mesmo caso de uso, então valem as mesmas
+	// regras de domínio — e o valor é obrigatório nas duas. A diferença é de
+	// quem chama: no gRPC é o catálogo, autoridade do preço; aqui é o cliente
+	// final, que declara o valor. Ver a ressalva no contrato: em produção quem
+	// abre a reserva é o catálogo, e esta superfície é de operação e teste.
+	ValorTotal json.Number `json:"valor_total"`
 }
 
 type respostaBloqueio struct {
@@ -76,7 +82,8 @@ func (a *API) bloquear(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resultado, err := a.Bloqueio.Executar(r.Context(), r.PathValue("sessao_id"), usuarioID, corpo.PoltronasIDs)
+	resultado, err := a.Bloqueio.Executar(r.Context(), r.PathValue("sessao_id"), usuarioID,
+		corpo.PoltronasIDs, corpo.ValorTotal.String())
 	if err != nil {
 		responderErroDeDominio(w, r, err, a.Limite)
 		return

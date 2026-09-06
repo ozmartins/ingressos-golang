@@ -37,7 +37,7 @@ func TestDesempenhoDoBloqueio(t *testing.T) {
 			rotulo := poltrona.MontarRotulo(fileira, n)
 
 			inicio := time.Now()
-			resultado, err := c.Bloquear.Executar(ctx, sessao, usuario, []string{rotulo})
+			resultado, err := c.Bloquear.Executar(ctx, sessao, usuario, []string{rotulo}, valorDeTeste)
 			decorrido := time.Since(inicio)
 
 			if err != nil {
@@ -72,7 +72,7 @@ func TestDesempenhoDaConsulta(t *testing.T) {
 
 	for i := 0; i < 250; i++ {
 		rotulo := poltrona.MontarRotulo(fileiras[i/20], i%20+1)
-		if _, err := c.Bloquear.Executar(ctx, sessao, usuario, []string{rotulo}); err != nil {
+		if _, err := c.Bloquear.Executar(ctx, sessao, usuario, []string{rotulo}, valorDeTeste); err != nil {
 			t.Fatalf("preparar sala: %v", err)
 		}
 	}

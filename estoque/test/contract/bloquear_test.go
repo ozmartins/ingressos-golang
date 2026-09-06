@@ -29,8 +29,7 @@ func razaoDe(t *testing.T, err error) (codes.Code, string) {
 func TestBloquearConcedeERecusaPorIndisponibilidade(t *testing.T) {
 	cliente := servidorEmMemoria(t, novoEstoqueDeTeste())
 	req := &pb.SolicitacaoBloqueio{
-		SessaoId: sessaoProvisionada, PoltronasIds: []string{"A1", "A2"}, UsuarioId: usuario,
-	}
+		SessaoId: sessaoProvisionada, PoltronasIds: []string{"A1", "A2"}, UsuarioId: usuario, ValorTotal: valorDeTeste}
 
 	resp, err := cliente.BloquearPoltronas(context.Background(), req)
 	if err != nil {
@@ -70,38 +69,57 @@ func TestBloquearMapeiaCadaCategoriaDeErro(t *testing.T) {
 	}{
 		{
 			"lista vazia",
-			&pb.SolicitacaoBloqueio{SessaoId: sessaoProvisionada, UsuarioId: usuario},
+			&pb.SolicitacaoBloqueio{SessaoId: sessaoProvisionada, UsuarioId: usuario, ValorTotal: valorDeTeste},
 			codes.InvalidArgument, "SOLICITACAO_INVALIDA",
 		},
 		{
 			"rótulos repetidos",
-			&pb.SolicitacaoBloqueio{SessaoId: sessaoProvisionada, PoltronasIds: []string{"A1", "a1"}, UsuarioId: usuario},
+			&pb.SolicitacaoBloqueio{SessaoId: sessaoProvisionada, PoltronasIds: []string{"A1", "a1"}, UsuarioId: usuario, ValorTotal: valorDeTeste},
 			codes.InvalidArgument, "SOLICITACAO_INVALIDA",
 		},
 		{
 			"identidade da pessoa ausente",
-			&pb.SolicitacaoBloqueio{SessaoId: sessaoProvisionada, PoltronasIds: []string{"A1"}},
+			&pb.SolicitacaoBloqueio{SessaoId: sessaoProvisionada, PoltronasIds: []string{"A1"}, ValorTotal: valorDeTeste},
+			codes.InvalidArgument, "SOLICITACAO_INVALIDA",
+		},
+		{
+			// Sem valor não há cobrança: quem consome o fato da reserva precisa
+			// dele, e uma reserva sem valor seria incobrável por construção.
+			"valor ausente",
+			&pb.SolicitacaoBloqueio{SessaoId: sessaoProvisionada, PoltronasIds: []string{"A1"}, UsuarioId: usuario},
+			codes.InvalidArgument, "SOLICITACAO_INVALIDA",
+		},
+		{
+			"valor malformado",
+			&pb.SolicitacaoBloqueio{SessaoId: sessaoProvisionada, PoltronasIds: []string{"A1"},
+				UsuarioId: usuario, ValorTotal: "R$ 84,00"},
+			codes.InvalidArgument, "SOLICITACAO_INVALIDA",
+		},
+		{
+			"valor zerado",
+			&pb.SolicitacaoBloqueio{SessaoId: sessaoProvisionada, PoltronasIds: []string{"A1"},
+				UsuarioId: usuario, ValorTotal: "0.00"},
 			codes.InvalidArgument, "SOLICITACAO_INVALIDA",
 		},
 		{
 			"rótulo malformado",
-			&pb.SolicitacaoBloqueio{SessaoId: sessaoProvisionada, PoltronasIds: []string{"poltrona-boa"}, UsuarioId: usuario},
+			&pb.SolicitacaoBloqueio{SessaoId: sessaoProvisionada, PoltronasIds: []string{"poltrona-boa"}, UsuarioId: usuario, ValorTotal: valorDeTeste},
 			codes.InvalidArgument, "SOLICITACAO_INVALIDA",
 		},
 		{
 			"acima do limite por bloqueio",
 			&pb.SolicitacaoBloqueio{SessaoId: sessaoProvisionada, UsuarioId: usuario,
-				PoltronasIds: []string{"A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10", "A11"}},
+				PoltronasIds: []string{"A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10", "A11"}, ValorTotal: valorDeTeste},
 			codes.InvalidArgument, "LIMITE_POLTRONAS_EXCEDIDO",
 		},
 		{
 			"poltrona inexistente na sessão",
-			&pb.SolicitacaoBloqueio{SessaoId: sessaoProvisionada, PoltronasIds: []string{"Z9"}, UsuarioId: usuario},
+			&pb.SolicitacaoBloqueio{SessaoId: sessaoProvisionada, PoltronasIds: []string{"Z9"}, UsuarioId: usuario, ValorTotal: valorDeTeste},
 			codes.FailedPrecondition, "POLTRONA_INEXISTENTE",
 		},
 		{
 			"sessão sem matriz provisionada",
-			&pb.SolicitacaoBloqueio{SessaoId: "sessao-desconhecida", PoltronasIds: []string{"A1"}, UsuarioId: usuario},
+			&pb.SolicitacaoBloqueio{SessaoId: "sessao-desconhecida", PoltronasIds: []string{"A1"}, UsuarioId: usuario, ValorTotal: valorDeTeste},
 			codes.FailedPrecondition, "SESSAO_NAO_PROVISIONADA",
 		},
 	}
@@ -136,8 +154,7 @@ func TestLimiteExcedidoInformaOLimiteVigente(t *testing.T) {
 
 	_, err := cliente.BloquearPoltronas(context.Background(), &pb.SolicitacaoBloqueio{
 		SessaoId: sessaoProvisionada, UsuarioId: usuario,
-		PoltronasIds: []string{"A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10", "A11"},
-	})
+		PoltronasIds: []string{"A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10", "A11"}, ValorTotal: valorDeTeste})
 	st, _ := status.FromError(err)
 	for _, detalhe := range st.Details() {
 		if info, ok := detalhe.(*errdetails.ErrorInfo); ok {
@@ -156,8 +173,7 @@ func TestDependenciaIndisponivelViraUnavailableSemVazarDetalhe(t *testing.T) {
 	cliente := servidorEmMemoria(t, estoque)
 
 	_, err := cliente.BloquearPoltronas(context.Background(), &pb.SolicitacaoBloqueio{
-		SessaoId: sessaoProvisionada, PoltronasIds: []string{"A1"}, UsuarioId: usuario,
-	})
+		SessaoId: sessaoProvisionada, PoltronasIds: []string{"A1"}, UsuarioId: usuario, ValorTotal: valorDeTeste})
 	codigo, razao := razaoDe(t, err)
 	if codigo != codes.Unavailable {
 		t.Errorf("código = %s, esperado Unavailable", codigo)
@@ -180,8 +196,7 @@ func TestIdentidadeDaPessoaNaoEhValidadaPeloEstoque(t *testing.T) {
 	resp, err := cliente.BloquearPoltronas(context.Background(), &pb.SolicitacaoBloqueio{
 		SessaoId:     sessaoProvisionada,
 		PoltronasIds: []string{"B1"},
-		UsuarioId:    "identidade-arbitraria-sem-token",
-	})
+		UsuarioId:    "identidade-arbitraria-sem-token", ValorTotal: valorDeTeste})
 	if err != nil {
 		t.Fatalf("o estoque não valida credencial de pessoa: %v", err)
 	}

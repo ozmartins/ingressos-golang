@@ -74,6 +74,7 @@ func (c *Cliente) BloquearPoltronas(ctx context.Context, s reserva.SolicitacaoRe
 		return c.rpc.BloquearPoltronas(ctxChamada, &estoquepb.SolicitacaoBloqueio{
 			SessaoId:     s.SessaoID,
 			PoltronasIds: s.PoltronasIDs,
+			ValorTotal:   s.ValorTotal,
 			UsuarioId:    s.UsuarioID,
 		})
 	})

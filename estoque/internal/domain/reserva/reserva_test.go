@@ -10,8 +10,19 @@ import (
 
 var instante = time.Date(2026, 8, 29, 21, 33, 0, 0, time.UTC)
 
+// A solicitação já validada é a entrada de `Nova`: o valor vem de quem tem
+// autoridade sobre o preço, e aqui só precisa ser um decimal válido.
+func solicitacaoDeTeste(rotulos ...string) Solicitacao {
+	return Solicitacao{
+		SessaoID:   "sessao",
+		UsuarioID:  "usuario",
+		Rotulos:    rotulos,
+		ValorTotal: "84.00",
+	}
+}
+
 func TestNovaCriaPendenteComPrazo(t *testing.T) {
-	r := Nova("sessao", "usuario", []string{"A1", "A2"}, instante, 10*time.Minute)
+	r := Nova(solicitacaoDeTeste("A1", "A2"), instante, 10*time.Minute)
 
 	if r.Status != Pendente {
 		t.Errorf("status = %s, esperado PENDENTE", r.Status)
@@ -25,7 +36,7 @@ func TestNovaCriaPendenteComPrazo(t *testing.T) {
 }
 
 func TestExpirou(t *testing.T) {
-	r := Nova("sessao", "usuario", []string{"A1"}, instante, 10*time.Minute)
+	r := Nova(solicitacaoDeTeste("A1"), instante, 10*time.Minute)
 
 	if r.Expirou(instante.Add(9*time.Minute + 59*time.Second)) {
 		t.Error("não devia expirar antes do prazo")
@@ -47,7 +58,7 @@ func TestExpirou(t *testing.T) {
 }
 
 func TestTransicaoSoAceitaAPartirDePendente(t *testing.T) {
-	base := Nova("sessao", "usuario", []string{"A1"}, instante, time.Minute)
+	base := Nova(solicitacaoDeTeste("A1"), instante, time.Minute)
 
 	for _, destino := range []Status{Confirmada, Cancelada, Expirada} {
 		t.Run(string(destino), func(t *testing.T) {
@@ -76,7 +87,7 @@ func TestTransicaoSoAceitaAPartirDePendente(t *testing.T) {
 }
 
 func TestTransicaoRecusaEstadoNaoFinal(t *testing.T) {
-	r := Nova("sessao", "usuario", []string{"A1"}, instante, time.Minute)
+	r := Nova(solicitacaoDeTeste("A1"), instante, time.Minute)
 	if _, err := r.Transicionar(Pendente); err == nil {
 		t.Error("PENDENTE→PENDENTE devia ser recusada")
 	}

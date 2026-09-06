@@ -26,15 +26,17 @@ const (
 )
 
 type bloqueioFalso struct {
+	valorVisto   string
 	resultado    usecase.ResultadoBloqueio
 	err          error
 	usuarioVisto string
 	rotulosVisto []string
 }
 
-func (b *bloqueioFalso) Executar(_ context.Context, _, usuarioID string, rotulos []string) (usecase.ResultadoBloqueio, error) {
+func (b *bloqueioFalso) Executar(_ context.Context, _, usuarioID string, rotulos []string, valorTotal string) (usecase.ResultadoBloqueio, error) {
 	b.usuarioVisto = usuarioID
 	b.rotulosVisto = rotulos
+	b.valorVisto = valorTotal
 	return b.resultado, b.err
 }
 

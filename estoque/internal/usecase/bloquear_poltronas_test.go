@@ -11,6 +11,9 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/shared"
 )
 
+// O valor é decidido pelo catálogo; aqui só precisa ser um decimal válido.
+const valorDeTeste = "84.00"
+
 const sessao = "f781a9b2-11e2-4f81-a901-8890bc123456"
 const usuario = "c394c8b3-76a1-4328-b803-02f5923b7a15"
 
@@ -35,7 +38,7 @@ func TestBloqueioConcedido(t *testing.T) {
 	estoque.provisionar(sessao, "A1", "A2", "A3")
 	prazo, log := novoPrazoFalso(), &logFalso{}
 
-	resultado, err := montarBloqueio(estoque, prazo, log).Executar(context.Background(), sessao, usuario, []string{"A1", "A2"})
+	resultado, err := montarBloqueio(estoque, prazo, log).Executar(context.Background(), sessao, usuario, []string{"A1", "A2"}, valorDeTeste)
 	if err != nil {
 		t.Fatalf("erro inesperado: %v", err)
 	}
@@ -63,7 +66,7 @@ func TestBloqueioPublicaFatoComRotulosEContexto(t *testing.T) {
 	estoque.provisionar(sessao, "A1", "A2")
 
 	resultado, err := montarBloqueio(estoque, novoPrazoFalso(), &logFalso{}).
-		Executar(context.Background(), sessao, usuario, []string{"a2", "A1"})
+		Executar(context.Background(), sessao, usuario, []string{"a2", "A1"}, valorDeTeste)
 	if err != nil {
 		t.Fatalf("erro inesperado: %v", err)
 	}
@@ -99,11 +102,11 @@ func TestBloqueioRecusadoPorIndisponibilidadeNaoEhErro(t *testing.T) {
 	estoque.provisionar(sessao, "A1", "A2")
 	uc := montarBloqueio(estoque, novoPrazoFalso(), &logFalso{})
 
-	if _, err := uc.Executar(context.Background(), sessao, usuario, []string{"A1"}); err != nil {
+	if _, err := uc.Executar(context.Background(), sessao, usuario, []string{"A1"}, valorDeTeste); err != nil {
 		t.Fatalf("primeiro bloqueio devia passar: %v", err)
 	}
 
-	resultado, err := uc.Executar(context.Background(), sessao, "outra-pessoa", []string{"A1", "A2"})
+	resultado, err := uc.Executar(context.Background(), sessao, "outra-pessoa", []string{"A1", "A2"}, valorDeTeste)
 	if err != nil {
 		t.Fatalf("indisponibilidade é desfecho de negócio, não erro: %v", err)
 	}
@@ -132,7 +135,7 @@ func TestBloqueioRecusaSolicitacaoInvalida(t *testing.T) {
 	}
 	for nome, caso := range casos {
 		t.Run(nome, func(t *testing.T) {
-			_, err := uc.Executar(context.Background(), sessao, caso.usuario, caso.rotulos)
+			_, err := uc.Executar(context.Background(), sessao, caso.usuario, caso.rotulos, valorDeTeste)
 			if !errors.Is(err, caso.erro) {
 				t.Fatalf("erro = %v, esperado %v", err, caso.erro)
 			}
@@ -149,7 +152,7 @@ func TestBloqueioRecusaSolicitacaoInvalida(t *testing.T) {
 func TestBloqueioRecusaSessaoNaoProvisionada(t *testing.T) {
 	uc := montarBloqueio(novoEstoqueFalso(), novoPrazoFalso(), &logFalso{})
 
-	_, err := uc.Executar(context.Background(), "sessao-sem-matriz", usuario, []string{"A1"})
+	_, err := uc.Executar(context.Background(), "sessao-sem-matriz", usuario, []string{"A1"}, valorDeTeste)
 	if !errors.Is(err, shared.ErrSessaoNaoProvisionada) {
 		t.Fatalf("erro = %v, esperado ErrSessaoNaoProvisionada", err)
 	}
@@ -160,7 +163,7 @@ func TestBloqueioRecusaRotuloInexistente(t *testing.T) {
 	estoque.provisionar(sessao, "A1")
 
 	_, err := montarBloqueio(estoque, novoPrazoFalso(), &logFalso{}).
-		Executar(context.Background(), sessao, usuario, []string{"Z9"})
+		Executar(context.Background(), sessao, usuario, []string{"Z9"}, valorDeTeste)
 	if !errors.Is(err, shared.ErrPoltronaInexistente) {
 		t.Fatalf("erro = %v, esperado ErrPoltronaInexistente", err)
 	}
@@ -172,7 +175,7 @@ func TestBloqueioPropagaFalhaDoRepositorio(t *testing.T) {
 	estoque.erroForcado = shared.ErrDependenciaIndisponivel
 
 	_, err := montarBloqueio(estoque, novoPrazoFalso(), &logFalso{}).
-		Executar(context.Background(), sessao, usuario, []string{"A1"})
+		Executar(context.Background(), sessao, usuario, []string{"A1"}, valorDeTeste)
 	if !errors.Is(err, shared.ErrDependenciaIndisponivel) {
 		t.Fatalf("erro = %v, esperado ErrDependenciaIndisponivel", err)
 	}
@@ -185,7 +188,7 @@ func TestBloqueioSobreviveAoIndiceDePrazoIndisponivel(t *testing.T) {
 	prazo.erro = errors.New("redis fora do ar")
 	log := &logFalso{}
 
-	resultado, err := montarBloqueio(estoque, prazo, log).Executar(context.Background(), sessao, usuario, []string{"A1"})
+	resultado, err := montarBloqueio(estoque, prazo, log).Executar(context.Background(), sessao, usuario, []string{"A1"}, valorDeTeste)
 	if err != nil {
 		t.Fatalf("falha do índice de prazo não pode derrubar o bloqueio: %v", err)
 	}

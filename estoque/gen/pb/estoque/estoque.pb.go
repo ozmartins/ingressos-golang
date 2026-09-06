@@ -7,6 +7,7 @@
 // a versão anterior continua funcionando sem recompilar:
 //   - novo RPC `ConsultarMapaPoltronas` (FR-029..FR-031)
 //   - novo campo `motivo` = 5 em `RespostaBloqueio` (FR-046)
+//   - novo campo `valor_total` = 4 em `SolicitacaoBloqueio`
 //
 // Geração: buf generate (ver buf.gen.yaml na raiz do serviço)
 
@@ -188,8 +189,18 @@ type SolicitacaoBloqueio struct {
 	SessaoId string                 `protobuf:"bytes,1,opt,name=sessao_id,json=sessaoId,proto3" json:"sessao_id,omitempty"`
 	// Rótulos das poltronas no escopo da sessão (fileira + número, ex.: "A1").
 	// Sem repetições; no máximo POLTRONAS_MAX_POR_BLOQUEIO itens (padrão 10).
-	PoltronasIds  []string `protobuf:"bytes,2,rep,name=poltronas_ids,json=poltronasIds,proto3" json:"poltronas_ids,omitempty"`
-	UsuarioId     string   `protobuf:"bytes,3,opt,name=usuario_id,json=usuarioId,proto3" json:"usuario_id,omitempty"` // UUID da claim `sub`, validado pelo Servico-Catalogo
+	PoltronasIds []string `protobuf:"bytes,2,rep,name=poltronas_ids,json=poltronasIds,proto3" json:"poltronas_ids,omitempty"`
+	UsuarioId    string   `protobuf:"bytes,3,opt,name=usuario_id,json=usuarioId,proto3" json:"usuario_id,omitempty"` // UUID da claim `sub`, validado pelo Servico-Catalogo
+	// Valor a cobrar pela reserva, como texto decimal com duas casas ("84.00").
+	// Texto, e não um numérico do proto, pelo mesmo motivo que o preço da sessão
+	// é texto no catálogo: nenhum ponto flutuante binário representa centavo sem
+	// erro, e este valor vira cobrança.
+	//
+	// Quem tem autoridade sobre o preço é o Servico-Catalogo, dono do cadastro da
+	// sessão: ele o calcula a partir do `preco_base` e o informa aqui. Este
+	// serviço não recalcula nem confere o valor — apenas o guarda e o repassa a
+	// quem cobra, no fato `reserva.criada`.
+	ValorTotal    string `protobuf:"bytes,4,opt,name=valor_total,json=valorTotal,proto3" json:"valor_total,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -241,6 +252,13 @@ func (x *SolicitacaoBloqueio) GetPoltronasIds() []string {
 func (x *SolicitacaoBloqueio) GetUsuarioId() string {
 	if x != nil {
 		return x.UsuarioId
+	}
+	return ""
+}
+
+func (x *SolicitacaoBloqueio) GetValorTotal() string {
+	if x != nil {
+		return x.ValorTotal
 	}
 	return ""
 }
@@ -500,12 +518,14 @@ var File_estoque_proto protoreflect.FileDescriptor
 
 const file_estoque_proto_rawDesc = "" +
 	"\n" +
-	"\restoque.proto\x12\aestoque\"v\n" +
+	"\restoque.proto\x12\aestoque\"\x97\x01\n" +
 	"\x13SolicitacaoBloqueio\x12\x1b\n" +
 	"\tsessao_id\x18\x01 \x01(\tR\bsessaoId\x12#\n" +
 	"\rpoltronas_ids\x18\x02 \x03(\tR\fpoltronasIds\x12\x1d\n" +
 	"\n" +
-	"usuario_id\x18\x03 \x01(\tR\tusuarioId\"\xb2\x01\n" +
+	"usuario_id\x18\x03 \x01(\tR\tusuarioId\x12\x1f\n" +
+	"\vvalor_total\x18\x04 \x01(\tR\n" +
+	"valorTotal\"\xb2\x01\n" +
 	"\x10RespostaBloqueio\x12\x18\n" +
 	"\asucesso\x18\x01 \x01(\bR\asucesso\x12\x1d\n" +
 	"\n" +

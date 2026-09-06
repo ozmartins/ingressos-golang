@@ -21,10 +21,13 @@ lint:
 # da verdade: quem descreve o comportamento do serviço é o código (constituição,
 # princípio IX). Divergência entre os dois vira pergunta, não conserto unilateral
 # (princípio X).
-CONTRATO := specs/001-estoque-bloqueio-poltronas/contracts/estoque.proto
+# Nomes distintos de propósito: o corpo de uma regra é expandido na execução,
+# então duas variáveis homônimas fariam a primeira regra usar o valor da última
+# definição — `make contrato-sync` copiaria o openapi.yaml sobre o .proto.
+CONTRATO_PROTO := specs/001-estoque-bloqueio-poltronas/contracts/estoque.proto
 
 contrato-sync:
-	cp $(CONTRATO) proto/estoque.proto
+	cp $(CONTRATO_PROTO) proto/estoque.proto
 
 proto: contrato-sync
 	buf generate
@@ -32,10 +35,10 @@ proto: contrato-sync
 # O contrato versionado é a fonte da verdade; a cópia em internal/ existe só
 # porque go:embed não alcança diretórios acima do pacote. O teste de paridade
 # do pacote openapi falha quando as duas divergem.
-CONTRATO := specs/001-estoque-bloqueio-poltronas/contracts/openapi.yaml
+CONTRATO_OPENAPI := specs/001-estoque-bloqueio-poltronas/contracts/openapi.yaml
 
 openapi-sync:
-	cp $(CONTRATO) internal/adapter/http/openapi/openapi.yaml
+	cp $(CONTRATO_OPENAPI) internal/adapter/http/openapi/openapi.yaml
 
 # A tabela de controle do migrate (`schema_migrations`) fica no schema do
 # serviço, fixada pelo `search_path`, e não em `public`: o banco `cinema` é

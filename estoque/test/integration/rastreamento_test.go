@@ -42,7 +42,7 @@ func TestCorrelacaoPontaAPontaAtravessaOBroker(t *testing.T) {
 	traceEsperado := span.SpanContext().TraceID().String()
 
 	sessao := c.novaSessao(t, []string{"A"}, 3)
-	resultado, err := c.Bloquear.Executar(ctxSolicitacao, sessao, usuario, []string{"A1"})
+	resultado, err := c.Bloquear.Executar(ctxSolicitacao, sessao, usuario, []string{"A1"}, valorDeTeste)
 	if err != nil || !resultado.Concedido {
 		t.Fatalf("bloqueio: %v", err)
 	}

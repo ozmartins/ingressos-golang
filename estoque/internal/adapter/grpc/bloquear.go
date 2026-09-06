@@ -11,13 +11,14 @@ import (
 )
 
 type CasoDeUsoBloqueio interface {
-	Executar(ctx context.Context, sessaoID, usuarioID string, rotulos []string) (usecase.ResultadoBloqueio, error)
+	Executar(ctx context.Context, sessaoID, usuarioID string, rotulos []string, valorTotal string) (usecase.ResultadoBloqueio, error)
 }
 
 func (s *Servidor) BloquearPoltronas(ctx context.Context, req *pb.SolicitacaoBloqueio) (*pb.RespostaBloqueio, error) {
 	inicio := time.Now()
 
-	resultado, err := s.bloqueio.Executar(ctx, req.GetSessaoId(), req.GetUsuarioId(), req.GetPoltronasIds())
+	resultado, err := s.bloqueio.Executar(ctx, req.GetSessaoId(), req.GetUsuarioId(),
+		req.GetPoltronasIds(), req.GetValorTotal())
 	if err != nil {
 		desfecho := classificar(err)
 		s.metricas.registrar(ctx, "BloquearPoltronas", desfecho, inicio)

@@ -72,9 +72,9 @@ func (r *Reservas) Conceder(ctx context.Context, sol reserva.Solicitacao, res re
 		}
 
 		if _, err := tx.Exec(ctx, `
-			INSERT INTO reservas (id, sessao_id, usuario_id, expira_em, status, criado_em)
-			VALUES ($1, $2, $3, $4, 'PENDENTE', $5)`,
-			res.ID, res.SessaoID, res.UsuarioID, res.ExpiraEm, res.CriadoEm); err != nil {
+			INSERT INTO reservas (id, sessao_id, usuario_id, expira_em, status, criado_em, valor_total)
+			VALUES ($1, $2, $3, $4, 'PENDENTE', $5, $6)`,
+			res.ID, res.SessaoID, res.UsuarioID, res.ExpiraEm, res.CriadoEm, res.ValorTotal); err != nil {
 			return indisponivel(err)
 		}
 

@@ -20,7 +20,7 @@ func cenario(t *testing.T) (*estoqueFalso, *prazoFalso, *logFalso, string) {
 	prazo, log := novoPrazoFalso(), &logFalso{}
 
 	resultado, err := montarBloqueio(estoque, prazo, log).
-		Executar(context.Background(), sessao, usuario, []string{"A1", "A2"})
+		Executar(context.Background(), sessao, usuario, []string{"A1", "A2"}, valorDeTeste)
 	if err != nil || !resultado.Concedido {
 		t.Fatalf("cenário exige bloqueio concedido: %v", err)
 	}
@@ -116,7 +116,7 @@ func TestCancelarDevolvePoltronasAoEstoque(t *testing.T) {
 	}
 
 	novo, err := montarBloqueio(estoque, prazo, log).
-		Executar(context.Background(), sessao, "outra-pessoa", []string{"A1"})
+		Executar(context.Background(), sessao, "outra-pessoa", []string{"A1"}, valorDeTeste)
 	if err != nil || !novo.Concedido {
 		t.Fatalf("poltrona liberada devia ser bloqueável de novo: %v", err)
 	}

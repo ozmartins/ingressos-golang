@@ -19,7 +19,7 @@ const (
 func reservaPendente(t *testing.T, c *Cenario) (sessao, reservaID string) {
 	t.Helper()
 	sessao = c.novaSessao(t, []string{"A"}, 5)
-	resultado, err := c.Bloquear.Executar(context.Background(), sessao, usuario, []string{"A1", "A2"})
+	resultado, err := c.Bloquear.Executar(context.Background(), sessao, usuario, []string{"A1", "A2"}, valorDeTeste)
 	if err != nil || !resultado.Concedido {
 		t.Fatalf("bloqueio: %v", err)
 	}
@@ -72,7 +72,7 @@ func TestCancelamentoDevolvePoltronasEPermiteNovoBloqueio(t *testing.T) {
 		}
 	}
 
-	novo, err := c.Bloquear.Executar(ctx, sessao, "outra-pessoa", []string{"A1", "A2"})
+	novo, err := c.Bloquear.Executar(ctx, sessao, "outra-pessoa", []string{"A1", "A2"}, valorDeTeste)
 	if err != nil || !novo.Concedido {
 		t.Fatalf("poltronas liberadas deviam ser bloqueáveis: %v", err)
 	}

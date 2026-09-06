@@ -38,7 +38,7 @@ func TestExpiracaoLiberaPoltronas(t *testing.T) {
 		}
 	}
 
-	novo, err := c.Bloquear.Executar(ctx, sessao, "outra-pessoa", []string{"A1"})
+	novo, err := c.Bloquear.Executar(ctx, sessao, "outra-pessoa", []string{"A1"}, valorDeTeste)
 	if err != nil || !novo.Concedido {
 		t.Fatalf("poltrona expirada devia ser bloqueável: %v", err)
 	}
@@ -51,7 +51,7 @@ func TestExpiracaoRecuperaReservasVencidasDuranteParada(t *testing.T) {
 
 	var reservas []string
 	for _, rotulo := range []string{"A1", "A2", "A3", "B1", "B2"} {
-		resultado, err := c.Bloquear.Executar(ctx, sessao, usuario, []string{rotulo})
+		resultado, err := c.Bloquear.Executar(ctx, sessao, usuario, []string{rotulo}, valorDeTeste)
 		if err != nil || !resultado.Concedido {
 			t.Fatalf("bloqueio de %s: %v", rotulo, err)
 		}

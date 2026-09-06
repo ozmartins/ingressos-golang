@@ -30,17 +30,21 @@ type Reserva struct {
 	ExpiraEm  time.Time
 	Status    Status
 	CriadoEm  time.Time
+	// Valor a cobrar, como texto decimal. Guardado aqui porque é ele que segue
+	// no fato `reserva.criada` para quem cobra; este serviço não o interpreta.
+	ValorTotal string
 }
 
-func Nova(sessaoID, usuarioID string, rotulos []string, agora time.Time, ttl time.Duration) Reserva {
+func Nova(sol Solicitacao, agora time.Time, ttl time.Duration) Reserva {
 	return Reserva{
-		ID:        uuid.NewString(),
-		SessaoID:  sessaoID,
-		UsuarioID: usuarioID,
-		Rotulos:   rotulos,
-		ExpiraEm:  agora.Add(ttl).UTC(),
-		Status:    Pendente,
-		CriadoEm:  agora.UTC(),
+		ID:         uuid.NewString(),
+		SessaoID:   sol.SessaoID,
+		UsuarioID:  sol.UsuarioID,
+		Rotulos:    sol.Rotulos,
+		ExpiraEm:   agora.Add(ttl).UTC(),
+		Status:     Pendente,
+		CriadoEm:   agora.UTC(),
+		ValorTotal: sol.ValorTotal,
 	}
 }
 

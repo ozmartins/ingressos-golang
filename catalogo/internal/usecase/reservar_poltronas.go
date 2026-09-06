@@ -37,6 +37,11 @@ func (uc ReservarPoltronas) Executar(ctx context.Context, s reserva.SolicitacaoR
 		return reserva.ResultadoReserva{}, fmt.Errorf("%w: sessão %s está %s", shared.ErrSessaoNaoReservavel, sessao.ID, sessao.Status)
 	}
 
+	// O preço é do catálogo, dono do cadastro da sessão: o cliente pede
+	// poltronas, não declara quanto elas custam. Quem cobra recebe este valor
+	// pelo fato que o estoque publica.
+	s.ValorTotal = sessao.PrecoBase.Multiplicar(len(s.PoltronasIDs)).String()
+
 	resultado, err := uc.Estoque.BloquearPoltronas(ctx, s)
 	uc.auditar(ctx, s, resultado, err)
 	if err != nil {

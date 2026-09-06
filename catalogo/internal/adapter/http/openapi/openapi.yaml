@@ -22,9 +22,11 @@ tags:
   - name: Salas
     description: Salas de exibição de cada cinema.
   - name: Sessões
+    description: Grade de sessões disponíveis para o espectador.
+  - name: Reservas
     description: |
-      Grade de sessões e a reserva de poltronas — a escrita que parte do
-      espectador, e não da operação do catálogo.
+      Reserva de poltronas de uma sessão — a escrita que parte do espectador,
+      e não da operação do catálogo.
   - name: Operacional
     description: Endpoints consumidos pelo orquestrador, fora do prefixo versionado.
 
@@ -293,7 +295,7 @@ paths:
 
   /sessoes/{id}/reservar:
     post:
-      tags: [Sessões]
+      tags: [Reservas]
       summary: Solicita o bloqueio de poltronas para uma sessão
       description: |
         Encaminha a solicitação ao Servico-Estoque via gRPC, com timeout de 2s e

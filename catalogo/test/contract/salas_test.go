@@ -276,6 +276,19 @@ func TestPutSalaPodeManterOProprioNumero(t *testing.T) {
 	}
 }
 
+func TestPutSalaSemCinemaIDMantemOCinema(t *testing.T) {
+	amb := montarComSalas(t, []catalogo.Sala{salaDeTeste()})
+	semCinema := `{"numero":9,"tipo_tela":"VIP","capacidade_total":60}`
+	resp, corpo := requisitar(t, amb.servidor, http.MethodPut, caminhoDasSalas+"/"+salaID, "token-bom", semCinema)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d, esperava 200 (corpo: %s)", resp.StatusCode, corpo)
+	}
+	if sala := decodificarSala(t, corpo); sala["cinema_id"] != cinemaID {
+		t.Fatalf("a sala deveria continuar no cinema atual: %v", sala)
+	}
+}
+
 // O vínculo com o cinema é do cadastro, não do corpo do PUT: a sala não migra.
 func TestPutSalaComOutroCinemaDevolve409(t *testing.T) {
 	amb := montarComSalas(t, []catalogo.Sala{salaDeTeste()})

@@ -263,6 +263,24 @@ func TestAtualizarSalaRecusaTrocaDeCinema(t *testing.T) {
 	}
 }
 
+func TestAtualizarSalaSemCinemaIDMantemOCinemaAtual(t *testing.T) {
+	salas := &salaRepoFalso{sala: catalogo.Sala{ID: "sala-1", CinemaID: "cinema-a", Numero: 3}}
+	uc := AtualizarSala{Cinemas: &cinemaRepoFalso{existe: true}, Salas: salas}
+
+	sala, err := uc.Executar(context.Background(), "sala-1", catalogo.DadosSala{
+		Numero: 4, TipoTela: "3D", CapacidadeTotal: 90,
+	})
+	if err != nil {
+		t.Fatalf("não esperava erro, obteve %v", err)
+	}
+	if sala.CinemaID != "cinema-a" {
+		t.Fatalf("esperava cinema-a, obteve %q", sala.CinemaID)
+	}
+	if salas.atualizada.CinemaID != "cinema-a" {
+		t.Fatalf("a sala gravada deveria manter cinema-a, obteve %q", salas.atualizada.CinemaID)
+	}
+}
+
 func sessaoReservavel() catalogo.Sessao {
 	return catalogo.Sessao{
 		ID:             "f781a9b2-11e2-4f81-a901-8890bc123456",

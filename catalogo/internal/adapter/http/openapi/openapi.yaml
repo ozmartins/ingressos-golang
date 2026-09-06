@@ -327,8 +327,9 @@ paths:
       summary: Substitui uma sala
       description: |
         Substituição total: o corpo descreve o estado final da sala, e campo
-        opcional omitido volta ao padrão. O `cinema_id` é obrigatório e precisa
-        repetir o cinema atual da sala — a sala não muda de cinema, e tentar
+        opcional omitido volta ao padrão. O `cinema_id` fica de fora dessa
+        substituição — omitido, a sala continua no cinema atual; informado,
+        precisa repetir esse cinema, porque a sala não muda de cinema e tentar
         movê-la responde 409.
       security:
         - clientCredentials: []
@@ -336,7 +337,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/SalaEntrada' }
+            schema: { $ref: '#/components/schemas/SalaAtualizacao' }
       responses:
         '200':
           description: Sala atualizada
@@ -660,9 +661,28 @@ components:
         cinema_id:
           type: string
           format: uuid
+          description: O cinema a que a sala passa a pertencer; precisa existir.
+        numero:
+          type: integer
+          minimum: 1
+          description: Único entre as salas ativas do cinema
+        tipo_tela: { type: string, enum: ['2D', '3D', IMAX, VIP] }
+        capacidade_total: { type: integer, minimum: 1 }
+        ativo: { type: boolean, default: true }
+
+    SalaAtualizacao:
+      type: object
+      description: |
+        O corpo do PUT. Igual ao do cadastro, menos o `cinema_id`: o vínculo com
+        o cinema é do cadastro, não do estado que a substituição redesenha.
+      required: [numero, tipo_tela, capacidade_total]
+      properties:
+        cinema_id:
+          type: string
+          format: uuid
           description: |
-            No PUT, precisa repetir o cinema atual da sala: o vínculo é do
-            cadastro, e movê-la de cinema responde 409.
+            Opcional. Omitido, a sala permanece no cinema atual; informado,
+            precisa repetir esse cinema — movê-la de cinema responde 409.
         numero:
           type: integer
           minimum: 1

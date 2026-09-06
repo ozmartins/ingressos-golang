@@ -61,6 +61,12 @@ func montarPagina(caminhoSpec string) string {
         presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
         layout: 'StandaloneLayout'
       });
+      // Habilita o modal de client_id/client_secret do fluxo client_credentials.
+      // Sem PKCE: ele existe para o fluxo de código, não para máquina-a-máquina.
+      window.ui.initOAuth({
+        appName: 'Servico-Estoque',
+        usePkceWithAuthorizationCodeGrant: false
+      });
     };
   </script>
 </body>

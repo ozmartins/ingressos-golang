@@ -20,7 +20,7 @@ paths:
         de reserva inexistente. Nenhum papel administrativo é reconhecido.
       operationId: consultarPagamentoPorReserva
       security:
-        - bearerJWT: []
+        - clientCredentials: []
       parameters:
         - name: reserva_id
           in: path
@@ -92,14 +92,25 @@ paths:
         "503": { description: Alguma dependência indisponível }
 components:
   securitySchemes:
-    bearerJWT:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
+    clientCredentials:
+      type: oauth2
       description: |
-        JWT emitido pelo Keycloak, validado de forma stateless por JWKS
-        (assinatura, emissor, público e validade). A claim `sub` identifica a
-        pessoa e é comparada ao dono da transação.
+        Fluxo máquina-a-máquina: a service account do client troca
+        client_id/client_secret por um token, sem usuário humano no meio.
+        Use `cinema-m2m` / `segredo-de-desenvolvimento`.
+
+        O `tokenUrl` aponta para `localhost` porque quem o chama é o navegador,
+        não o serviço. Use este fluxo pelo Swagger apenas em desenvolvimento: o
+        secret trafega pelo navegador e o client deixa de ser confidencial.
+
+        O token é validado de forma stateless por JWKS (assinatura, emissor,
+        público e validade). Atenção: o `sub` de uma service account não é o de
+        uma pessoa, e a consulta compara o `sub` ao dono da transação — por este
+        fluxo a autenticação passa, mas a autorização nega transação de terceiro.
+      flows:
+        clientCredentials:
+          tokenUrl: http://localhost:8081/realms/cinema/protocol/openid-connect/token
+          scopes: {}
   schemas:
     Pagamento:
       type: object

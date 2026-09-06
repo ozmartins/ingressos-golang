@@ -36,7 +36,7 @@ paths:
         parâmetro capaz de alcançar ingresso de terceiro.
       operationId: listarMeusIngressos
       security:
-        - tokenPessoa: []
+        - clientCredentials: []
       parameters:
         - name: status
           in: query
@@ -171,13 +171,25 @@ paths:
 
 components:
   securitySchemes:
-    tokenPessoa:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
+    clientCredentials:
+      type: oauth2
       description: |
-        Token do Keycloak, validado localmente por JWKS: assinatura, emissor, público e
-        validade. A identidade é o `sub`. Não é aceito na rota da portaria.
+        Fluxo máquina-a-máquina: a service account do client troca
+        client_id/client_secret por um token, sem usuário humano no meio.
+        Use `cinema-m2m` / `segredo-de-desenvolvimento`.
+
+        O `tokenUrl` aponta para `localhost` porque quem o chama é o navegador,
+        não o serviço. Use este fluxo pelo Swagger apenas em desenvolvimento: o
+        secret trafega pelo navegador e o client deixa de ser confidencial.
+
+        Validado localmente por JWKS: assinatura, emissor, público e validade.
+        Não é aceito na rota da portaria. Atenção: a listagem recorta pelo `sub`,
+        e o `sub` de uma service account não é o de uma pessoa — por este fluxo a
+        autenticação passa, mas a lista vem vazia.
+      flows:
+        clientCredentials:
+          tokenUrl: http://localhost:8081/realms/cinema/protocol/openid-connect/token
+          scopes: {}
     chavePortaria:
       type: apiKey
       in: header

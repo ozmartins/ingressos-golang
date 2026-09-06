@@ -32,11 +32,23 @@ tags:
 
 components:
   securitySchemes:
-    keycloak:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: JWT do realm `cinema`. O `usuario_id` da reserva é a claim `sub`.
+    clientCredentials:
+      type: oauth2
+      description: |
+        Fluxo máquina-a-máquina: a service account do client troca
+        client_id/client_secret por um token, sem usuário humano no meio.
+        Use `cinema-m2m` / `segredo-de-desenvolvimento`.
+
+        O `tokenUrl` aponta para `localhost` porque quem o chama é o navegador,
+        não o serviço. Use este fluxo pelo Swagger apenas em desenvolvimento: o
+        secret trafega pelo navegador e o client deixa de ser confidencial.
+
+        O `usuario_id` da reserva é a claim `sub` — com este fluxo, o `sub` é o da
+        service account, não o de uma pessoa.
+      flows:
+        clientCredentials:
+          tokenUrl: http://localhost:8081/realms/cinema/protocol/openid-connect/token
+          scopes: {}
 
   schemas:
     SolicitacaoBloqueio:
@@ -152,7 +164,7 @@ components:
             $ref: "#/components/schemas/Problem"
 
 security:
-  - keycloak: []
+  - clientCredentials: []
 
 paths:
   /api/v1/sessoes/{sessao_id}/bloqueios:

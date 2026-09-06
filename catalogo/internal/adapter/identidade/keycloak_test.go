@@ -147,3 +147,43 @@ func TestVerificarRecusaTokenMalformado(t *testing.T) {
 		t.Fatalf("esperava recusa de token malformado, obteve %v", err)
 	}
 }
+
+// O fluxo máquina-a-máquina (client_credentials) não tem usuário humano: o
+// token traz o `sub` da service account e nenhuma claim de pessoa. O
+// verificador não precisa distinguir os dois casos — só exige emissor,
+// audiência, assinatura, validade e `sub`.
+func TestVerificarAceitaTokenDeServiceAccount(t *testing.T) {
+	e := novoEmissor(t)
+	const subDaServiceAccount = "service-account-cinema-m2m-0000-000000000001"
+
+	c := map[string]any{
+		"iss": e.issuer,
+		"aud": "cinema-app",
+		"azp": "cinema-m2m",
+		"typ": "Bearer",
+		"sub": subDaServiceAccount,
+		"exp": time.Now().Add(time.Hour).Unix(),
+		"iat": time.Now().Unix(),
+	}
+
+	id, err := e.verificador().Verificar(context.Background(), e.token(t, c, nil))
+	if err != nil {
+		t.Fatalf("token de service account deveria ser aceito: %v", err)
+	}
+	if id.UsuarioID != subDaServiceAccount {
+		t.Fatalf("usuario_id = %q, esperava o sub da service account", id.UsuarioID)
+	}
+}
+
+// O erro clássico do client_credentials: sem o mapper de audiência no client, o
+// Keycloak emite `aud: account` e a API precisa recusar.
+func TestVerificarRecusaTokenM2MSemMapperDeAudiencia(t *testing.T) {
+	e := novoEmissor(t)
+	c := claimsValidas(e.issuer)
+	c["aud"] = "account"
+	c["azp"] = "cinema-m2m"
+
+	if _, err := e.verificador().Verificar(context.Background(), e.token(t, c, nil)); !errors.Is(err, ErrCredencialInvalida) {
+		t.Fatalf("esperava recusa de token com audiência 'account', obteve %v", err)
+	}
+}

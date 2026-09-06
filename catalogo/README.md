@@ -100,17 +100,39 @@ para atualizar a cópia de runtime — `make test` falha se as duas divergirem, 
 falha também se o contrato descrever uma rota que o roteador não registra (ou o
 contrário).
 
-Para exercitar as rotas protegidas (a escrita de filmes e
-`POST /sessoes/{id}/reservar`) pela interface, gere o token abaixo
-e cole-o em **Authorize** (apenas o valor, sem o prefixo `Bearer`).
+As rotas protegidas (a escrita de filmes e `POST /sessoes/{id}/reservar`)
+aceitam duas credenciais, ambas validadas do mesmo jeito: assinatura RS256
+conferida contra o JWKS do realm, mais `iss`, `aud` e expiração.
 
-Token para as rotas autenticadas (usuário de desenvolvimento `teste`/`teste`):
+**Usuário humano** (`teste`/`teste`, client público `cinema-app`). Gere o token
+e cole-o em **Authorize** — apenas o valor, sem o prefixo `Bearer`:
 
 ```bash
 TOKEN=$(curl -s -d client_id=cinema-app -d username=teste -d password=teste \
   -d grant_type=password \
   http://localhost:8081/realms/cinema/protocol/openid-connect/token | jq -r .access_token)
 ```
+
+**Máquina a máquina** (client confidencial `cinema-m2m`, com service account).
+Não há usuário no meio: o `sub` do token é o da service account.
+
+```bash
+TOKEN=$(curl -s -d client_id=cinema-m2m -d client_secret=segredo-de-desenvolvimento \
+  -d grant_type=client_credentials \
+  http://localhost:8081/realms/cinema/protocol/openid-connect/token | jq -r .access_token)
+```
+
+No Swagger, esse fluxo aparece em **Authorize** como `clientCredentials`, com
+campos de client_id e client_secret. **Use-o só em desenvolvimento:** quem chama
+o token endpoint ali é o navegador, então o secret trafega pelo browser e o
+client deixa de ser confidencial na prática — em produção o secret pertence ao
+cofre de quem chama a API, nunca à página. O `cinema-m2m` do
+`keycloak/realm-cinema.json` existe para isso: secret fixo, de desenvolvimento.
+
+Os dois clients trazem o mesmo `oidc-audience-mapper`, que injeta
+`aud: cinema-app` no access token. Ele não é decoração: sem o mapper o Keycloak
+emite `aud: account` no fluxo client_credentials e a API recusa o token com 401
+— é o tropeço mais comum ao ligar M2M.
 
 O realm fixa o emissor em `http://keycloak:8081` — a mesma URL dentro e fora da
 rede do compose. O `iss` do token precisa bater exatamente com o emissor que o

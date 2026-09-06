@@ -24,6 +24,28 @@
           }
         }
       ]
+    },
+    {
+      "clientId": "cinema-m2m",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "segredo-de-desenvolvimento",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "webOrigins": ["*"],
+      "protocolMappers": [
+        {
+          "name": "aud-cinema-app",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "cinema-app",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
     }
   ],
   "users": [

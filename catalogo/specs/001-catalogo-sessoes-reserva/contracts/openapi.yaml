@@ -58,6 +58,7 @@ paths:
         `Location`. Sem `status` no corpo, o filme nasce EM_CARTAZ.
       security:
         - bearerAuth: []
+        - clientCredentials: []
       requestBody:
         required: true
         content:
@@ -105,6 +106,7 @@ paths:
         opcional omitido volta a ficar ausente. Sem `status`, o filme fica EM_CARTAZ.
       security:
         - bearerAuth: []
+        - clientCredentials: []
       requestBody:
         required: true
         content:
@@ -128,6 +130,7 @@ paths:
         Segue disponível em `GET /filmes/{id}` e no filtro por status.
       security:
         - bearerAuth: []
+        - clientCredentials: []
       responses:
         '204': { $ref: '#/components/responses/SemConteudo' }
         '400': { $ref: '#/components/responses/EntradaInvalida' }
@@ -209,6 +212,7 @@ paths:
         sem retentativa. O usuário é identificado pela claim `sub` do token.
       security:
         - bearerAuth: []
+        - clientCredentials: []
       parameters:
         - name: id
           in: path
@@ -266,6 +270,19 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: JWT RS256 emitido pelo Keycloak, validado localmente via JWKS.
+    clientCredentials:
+      type: oauth2
+      description: |
+        Fluxo máquina-a-máquina: a service account do client troca
+        client_id/client_secret por um token, sem usuário humano no meio.
+
+        O `tokenUrl` aponta para `localhost` porque quem o chama é o navegador,
+        não o serviço. Use este fluxo pelo Swagger apenas em desenvolvimento: o
+        secret trafega pelo navegador e o client deixa de ser confidencial.
+      flows:
+        clientCredentials:
+          tokenUrl: http://localhost:8081/realms/cinema/protocol/openid-connect/token
+          scopes: {}
 
   parameters:
     Page:

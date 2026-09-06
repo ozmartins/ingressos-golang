@@ -1,6 +1,6 @@
 module github.com/oseias/ingressos-golang/pagamento
 
-go 1.27.0
+go 1.25.0
 
 require (
 	github.com/MicahParks/keyfunc/v3 v3.8.1

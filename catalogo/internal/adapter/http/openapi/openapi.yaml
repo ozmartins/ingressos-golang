@@ -25,7 +25,9 @@ tags:
       disponível como filtro da listagem, e declara sua planta em fileiras — a
       capacidade da sala é a soma delas, não um número à parte.
   - name: Sessões
-    description: Grade de sessões disponíveis para o espectador.
+    description: |
+      Grade de sessões disponíveis para o espectador. Criar uma sessão também a
+      anuncia por mensageria, com a planta da sala — ver o `POST`.
   - name: Reservas
     description: |
       Reserva de poltronas de uma sessão — a escrita que parte do espectador,
@@ -400,6 +402,17 @@ paths:
         `Location`. O filme e a sala precisam existir, e a sala precisa estar
         livre no intervalo que vai do início até o fim do filme: uma sala
         projeta um filme de cada vez.
+
+        Criar a sessão também publica o fato `sessao.criada`, com a planta da
+        sala expandida assento a assento — é dela que o serviço de estoque
+        provisiona a matriz de poltronas. O fato é gravado na mesma transação
+        que a sessão, mas **a resposta não espera pela publicação**: um `201`
+        significa que a sessão existe e que o anúncio sairá, não que ele já
+        saiu. A planta anunciada é a que a sala tinha agora; redesenhar a sala
+        depois não reemite o fato.
+
+        O contrato do fato está em
+        [`contracts/eventos.md`](https://github.com/ozmartins/ingressos-golang/blob/master/catalogo/specs/001-catalogo-sessoes-reserva/contracts/eventos.md).
       security:
         - clientCredentials: []
       requestBody:
@@ -450,6 +463,11 @@ paths:
         Substituição total: o corpo descreve o estado final da sessão, e campo
         opcional omitido volta ao padrão. A checagem de ocupação da sala ignora
         a própria sessão.
+
+        **Não emite fato.** Trocar a sala de uma sessão já anunciada deixa a
+        matriz de poltronas do estoque na planta da sala antiga: enquanto não
+        houver um fato de alteração, uma mudança dessas precisa ser tratada como
+        sessão nova.
       security:
         - clientCredentials: []
       requestBody:
@@ -474,6 +492,9 @@ paths:
         Remoção lógica: a sessão passa a CANCELADA e sai da grade, mas a linha
         permanece — as reservas já feitas apontam para ela. Segue disponível em
         `GET /sessoes/{id}`.
+
+        **Não emite fato**: a matriz de poltronas provisionada no estoque
+        permanece como está.
       security:
         - clientCredentials: []
       responses:

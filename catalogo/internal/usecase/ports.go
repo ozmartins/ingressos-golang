@@ -37,11 +37,14 @@ type CinemaRepository interface {
 }
 
 type FiltroSalas struct {
-	Ativo *bool
+	// Vazio significa "a rede toda": a sala é endereçada por si, e o cinema é
+	// um recorte opcional da listagem, como na grade de sessões.
+	CinemaID string
+	Ativo    *bool
 }
 
 type SalaRepository interface {
-	ListarPorCinema(ctx context.Context, cinemaID string, filtro FiltroSalas, req shared.PageRequest) (shared.Page[catalogo.Sala], error)
+	Listar(ctx context.Context, filtro FiltroSalas, req shared.PageRequest) (shared.Page[catalogo.Sala], error)
 	BuscarPorID(ctx context.Context, salaID string) (catalogo.Sala, error)
 	Criar(ctx context.Context, s catalogo.Sala) error
 	Atualizar(ctx context.Context, s catalogo.Sala) error

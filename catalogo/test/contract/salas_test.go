@@ -11,8 +11,9 @@ import (
 
 const (
 	salaID          = "c1c2c3c4-0000-4000-8000-000000000001"
-	caminhoDasSalas = "/api/v1/cinemas/" + cinemaID + "/salas"
-	corpoSalaValido = `{"numero":7,"tipo_tela":"IMAX","capacidade_total":180}`
+	outroCinemaID   = "b1b2c3d4-0000-4000-8000-000000000999"
+	caminhoDasSalas = "/api/v1/salas"
+	corpoSalaValido = `{"cinema_id":"` + cinemaID + `","numero":7,"tipo_tela":"IMAX","capacidade_total":180}`
 )
 
 func salaDeTeste() catalogo.Sala {
@@ -37,9 +38,9 @@ func decodificarSala(t *testing.T, corpo []byte) map[string]any {
 	return sala
 }
 
-func TestGetSalasListaAsSalasDoCinema(t *testing.T) {
+func TestGetSalasFiltraPorCinema(t *testing.T) {
 	amb := montarComSalas(t, []catalogo.Sala{salaDeTeste()})
-	resp, corpo := obter(t, amb.servidor, caminhoDasSalas)
+	resp, corpo := obter(t, amb.servidor, caminhoDasSalas+"?cinema_id="+cinemaID)
 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status %d", resp.StatusCode)
@@ -49,6 +50,24 @@ func TestGetSalasListaAsSalasDoCinema(t *testing.T) {
 		if _, ok := e.Itens[0][campo]; !ok {
 			t.Errorf("campo obrigatório %q ausente", campo)
 		}
+	}
+}
+
+// Sem `cinema_id` a listagem é da rede inteira: a sala deixou de viver dentro
+// do caminho do cinema, e o filtro passou a ser opcional como o das sessões.
+func TestGetSalasSemCinemaIDListaTodaARede(t *testing.T) {
+	deOutroCinema := salaDeTeste()
+	deOutroCinema.ID, deOutroCinema.CinemaID = "c1c2c3c4-0000-4000-8000-000000000002", outroCinemaID
+	amb := montarComSalas(t, []catalogo.Sala{salaDeTeste(), deOutroCinema})
+
+	_, corpo := obter(t, amb.servidor, caminhoDasSalas)
+	if e := decodificarEnvelope(t, corpo); len(e.Itens) != 2 {
+		t.Fatalf("sem cinema_id, esperava as salas dos dois cinemas, obteve %d", len(e.Itens))
+	}
+
+	_, corpoDoCinema := obter(t, amb.servidor, caminhoDasSalas+"?cinema_id="+cinemaID)
+	if e := decodificarEnvelope(t, corpoDoCinema); len(e.Itens) != 1 {
+		t.Fatalf("com cinema_id, esperava só a sala daquele cinema, obteve %d", len(e.Itens))
 	}
 }
 
@@ -67,6 +86,41 @@ func TestGetSalasFiltraPorAtivo(t *testing.T) {
 	}
 }
 
+func TestGetSalasDeCinemaInexistenteDevolve404DeCinema(t *testing.T) {
+	amb := montar(t, func(a *ambiente) { a.cinemas.existe = false })
+	resp, corpo := obter(t, amb.servidor, caminhoDasSalas+"?cinema_id="+cinemaID)
+
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("status %d, esperava 404", resp.StatusCode)
+	}
+	if p := decodificarProblem(t, resp, corpo); !strings.HasSuffix(p.Type, "cinema-nao-encontrado") {
+		t.Fatalf("type inesperado: %s", p.Type)
+	}
+}
+
+func TestGetSalasDeCinemaSemSalasDevolve200Vazio(t *testing.T) {
+	amb := montar(t, func(a *ambiente) { a.cinemas.existe = true })
+	resp, corpo := obter(t, amb.servidor, caminhoDasSalas+"?cinema_id="+cinemaID)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("esperava 200, obteve %d", resp.StatusCode)
+	}
+	e := decodificarEnvelope(t, corpo)
+	if len(e.Itens) != 0 || e.Pagina.Total != 0 {
+		t.Fatalf("esperava página vazia, obteve %+v", e)
+	}
+}
+
+func TestGetSalasComCinemaIDMalformadoDevolve400(t *testing.T) {
+	amb := montarComSalas(t, []catalogo.Sala{salaDeTeste()})
+	resp, corpo := obter(t, amb.servidor, caminhoDasSalas+"?cinema_id=nao-e-uuid")
+
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status %d, esperava 400", resp.StatusCode)
+	}
+	decodificarProblem(t, resp, corpo)
+}
+
 func TestGetSalaPorIDDevolveASala(t *testing.T) {
 	amb := montarComSalas(t, []catalogo.Sala{salaDeTeste()})
 	resp, corpo := obter(t, amb.servidor, caminhoDasSalas+"/"+salaID)
@@ -79,12 +133,10 @@ func TestGetSalaPorIDDevolveASala(t *testing.T) {
 	}
 }
 
-func TestGetSalaDeOutroCinemaDevolve404DeSala(t *testing.T) {
-	deOutroCinema := salaDeTeste()
-	deOutroCinema.CinemaID = "b1b2c3d4-0000-4000-8000-000000000999"
-	amb := montarComSalas(t, []catalogo.Sala{deOutroCinema})
-
+func TestGetSalaInexistenteDevolve404DeSala(t *testing.T) {
+	amb := montarComSalas(t, nil)
 	resp, corpo := obter(t, amb.servidor, caminhoDasSalas+"/"+salaID)
+
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("status %d, esperava 404", resp.StatusCode)
 	}
@@ -93,7 +145,7 @@ func TestGetSalaDeOutroCinemaDevolve404DeSala(t *testing.T) {
 	}
 }
 
-func TestGetSalaComSalaIDMalformadoDevolve400(t *testing.T) {
+func TestGetSalaComIDMalformadoDevolve400(t *testing.T) {
 	amb := montarComSalas(t, []catalogo.Sala{salaDeTeste()})
 	resp, corpo := obter(t, amb.servidor, caminhoDasSalas+"/nao-e-uuid")
 
@@ -119,7 +171,7 @@ func TestPostSalaCriaEDevolveLocation(t *testing.T) {
 		t.Fatalf("Location = %q, esperava o caminho da sala criada", local)
 	}
 	if sala["cinema_id"] != cinemaID {
-		t.Fatalf("cinema_id = %v, esperava o do caminho", sala["cinema_id"])
+		t.Fatalf("cinema_id = %v, esperava o do corpo", sala["cinema_id"])
 	}
 	if sala["ativo"] != true {
 		t.Fatalf("sem `ativo` no corpo, a sala deveria nascer ativa, veio %v", sala["ativo"])
@@ -146,11 +198,15 @@ func TestPostSalaSemTokenDevolve401(t *testing.T) {
 func TestPostSalaRecusaCorpoInvalido(t *testing.T) {
 	amb := montarComSalas(t, nil)
 	casos := map[string]string{
-		"sem numero":         `{"tipo_tela":"IMAX","capacidade_total":180}`,
-		"numero zero":        `{"numero":0,"tipo_tela":"IMAX","capacidade_total":180}`,
-		"tela desconhecida":  `{"numero":7,"tipo_tela":"4DX","capacidade_total":180}`,
-		"capacidade zero":    `{"numero":7,"tipo_tela":"IMAX","capacidade_total":0}`,
-		"campo desconhecido": `{"numero":7,"tipo_tela":"IMAX","capacidade_total":180,"cinema_id":"x"}`,
+		"sem cinema_id":   `{"numero":7,"tipo_tela":"IMAX","capacidade_total":180}`,
+		"cinema_id vazio": `{"cinema_id":"","numero":7,"tipo_tela":"IMAX","capacidade_total":180}`,
+		"cinema_id malformado": `{"cinema_id":"nao-e-uuid","numero":7,"tipo_tela":"IMAX",` +
+			`"capacidade_total":180}`,
+		"sem numero":         `{"cinema_id":"` + cinemaID + `","tipo_tela":"IMAX","capacidade_total":180}`,
+		"numero zero":        `{"cinema_id":"` + cinemaID + `","numero":0,"tipo_tela":"IMAX","capacidade_total":180}`,
+		"tela desconhecida":  `{"cinema_id":"` + cinemaID + `","numero":7,"tipo_tela":"4DX","capacidade_total":180}`,
+		"capacidade zero":    `{"cinema_id":"` + cinemaID + `","numero":7,"tipo_tela":"IMAX","capacidade_total":0}`,
+		"campo desconhecido": `{"cinema_id":"` + cinemaID + `","numero":7,"tipo_tela":"IMAX","capacidade_total":180,"cor":"azul"}`,
 		"json quebrado":      `{"numero":`,
 	}
 	for nome, corpoPedido := range casos {
@@ -180,7 +236,7 @@ func TestPostSalaEmCinemaInexistenteDevolve404DeCinema(t *testing.T) {
 
 func TestPostSalaComNumeroJaUsadoDevolve409(t *testing.T) {
 	amb := montarComSalas(t, []catalogo.Sala{salaDeTeste()})
-	repetida := `{"numero":3,"tipo_tela":"2D","capacidade_total":90}`
+	repetida := `{"cinema_id":"` + cinemaID + `","numero":3,"tipo_tela":"2D","capacidade_total":90}`
 	resp, corpo := requisitar(t, amb.servidor, http.MethodPost, caminhoDasSalas, "token-bom", repetida)
 
 	if resp.StatusCode != http.StatusConflict {
@@ -193,7 +249,7 @@ func TestPostSalaComNumeroJaUsadoDevolve409(t *testing.T) {
 
 func TestPutSalaSubstituiASala(t *testing.T) {
 	amb := montarComSalas(t, []catalogo.Sala{salaDeTeste()})
-	novo := `{"numero":9,"tipo_tela":"VIP","capacidade_total":60}`
+	novo := `{"cinema_id":"` + cinemaID + `","numero":9,"tipo_tela":"VIP","capacidade_total":60}`
 	resp, corpo := requisitar(t, amb.servidor, http.MethodPut, caminhoDasSalas+"/"+salaID, "token-bom", novo)
 
 	if resp.StatusCode != http.StatusOK {
@@ -212,7 +268,7 @@ func TestPutSalaSubstituiASala(t *testing.T) {
 
 func TestPutSalaPodeManterOProprioNumero(t *testing.T) {
 	amb := montarComSalas(t, []catalogo.Sala{salaDeTeste()})
-	mesmoNumero := `{"numero":3,"tipo_tela":"2D","capacidade_total":90}`
+	mesmoNumero := `{"cinema_id":"` + cinemaID + `","numero":3,"tipo_tela":"2D","capacidade_total":90}`
 	resp, corpo := requisitar(t, amb.servidor, http.MethodPut, caminhoDasSalas+"/"+salaID, "token-bom", mesmoNumero)
 
 	if resp.StatusCode != http.StatusOK {
@@ -220,12 +276,24 @@ func TestPutSalaPodeManterOProprioNumero(t *testing.T) {
 	}
 }
 
-func TestPutSalaDeOutroCinemaDevolve404(t *testing.T) {
-	deOutroCinema := salaDeTeste()
-	deOutroCinema.CinemaID = "b1b2c3d4-0000-4000-8000-000000000999"
-	amb := montarComSalas(t, []catalogo.Sala{deOutroCinema})
+// O vínculo com o cinema é do cadastro, não do corpo do PUT: a sala não migra.
+func TestPutSalaComOutroCinemaDevolve409(t *testing.T) {
+	amb := montarComSalas(t, []catalogo.Sala{salaDeTeste()})
+	migrando := `{"cinema_id":"` + outroCinemaID + `","numero":3,"tipo_tela":"2D","capacidade_total":90}`
+	resp, corpo := requisitar(t, amb.servidor, http.MethodPut, caminhoDasSalas+"/"+salaID, "token-bom", migrando)
 
+	if resp.StatusCode != http.StatusConflict {
+		t.Fatalf("status %d, esperava 409 (corpo: %s)", resp.StatusCode, corpo)
+	}
+	if p := decodificarProblem(t, resp, corpo); !strings.HasSuffix(p.Type, "conflito") {
+		t.Fatalf("type inesperado: %s", p.Type)
+	}
+}
+
+func TestPutSalaInexistenteDevolve404(t *testing.T) {
+	amb := montarComSalas(t, nil)
 	resp, corpo := requisitar(t, amb.servidor, http.MethodPut, caminhoDasSalas+"/"+salaID, "token-bom", corpoSalaValido)
+
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("status %d, esperava 404 (corpo: %s)", resp.StatusCode, corpo)
 	}

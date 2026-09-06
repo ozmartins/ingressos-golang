@@ -89,7 +89,7 @@ func TestListarSalasFiltraPorSituacao(t *testing.T) {
 	}
 
 	ativa := true
-	ativas, err := uc.Executar(ctx, cinemaDasFixtures, usecase.FiltroSalas{Ativo: &ativa}, pagina(t, 1, 20))
+	ativas, err := uc.Executar(ctx, usecase.FiltroSalas{CinemaID: cinemaDasFixtures, Ativo: &ativa}, pagina(t, 1, 20))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +97,7 @@ func TestListarSalasFiltraPorSituacao(t *testing.T) {
 		t.Fatalf("esperava 1 sala ativa no cinema, obteve %d", ativas.Total)
 	}
 
-	todas, err := uc.Executar(ctx, cinemaDasFixtures, usecase.FiltroSalas{}, pagina(t, 1, 20))
+	todas, err := uc.Executar(ctx, usecase.FiltroSalas{CinemaID: cinemaDasFixtures}, pagina(t, 1, 20))
 	if err != nil {
 		t.Fatal(err)
 	}

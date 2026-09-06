@@ -12,13 +12,17 @@ type ListarSalas struct {
 	Salas   SalaRepository
 }
 
-func (uc ListarSalas) Executar(ctx context.Context, cinemaID string, filtro FiltroSalas, req shared.PageRequest) (shared.Page[catalogo.Sala], error) {
-	existe, err := uc.Cinemas.Existe(ctx, cinemaID)
-	if err != nil {
-		return shared.Page[catalogo.Sala]{}, err
+// Sem `CinemaID` a listagem é da rede inteira. Com ele, o cinema precisa
+// existir: um recorte por um cinema que não existe é 404, não uma página vazia.
+func (uc ListarSalas) Executar(ctx context.Context, filtro FiltroSalas, req shared.PageRequest) (shared.Page[catalogo.Sala], error) {
+	if filtro.CinemaID != "" {
+		existe, err := uc.Cinemas.Existe(ctx, filtro.CinemaID)
+		if err != nil {
+			return shared.Page[catalogo.Sala]{}, err
+		}
+		if !existe {
+			return shared.Page[catalogo.Sala]{}, shared.NaoEncontrado("cinema", filtro.CinemaID)
+		}
 	}
-	if !existe {
-		return shared.Page[catalogo.Sala]{}, shared.NaoEncontrado("cinema", cinemaID)
-	}
-	return uc.Salas.ListarPorCinema(ctx, cinemaID, filtro, req)
+	return uc.Salas.Listar(ctx, filtro, req)
 }

@@ -132,10 +132,10 @@ type salasFalsas struct {
 	numeroEmUso bool
 }
 
-func (s *salasFalsas) ListarPorCinema(_ context.Context, cinemaID string, filtro usecase.FiltroSalas, req shared.PageRequest) (shared.Page[catalogo.Sala], error) {
+func (s *salasFalsas) Listar(_ context.Context, filtro usecase.FiltroSalas, req shared.PageRequest) (shared.Page[catalogo.Sala], error) {
 	var selecionadas []catalogo.Sala
 	for _, sala := range s.itens {
-		if sala.CinemaID != cinemaID {
+		if filtro.CinemaID != "" && sala.CinemaID != filtro.CinemaID {
 			continue
 		}
 		if filtro.Ativo == nil || sala.Ativo == *filtro.Ativo {

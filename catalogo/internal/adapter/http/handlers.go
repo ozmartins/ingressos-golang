@@ -254,12 +254,7 @@ func escreverErroDeEscritaDeCinema(w http.ResponseWriter, r *http.Request, err e
 	EscreverErroDeDominio(w, r, err, "cinema")
 }
 
-func (h Handlers) GetSalasDoCinema(w http.ResponseWriter, r *http.Request) {
-	cinemaID := r.PathValue("id")
-	if err := validarUUID(cinemaID, "id"); err != nil {
-		EscreverErroDeDominio(w, r, err, "")
-		return
-	}
+func (h Handlers) GetSalas(w http.ResponseWriter, r *http.Request) {
 	req, err := lerPaginacao(r, h.Limites)
 	if err != nil {
 		EscreverErroDeDominio(w, r, err, "")
@@ -267,7 +262,15 @@ func (h Handlers) GetSalasDoCinema(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var filtro usecase.FiltroSalas
-	if bruto := r.URL.Query().Get("ativo"); bruto != "" {
+	q := r.URL.Query()
+	if v := q.Get("cinema_id"); v != "" {
+		if err := validarUUID(v, "cinema_id"); err != nil {
+			EscreverErroDeDominio(w, r, err, "")
+			return
+		}
+		filtro.CinemaID = v
+	}
+	if bruto := q.Get("ativo"); bruto != "" {
 		ativo, err := parseBooleano(bruto, "ativo")
 		if err != nil {
 			EscreverErroDeDominio(w, r, err, "")
@@ -276,7 +279,7 @@ func (h Handlers) GetSalasDoCinema(w http.ResponseWriter, r *http.Request) {
 		filtro.Ativo = ativo
 	}
 
-	pagina, err := h.ListarSalas.Executar(r.Context(), cinemaID, filtro, req)
+	pagina, err := h.ListarSalas.Executar(r.Context(), filtro, req)
 	if err != nil {
 		EscreverErroDeDominio(w, r, err, "cinema")
 		return
@@ -285,11 +288,12 @@ func (h Handlers) GetSalasDoCinema(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h Handlers) GetSala(w http.ResponseWriter, r *http.Request) {
-	cinemaID, salaID, ok := lerCaminhoDeSala(w, r)
-	if !ok {
+	salaID := r.PathValue("id")
+	if err := validarUUID(salaID, "id"); err != nil {
+		EscreverErroDeDominio(w, r, err, "")
 		return
 	}
-	sala, err := h.BuscarSala.Executar(r.Context(), cinemaID, salaID)
+	sala, err := h.BuscarSala.Executar(r.Context(), salaID)
 	if err != nil {
 		EscreverErroDeDominio(w, r, err, "sala")
 		return
@@ -298,34 +302,30 @@ func (h Handlers) GetSala(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h Handlers) PostSala(w http.ResponseWriter, r *http.Request) {
-	cinemaID := r.PathValue("id")
-	if err := validarUUID(cinemaID, "id"); err != nil {
-		EscreverErroDeDominio(w, r, err, "")
-		return
-	}
-	corpo, ok := lerEntradaDeSala(w, r)
+	dados, ok := lerEntradaDeSala(w, r)
 	if !ok {
 		return
 	}
-	sala, err := h.CriarSala.Executar(r.Context(), cinemaID, corpo.paraDadosSala())
+	sala, err := h.CriarSala.Executar(r.Context(), dados)
 	if err != nil {
 		escreverErroDeEscritaDeSala(w, r, err)
 		return
 	}
-	w.Header().Set("Location", "/api/v1/cinemas/"+cinemaID+"/salas/"+sala.ID)
+	w.Header().Set("Location", "/api/v1/salas/"+sala.ID)
 	escreverJSON(w, http.StatusCreated, paraSalaDTO(sala))
 }
 
 func (h Handlers) PutSala(w http.ResponseWriter, r *http.Request) {
-	cinemaID, salaID, ok := lerCaminhoDeSala(w, r)
+	salaID := r.PathValue("id")
+	if err := validarUUID(salaID, "id"); err != nil {
+		EscreverErroDeDominio(w, r, err, "")
+		return
+	}
+	dados, ok := lerEntradaDeSala(w, r)
 	if !ok {
 		return
 	}
-	corpo, ok := lerEntradaDeSala(w, r)
-	if !ok {
-		return
-	}
-	sala, err := h.AtualizarSala.Executar(r.Context(), cinemaID, salaID, corpo.paraDadosSala())
+	sala, err := h.AtualizarSala.Executar(r.Context(), salaID, dados)
 	if err != nil {
 		escreverErroDeEscritaDeSala(w, r, err)
 		return
@@ -334,39 +334,32 @@ func (h Handlers) PutSala(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h Handlers) DeleteSala(w http.ResponseWriter, r *http.Request) {
-	cinemaID, salaID, ok := lerCaminhoDeSala(w, r)
-	if !ok {
+	salaID := r.PathValue("id")
+	if err := validarUUID(salaID, "id"); err != nil {
+		EscreverErroDeDominio(w, r, err, "")
 		return
 	}
-	if err := h.RemoverSala.Executar(r.Context(), cinemaID, salaID); err != nil {
+	if err := h.RemoverSala.Executar(r.Context(), salaID); err != nil {
 		EscreverErroDeDominio(w, r, err, "sala")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// A sala é endereçada pelo par cinema+sala: os dois identificadores precisam ser
-// UUID antes de qualquer consulta.
-func lerCaminhoDeSala(w http.ResponseWriter, r *http.Request) (string, string, bool) {
-	cinemaID, salaID := r.PathValue("id"), r.PathValue("sala_id")
-	for campo, valor := range map[string]string{"id": cinemaID, "sala_id": salaID} {
-		if err := validarUUID(valor, campo); err != nil {
-			EscreverErroDeDominio(w, r, err, "")
-			return "", "", false
-		}
-	}
-	return cinemaID, salaID, true
-}
-
-func lerEntradaDeSala(w http.ResponseWriter, r *http.Request) (salaEntradaDTO, bool) {
+func lerEntradaDeSala(w http.ResponseWriter, r *http.Request) (catalogo.DadosSala, bool) {
 	var corpo salaEntradaDTO
 	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64*1024))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&corpo); err != nil {
 		EscreverProblem(w, r, catCorpoInvalido, "Corpo da requisição não é um JSON válido para esta operação.")
-		return salaEntradaDTO{}, false
+		return catalogo.DadosSala{}, false
 	}
-	return corpo, true
+	dados, err := corpo.paraDadosSala()
+	if err != nil {
+		EscreverProblem(w, r, catCorpoInvalido, mensagemLimpa(err))
+		return catalogo.DadosSala{}, false
+	}
+	return dados, true
 }
 
 func escreverErroDeEscritaDeSala(w http.ResponseWriter, r *http.Request, err error) {

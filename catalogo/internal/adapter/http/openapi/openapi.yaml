@@ -20,7 +20,9 @@ tags:
   - name: Cinemas
     description: Cadastro dos cinemas da rede.
   - name: Salas
-    description: Salas de exibição de cada cinema.
+    description: |
+      Salas de exibição. Cada uma pertence a um cinema, informado no corpo e
+      disponível como filtro da listagem.
   - name: Sessões
     description: Grade de sessões disponíveis para o espectador.
   - name: Reservas
@@ -243,21 +245,22 @@ paths:
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
 
-  /cinemas/{id}/salas:
-    parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: string, format: uuid }
+  /salas:
     get:
       tags: [Salas]
-      summary: Lista as salas de um cinema
+      summary: Lista as salas
       description: |
-        Sem o parâmetro `ativo`, retorna as salas em qualquer situação.
+        Sem `cinema_id`, percorre as salas da rede inteira; com ele, recorta as
+        de um cinema — que precisa existir. Sem o parâmetro `ativo`, retorna as
+        salas em qualquer situação.
       security: []
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
+        - name: cinema_id
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
         - name: ativo
           in: query
           required: false
@@ -272,10 +275,10 @@ paths:
         '404': { $ref: '#/components/responses/NaoEncontrado' }
     post:
       tags: [Salas]
-      summary: Cadastra uma sala no cinema
+      summary: Cadastra uma sala
       description: |
         O identificador é gerado pelo serviço e devolvido no corpo e no header
-        `Location`. O `cinema_id` vem do caminho, não do corpo. Sem `ativo`, a
+        `Location`. O `cinema_id` vem do corpo e precisa existir. Sem `ativo`, a
         sala nasce ativa.
       security:
         - clientCredentials: []
@@ -299,13 +302,9 @@ paths:
         '404': { $ref: '#/components/responses/NaoEncontrado' }
         '409': { $ref: '#/components/responses/Conflito' }
 
-  /cinemas/{id}/salas/{sala_id}:
+  /salas/{id}:
     parameters:
       - name: id
-        in: path
-        required: true
-        schema: { type: string, format: uuid }
-      - name: sala_id
         in: path
         required: true
         schema: { type: string, format: uuid }
@@ -313,8 +312,7 @@ paths:
       tags: [Salas]
       summary: Busca uma sala pelo identificador
       description: |
-        Devolve a sala em qualquer situação, inclusive inativa. A sala pedida
-        pelo cinema errado responde 404: o caminho inteiro é o endereço.
+        Devolve a sala em qualquer situação, inclusive inativa.
       security: []
       responses:
         '200':
@@ -329,7 +327,9 @@ paths:
       summary: Substitui uma sala
       description: |
         Substituição total: o corpo descreve o estado final da sala, e campo
-        opcional omitido volta ao padrão. A sala não muda de cinema.
+        opcional omitido volta ao padrão. O `cinema_id` é obrigatório e precisa
+        repetir o cinema atual da sala — a sala não muda de cinema, e tentar
+        movê-la responde 409.
       security:
         - clientCredentials: []
       requestBody:
@@ -655,8 +655,14 @@ components:
 
     SalaEntrada:
       type: object
-      required: [numero, tipo_tela, capacidade_total]
+      required: [cinema_id, numero, tipo_tela, capacidade_total]
       properties:
+        cinema_id:
+          type: string
+          format: uuid
+          description: |
+            No PUT, precisa repetir o cinema atual da sala: o vínculo é do
+            cadastro, e movê-la de cinema responde 409.
         numero:
           type: integer
           minimum: 1

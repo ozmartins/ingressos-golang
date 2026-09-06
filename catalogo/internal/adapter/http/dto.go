@@ -144,17 +144,28 @@ func paraSalaDTO(s catalogo.Sala) salaDTO {
 }
 
 // Campos ponteiro pelo mesmo motivo de `filmeEntradaDTO`: no PUT, que substitui
-// a sala inteira, um `numero` omitido é erro, não zero. `cinema_id` não entra:
-// ele vem do caminho, e aceitá-lo no corpo permitiria discordar dele.
+// a sala inteira, um `numero` omitido é erro, não zero. `cinema_id` entra no
+// corpo agora que a sala não vive mais dentro do caminho do cinema.
 type salaEntradaDTO struct {
+	CinemaID        *string `json:"cinema_id"`
 	Numero          *int    `json:"numero"`
 	TipoTela        *string `json:"tipo_tela"`
 	CapacidadeTotal *int    `json:"capacidade_total"`
 	Ativo           *bool   `json:"ativo"`
 }
 
-func (d salaEntradaDTO) paraDadosSala() catalogo.DadosSala {
+// O formato do `cinema_id` é conferido aqui, e não no domínio: um identificador
+// malformado nem chega ao banco, que só conhece UUID.
+func (d salaEntradaDTO) paraDadosSala() (catalogo.DadosSala, error) {
 	dados := catalogo.DadosSala{Ativo: d.Ativo}
+	if d.CinemaID != nil {
+		dados.CinemaID = *d.CinemaID
+	}
+	if dados.CinemaID != "" {
+		if err := validarUUID(dados.CinemaID, "cinema_id"); err != nil {
+			return catalogo.DadosSala{}, err
+		}
+	}
 	if d.Numero != nil {
 		dados.Numero = *d.Numero
 	}
@@ -164,7 +175,7 @@ func (d salaEntradaDTO) paraDadosSala() catalogo.DadosSala {
 	if d.CapacidadeTotal != nil {
 		dados.CapacidadeTotal = *d.CapacidadeTotal
 	}
-	return dados
+	return dados, nil
 }
 
 type sessaoDTO struct {

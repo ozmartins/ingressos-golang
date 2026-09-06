@@ -13,8 +13,7 @@ type CriarSala struct {
 	GerarID func() string
 }
 
-func (uc CriarSala) Executar(ctx context.Context, cinemaID string, dados catalogo.DadosSala) (catalogo.Sala, error) {
-	dados.CinemaID = cinemaID
+func (uc CriarSala) Executar(ctx context.Context, dados catalogo.DadosSala) (catalogo.Sala, error) {
 	sala, err := catalogo.NovaSala(uc.GerarID(), dados)
 	if err != nil {
 		return catalogo.Sala{}, err
@@ -28,7 +27,7 @@ func (uc CriarSala) Executar(ctx context.Context, cinemaID string, dados catalog
 	return sala, nil
 }
 
-// As duas verificações andam juntas nas duas escritas: o cinema do caminho
+// As duas verificações andam juntas nas duas escritas: o cinema informado
 // precisa existir, e o número precisa estar livre entre as salas ativas dele.
 func conferirCinemaELiberdadeDoNumero(
 	ctx context.Context,

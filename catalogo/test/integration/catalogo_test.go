@@ -137,7 +137,8 @@ func TestListarCinemasESalas(t *testing.T) {
 		t.Fatalf("esperava 2 cinemas, obteve %d", pc.Total)
 	}
 
-	ps, err := uc.Executar(context.Background(), "b1b2c3d4-0000-4000-8000-000000000001", usecase.FiltroSalas{}, pagina(t, 1, 20))
+	filtro := usecase.FiltroSalas{CinemaID: "b1b2c3d4-0000-4000-8000-000000000001"}
+	ps, err := uc.Executar(context.Background(), filtro, pagina(t, 1, 20))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +156,8 @@ func TestListarSalasDeCinemaInexistente(t *testing.T) {
 		Cinemas: pgadapter.NovoCinemaRepository(pool),
 		Salas:   pgadapter.NovoSalaRepository(pool),
 	}
-	_, err := uc.Executar(context.Background(), "00000000-0000-0000-0000-000000000000", usecase.FiltroSalas{}, pagina(t, 1, 20))
+	filtro := usecase.FiltroSalas{CinemaID: "00000000-0000-0000-0000-000000000000"}
+	_, err := uc.Executar(context.Background(), filtro, pagina(t, 1, 20))
 	if !errors.Is(err, shared.ErrNaoEncontrado) {
 		t.Fatalf("esperava ErrNaoEncontrado, obteve %v", err)
 	}

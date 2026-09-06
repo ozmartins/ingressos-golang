@@ -100,7 +100,9 @@ func TestDesempenhoDasConsultasPaginadas(t *testing.T) {
 			consultas := map[string]func(){
 				"filmes":  func() { _, _ = filmes.Listar(ctx, usecase.FiltroFilmes{}, catalogo.StatusPublicos, req) },
 				"cinemas": func() { _, _ = cinemas.Listar(ctx, usecase.FiltroCinemas{}, req) },
-				"salas":   func() { _, _ = salas.ListarPorCinema(ctx, cinemaID, usecase.FiltroSalas{}, req) },
+				"salas": func() {
+					_, _ = salas.Listar(ctx, usecase.FiltroSalas{CinemaID: cinemaID}, req)
+				},
 				"sessoes": func() { _, _ = sessoes.Consultar(ctx, usecase.FiltroSessoes{}, req) },
 				"sessoes-filtradas": func() {
 					_, _ = sessoes.Consultar(ctx, usecase.FiltroSessoes{

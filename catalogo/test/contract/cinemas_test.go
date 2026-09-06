@@ -249,37 +249,3 @@ func TestDeleteCinemaInexistenteDevolve404(t *testing.T) {
 	}
 	decodificarProblem(t, resp, corpo)
 }
-
-func TestGetSalasDeCinemaInexistenteDevolve404(t *testing.T) {
-	amb := montar(t, func(a *ambiente) { a.cinemas.existe = false })
-	resp, corpo := obter(t, amb.servidor, "/api/v1/cinemas/00000000-0000-0000-0000-000000000000/salas")
-
-	if resp.StatusCode != http.StatusNotFound {
-		t.Fatalf("esperava 404, obteve %d", resp.StatusCode)
-	}
-	p := decodificarProblem(t, resp, corpo)
-	if p.Type != "https://cinema.example/errors/cinema-nao-encontrado" {
-		t.Fatalf("type inesperado: %s", p.Type)
-	}
-}
-
-func TestGetSalasDeCinemaSemSalasDevolve200Vazio(t *testing.T) {
-	amb := montar(t, func(a *ambiente) { a.cinemas.existe = true })
-	resp, corpo := obter(t, amb.servidor, "/api/v1/cinemas/"+cinemaID+"/salas")
-
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("esperava 200, obteve %d", resp.StatusCode)
-	}
-	e := decodificarEnvelope(t, corpo)
-	if len(e.Itens) != 0 || e.Pagina.Total != 0 {
-		t.Fatalf("esperava página vazia, obteve %+v", e)
-	}
-}
-
-func TestGetSalasRecusaCinemaIDMalformado(t *testing.T) {
-	amb := montar(t, nil)
-	resp, _ := obter(t, amb.servidor, "/api/v1/cinemas/nao-e-uuid/salas")
-	if resp.StatusCode != http.StatusBadRequest {
-		t.Fatalf("esperava 400, obteve %d", resp.StatusCode)
-	}
-}

@@ -67,8 +67,8 @@ Para confirmar a página vazia além do fim (FR-005): peça `page=9999` e verifi
 
 ```bash
 curl -s "localhost:8080/api/v1/cinemas" | jq '.itens[0]'
-curl -s "localhost:8080/api/v1/cinemas/<uuid>/salas" | jq
-curl -si "localhost:8080/api/v1/cinemas/00000000-0000-0000-0000-000000000000/salas" | head -1
+curl -s "localhost:8080/api/v1/salas?cinema_id=<uuid>" | jq
+curl -si "localhost:8080/api/v1/salas?cinema_id=00000000-0000-0000-0000-000000000000" | head -1
 ```
 
 **Esperado**: cinema inexistente retorna `404` com `type: .../cinema-nao-encontrado`.

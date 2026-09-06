@@ -152,7 +152,7 @@ type salaRepoFalso struct {
 	desativada  string
 }
 
-func (s *salaRepoFalso) ListarPorCinema(_ context.Context, _ string, _ FiltroSalas, req shared.PageRequest) (shared.Page[catalogo.Sala], error) {
+func (s *salaRepoFalso) Listar(_ context.Context, _ FiltroSalas, req shared.PageRequest) (shared.Page[catalogo.Sala], error) {
 	s.chamado = true
 	return shared.NovaPage([]catalogo.Sala{}, 0, req), nil
 }
@@ -225,12 +225,41 @@ func TestListarFilmesComFiltroExplicitoRespeitaOPedido(t *testing.T) {
 func TestListarSalasRecusaCinemaInexistente(t *testing.T) {
 	salas := &salaRepoFalso{}
 	_, err := ListarSalas{Cinemas: &cinemaRepoFalso{existe: false}, Salas: salas}.
-		Executar(context.Background(), "id-qualquer", FiltroSalas{}, pagina())
+		Executar(context.Background(), FiltroSalas{CinemaID: "id-qualquer"}, pagina())
 	if !errors.Is(err, shared.ErrNaoEncontrado) {
 		t.Fatalf("esperava ErrNaoEncontrado, obteve %v", err)
 	}
 	if salas.chamado {
 		t.Fatal("não deveria consultar salas de um cinema inexistente")
+	}
+}
+
+// Sem recorte por cinema não há cinema para conferir: a listagem vai direto ao
+// repositório, mesmo que nenhum cinema exista.
+func TestListarSalasSemCinemaNaoConfereCinema(t *testing.T) {
+	salas := &salaRepoFalso{}
+	cinemas := &cinemaRepoFalso{existe: false}
+	if _, err := (ListarSalas{Cinemas: cinemas, Salas: salas}).
+		Executar(context.Background(), FiltroSalas{}, pagina()); err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if !salas.chamado {
+		t.Fatal("a listagem da rede deveria chegar ao repositório de salas")
+	}
+}
+
+func TestAtualizarSalaRecusaTrocaDeCinema(t *testing.T) {
+	salas := &salaRepoFalso{sala: catalogo.Sala{ID: "sala-1", CinemaID: "cinema-a", Numero: 3}}
+	uc := AtualizarSala{Cinemas: &cinemaRepoFalso{existe: true}, Salas: salas}
+
+	_, err := uc.Executar(context.Background(), "sala-1", catalogo.DadosSala{
+		CinemaID: "cinema-b", Numero: 3, TipoTela: "2D", CapacidadeTotal: 90,
+	})
+	if !errors.Is(err, shared.ErrConflito) {
+		t.Fatalf("esperava ErrConflito, obteve %v", err)
+	}
+	if salas.atualizada.ID != "" {
+		t.Fatal("a sala não deveria ter sido gravada")
 	}
 }
 
@@ -521,14 +550,14 @@ func TestRemoverCinemaDesativa(t *testing.T) {
 }
 
 func dadosSala() catalogo.DadosSala {
-	return catalogo.DadosSala{Numero: 3, TipoTela: "IMAX", CapacidadeTotal: 180}
+	return catalogo.DadosSala{CinemaID: "cinema-1", Numero: 3, TipoTela: "IMAX", CapacidadeTotal: 180}
 }
 
 func TestCriarSalaRecusaCinemaInexistente(t *testing.T) {
 	salas := &salaRepoFalso{}
 	uc := CriarSala{Cinemas: &cinemaRepoFalso{existe: false}, Salas: salas, GerarID: idFixo}
 
-	_, err := uc.Executar(context.Background(), "cinema-1", dadosSala())
+	_, err := uc.Executar(context.Background(), dadosSala())
 	if !errors.Is(err, shared.ErrNaoEncontrado) {
 		t.Fatalf("esperava ErrNaoEncontrado, obteve %v", err)
 	}
@@ -541,7 +570,7 @@ func TestCriarSalaRecusaNumeroJaUsado(t *testing.T) {
 	salas := &salaRepoFalso{numeroEmUso: true}
 	uc := CriarSala{Cinemas: &cinemaRepoFalso{existe: true}, Salas: salas, GerarID: idFixo}
 
-	_, err := uc.Executar(context.Background(), "cinema-1", dadosSala())
+	_, err := uc.Executar(context.Background(), dadosSala())
 	if !errors.Is(err, shared.ErrConflito) {
 		t.Fatalf("esperava ErrConflito, obteve %v", err)
 	}
@@ -558,7 +587,7 @@ func TestCriarSalaInativaNaoDisputaONumero(t *testing.T) {
 	salas := &salaRepoFalso{numeroEmUso: true}
 	uc := CriarSala{Cinemas: &cinemaRepoFalso{existe: true}, Salas: salas, GerarID: idFixo}
 
-	if _, err := uc.Executar(context.Background(), "cinema-1", dados); err != nil {
+	if _, err := uc.Executar(context.Background(), dados); err != nil {
 		t.Fatalf("erro inesperado: %v", err)
 	}
 	if salas.criada.ID == "" {
@@ -566,23 +595,23 @@ func TestCriarSalaInativaNaoDisputaONumero(t *testing.T) {
 	}
 }
 
-func TestCriarSalaTomaOCinemaDoCaminho(t *testing.T) {
+func TestCriarSalaTomaOCinemaDoCorpo(t *testing.T) {
 	salas := &salaRepoFalso{}
 	uc := CriarSala{Cinemas: &cinemaRepoFalso{existe: true}, Salas: salas, GerarID: idFixo}
 
-	sala, err := uc.Executar(context.Background(), "cinema-1", dadosSala())
+	sala, err := uc.Executar(context.Background(), dadosSala())
 	if err != nil {
 		t.Fatalf("erro inesperado: %v", err)
 	}
 	if sala.CinemaID != "cinema-1" || salas.criada.CinemaID != "cinema-1" {
-		t.Fatalf("cinema_id = %q, esperava o do caminho", salas.criada.CinemaID)
+		t.Fatalf("cinema_id = %q, esperava o do corpo", salas.criada.CinemaID)
 	}
 }
 
-func TestBuscarSalaDeOutroCinemaNaoEncontra(t *testing.T) {
-	salas := &salaRepoFalso{sala: catalogo.Sala{ID: "sala-1", CinemaID: "cinema-2"}}
+func TestBuscarSalaInexistenteNaoEncontra(t *testing.T) {
+	salas := &salaRepoFalso{erroBusca: shared.NaoEncontrado("sala", "sala-1")}
 
-	_, err := BuscarSala{Salas: salas}.Executar(context.Background(), "cinema-1", "sala-1")
+	_, err := BuscarSala{Salas: salas}.Executar(context.Background(), "sala-1")
 	if !errors.Is(err, shared.ErrNaoEncontrado) {
 		t.Fatalf("esperava ErrNaoEncontrado, obteve %v", err)
 	}
@@ -592,15 +621,14 @@ func TestBuscarSalaDeOutroCinemaNaoEncontra(t *testing.T) {
 	}
 }
 
-func TestRemoverSalaDeOutroCinemaNaoDesativa(t *testing.T) {
-	salas := &salaRepoFalso{sala: catalogo.Sala{ID: "sala-1", CinemaID: "cinema-2"}}
+func TestRemoverSalaDesativa(t *testing.T) {
+	salas := &salaRepoFalso{}
 
-	err := RemoverSala{Salas: salas}.Executar(context.Background(), "cinema-1", "sala-1")
-	if !errors.Is(err, shared.ErrNaoEncontrado) {
-		t.Fatalf("esperava ErrNaoEncontrado, obteve %v", err)
+	if err := (RemoverSala{Salas: salas}).Executar(context.Background(), "sala-1"); err != nil {
+		t.Fatalf("erro inesperado: %v", err)
 	}
-	if salas.desativada != "" {
-		t.Fatal("não deveria desativar sala de outro cinema")
+	if salas.desativada != "sala-1" {
+		t.Fatalf("esperava remoção lógica de sala-1, obteve %q", salas.desativada)
 	}
 }
 

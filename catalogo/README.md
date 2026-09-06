@@ -48,7 +48,11 @@ O catálogo de erros está em [`specs/001-catalogo-sessoes-reserva/contracts/err
 | `POST` | `/api/v1/cinemas` | Bearer |
 | `PUT` | `/api/v1/cinemas/{id}` | Bearer |
 | `DELETE` | `/api/v1/cinemas/{id}` | Bearer |
-| `GET` | `/api/v1/cinemas/{id}/salas` | pública |
+| `GET` | `/api/v1/salas` | pública |
+| `GET` | `/api/v1/salas/{id}` | pública |
+| `POST` | `/api/v1/salas` | Bearer |
+| `PUT` | `/api/v1/salas/{id}` | Bearer |
+| `DELETE` | `/api/v1/salas/{id}` | Bearer |
 | `GET` | `/api/v1/sessoes` | pública |
 | `POST` | `/api/v1/sessoes/{id}/reservar` | Bearer |
 | `GET` | `/health` | pública |
@@ -64,6 +68,15 @@ remoção marca o cinema como inativo em vez de apagar a linha, porque as salas 
 referenciam e as sessões referenciam as salas. O cinema some de
 `GET /cinemas`, segue legível em `GET /cinemas/{id}` e é alcançável pelo filtro
 `GET /cinemas?ativo=false`.
+
+As salas moram fora do caminho do cinema: cada uma é endereçada por
+`/salas/{id}`, e o cinema é o filtro opcional `GET /salas?cinema_id=<uuid>` — sem
+ele a listagem é da rede inteira, com ele o cinema precisa existir, ou a resposta
+é `404`. O `cinema_id` vai no corpo da escrita e é do cadastro, não do estado que
+o `PUT` redesenha: informar outro cinema responde `409`, e mudar a sala de cinema
+não é uma operação da API. O `DELETE` também é lógico, pelo mesmo motivo do
+cinema — as sessões referenciam a sala —, e o número liberado volta a ficar
+disponível para a sala que a substituir.
 
 ## Executando localmente
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -31,20 +32,27 @@ func lerSala(scan func(...any) error) (catalogo.Sala, error) {
 	return s, nil
 }
 
-func (r *SalaRepository) ListarPorCinema(
+func (r *SalaRepository) Listar(
 	ctx context.Context,
-	cinemaID string,
 	filtro usecase.FiltroSalas,
 	req shared.PageRequest,
 ) (shared.Page[catalogo.Sala], error) {
 	// Filtro nulo significa "qualquer situação": um só SQL atende os dois casos.
-	filtros := []any{cinemaID, filtro.Ativo}
+	condicoes := []string{"($1::boolean IS NULL OR ativo = $1)"}
+	filtros := []any{filtro.Ativo}
 
-	const sqlPagina = `SELECT ` + colunasSala + ` FROM salas
-	                   WHERE cinema_id = $1 AND ($2::boolean IS NULL OR ativo = $2)
-	                   ORDER BY numero, id LIMIT $3 OFFSET $4`
-	const sqlTotal = `SELECT COUNT(*) FROM salas
-	                  WHERE cinema_id = $1 AND ($2::boolean IS NULL OR ativo = $2)`
+	if filtro.CinemaID != "" {
+		filtros = append(filtros, filtro.CinemaID)
+		condicoes = append(condicoes, fmt.Sprintf("cinema_id = $%d", len(filtros)))
+	}
+
+	// A ordem por cinema mantém as salas de cada um juntas quando a listagem é
+	// da rede inteira; dentro do cinema, o número segue mandando.
+	onde := strings.Join(condicoes, " AND ")
+	sqlPagina := fmt.Sprintf(`SELECT `+colunasSala+` FROM salas WHERE %s
+	                          ORDER BY cinema_id, numero, id LIMIT $%d OFFSET $%d`,
+		onde, len(filtros)+1, len(filtros)+2)
+	sqlTotal := fmt.Sprintf(`SELECT COUNT(*) FROM salas WHERE %s`, onde)
 
 	return consultarPaginado(ctx, r.pool, sqlPagina, sqlTotal, filtros, req, lerSala)
 }

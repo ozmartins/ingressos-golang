@@ -18,7 +18,7 @@ func TestCobrancaPontaAPonta(t *testing.T) {
 	defer parar()
 
 	reserva := uuid.NewString()
-	a.publicarIntencao(t, intencao(reserva, "84.00", "PIX", 10*time.Minute))
+	a.publicarIntencao(t, intencao(reserva, "84.00", 10*time.Minute))
 
 	tr := a.esperarStatus(t, reserva, transacao.Pago, 30*time.Second)
 	if tr.CodigoTransacaoGateway != "gw-integr" || tr.PagoEm == nil {
@@ -56,7 +56,7 @@ func TestReservaExpiradaNaoCobraPontaAPonta(t *testing.T) {
 	defer parar()
 
 	reserva := uuid.NewString()
-	a.publicarIntencao(t, intencao(reserva, "84.00", "PIX", -time.Minute))
+	a.publicarIntencao(t, intencao(reserva, "84.00", -time.Minute))
 
 	tr := a.esperarStatus(t, reserva, transacao.Cancelado, 30*time.Second)
 	if tr.MotivoFalha != transacao.MotivoReservaExpirada {

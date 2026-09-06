@@ -45,21 +45,29 @@ func TestAnuncioInvalidoVaiParaFilaMortaSemCriarTransacao(t *testing.T) {
 	}
 }
 
-func TestDesfechoIndeterminadoParaEstadoEQuarentenaJuntos(t *testing.T) {
+// O desfecho indeterminado não anuncia nada e para em PENDENTE_VERIFICACAO,
+// para inspeção humana.
+//
+// A mensagem NÃO vai mais para a fila morta: a cobrança deixou de acontecer no
+// consumo do anúncio, então não há entrega a descartar. O anúncio da reserva foi
+// processado com sucesso — o que ficou indeterminado é a cobrança, e ela é
+// sinalizada pelo estado da transação, não pelo destino da mensagem.
+func TestDesfechoIndeterminadoParaEmVerificacaoSemAnunciar(t *testing.T) {
 	a := subirAmbiente(t)
 	adq := novoAdquirente(usecase.ResultadoCobranca{Desfecho: usecase.Indeterminada})
 	_, parar := a.consumidorDe(t, adq, 4)
 	defer parar()
 
 	reserva := uuid.NewString()
-	a.publicarIntencao(t, intencao(reserva, "99.99", "CARTAO_CREDITO", 10*time.Minute))
+	a.publicarIntencao(t, intencao(reserva, "99.99", 10*time.Minute))
 
 	tr := a.esperarStatus(t, reserva, transacao.PendenteVerificacao, 30*time.Second)
 	if tr.ResultadoAnunciado {
 		t.Fatal("PENDENTE_VERIFICACAO nunca é marcada como anunciada")
 	}
-
-	esperarFila(t, a, filaDLQ, 1, 30*time.Second)
+	if n := a.contarFila(t, filaDLQ); n != 0 {
+		t.Fatalf("o anúncio da reserva foi processado; nada deveria ir para a fila morta, veio %d", n)
+	}
 
 	if fatos := a.fatosEspiados(t); len(fatos) != 0 {
 		t.Fatalf("SC-009 violado: o estado indeterminado não pode anunciar nada, veio %v", fatos)
@@ -69,7 +77,15 @@ func TestDesfechoIndeterminadoParaEstadoEQuarentenaJuntos(t *testing.T) {
 	}
 }
 
-func TestLimiteDeEntregasEncaminhaParaFilaMorta(t *testing.T) {
+// Adquirente sempre fora: a cobrança é retentada indefinidamente pela varredura,
+// e a transação fica em PROCESSANDO sem anunciar nada. Não há desfecho a
+// inventar, e não há mensagem a descartar — o anúncio da reserva já foi
+// processado.
+//
+// Antes desta mudança este caso terminava na fila morta, porque a cobrança
+// acontecia no consumo e o limite de entregas a descartava. Com a cobrança fora
+// do consumo, o que persiste é a linha no banco, e é ela que a varredura retoma.
+func TestAdquirenteSempreForaMantemProcessandoSemAnunciar(t *testing.T) {
 	a := subirAmbiente(t)
 	adq := novoAdquirente(usecase.ResultadoCobranca{})
 	adq.erro = errSempreFora
@@ -77,26 +93,35 @@ func TestLimiteDeEntregasEncaminhaParaFilaMorta(t *testing.T) {
 	defer parar()
 
 	reserva := uuid.NewString()
-	a.publicarIntencao(t, intencao(reserva, "84.00", "PIX", 30*time.Minute))
+	a.publicarIntencao(t, intencao(reserva, "84.00", 30*time.Minute))
 
-	esperarFila(t, a, filaDLQ, 1, 60*time.Second)
-
-	if n := adq.total(); n > 3 {
-		t.Fatalf("FR-021 violado: esperava no máximo 3 tentativas, veio %d", n)
-	}
-	if n := adq.total(); n < 2 {
-		t.Fatalf("esperava mais de uma tentativa antes da quarentena, veio %d", n)
-	}
-	if fatos := a.fatosEspiados(t); len(fatos) != 0 {
-		t.Fatalf("nada pode ser anunciado sem desfecho, veio %v", fatos)
-	}
-	tr, err := a.Repo.BuscarPorReserva(context.Background(), reserva)
-	if err != nil {
-		t.Fatal(err)
-	}
+	tr := a.esperarStatus(t, reserva, transacao.Processando, 30*time.Second)
 	if tr.Status != transacao.Processando {
 		t.Fatalf("sem desfecho, a transação segue PROCESSANDO; veio %s", tr.Status)
 	}
+
+	// A retomada precisa acontecer de verdade: uma só tentativa significaria que
+	// a varredura desistiu.
+	esperarTentativas(t, adq, 2, 30*time.Second)
+
+	if fatos := a.fatosEspiados(t); len(fatos) != 0 {
+		t.Fatalf("nada pode ser anunciado sem desfecho, veio %v", fatos)
+	}
+	if n := a.contarFila(t, filaDLQ); n != 0 {
+		t.Fatalf("o anúncio da reserva foi processado; nada deveria ir para a fila morta, veio %d", n)
+	}
+}
+
+func esperarTentativas(t *testing.T, adq *adquirenteControlado, minimo int, prazo time.Duration) {
+	t.Helper()
+	limite := time.Now().Add(prazo)
+	for time.Now().Before(limite) {
+		if adq.total() >= minimo {
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	t.Fatalf("esperava ao menos %d tentativas de cobrança em %s, veio %d", minimo, prazo, adq.total())
 }
 
 func TestMensagemNaQuarentenaPreservaOCorpo(t *testing.T) {
@@ -106,7 +131,10 @@ func TestMensagemNaQuarentenaPreservaOCorpo(t *testing.T) {
 	defer parar()
 
 	reserva := uuid.NewString()
-	a.publicarIntencao(t, intencao(reserva, "84.00", "BOLETO", 10*time.Minute))
+	// Valor inválido, e não forma inválida: a forma deixou de viajar no fato, e
+	// quem a recusa agora é o endpoint de escolha. Ver os testes de
+	// `internal/adapter/http`.
+	a.publicarIntencao(t, intencao(reserva, "-1.00", 10*time.Minute))
 	esperarFila(t, a, filaDLQ, 1, 30*time.Second)
 
 	canal, err := a.Conexao.Channel()
@@ -131,13 +159,15 @@ func TestMensagemNaQuarentenaPreservaOCorpo(t *testing.T) {
 	_ = amqp091.Persistent
 }
 
-func TestPrazoDoAdquirenteRealLevaAQuarentena(t *testing.T) {
+// O prazo do adquirente estourado deixa a cobrança indeterminada: o direito de
+// cobrar não é liberado (FR-008) e nada é anunciado.
+func TestPrazoDoAdquirenteRealParaEmVerificacao(t *testing.T) {
 	a := subirAmbiente(t)
 	_, parar := a.consumidorDe(t, simulado.Adquirente{Demora: 30 * time.Second}, 4)
 	defer parar()
 
 	reserva := uuid.NewString()
-	a.publicarIntencao(t, intencao(reserva, "99.99", "CARTAO_CREDITO", 30*time.Minute))
+	a.publicarIntencao(t, intencao(reserva, "99.99", 30*time.Minute))
 
 	tr := a.esperarStatus(t, reserva, transacao.PendenteVerificacao, 60*time.Second)
 	if !tr.CobrancaEmitida {
@@ -146,7 +176,6 @@ func TestPrazoDoAdquirenteRealLevaAQuarentena(t *testing.T) {
 	if tr.ResultadoAnunciado {
 		t.Fatal("PENDENTE_VERIFICACAO nunca é anunciada")
 	}
-	esperarFila(t, a, filaDLQ, 1, 30*time.Second)
 	if fatos := a.fatosEspiados(t); len(fatos) != 0 {
 		t.Fatalf("nada pode ser anunciado, veio %v", fatos)
 	}

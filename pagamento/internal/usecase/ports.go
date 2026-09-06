@@ -22,6 +22,23 @@ type Repositorio interface {
 
 	BuscarPorReserva(ctx context.Context, reservaID string) (transacao.Transacao, error)
 
+	// Grava a forma escolhida e a passagem para PROCESSANDO. Condicionada ao
+	// estado de origem: duas escolhas simultâneas, só uma vale.
+	RegistrarEscolha(ctx context.Context, t transacao.Transacao) error
+
+	// As que esperam cobrança: PROCESSANDO sem cobrança emitida. É o que o
+	// varredor consome a cada tique.
+	AguardandoCobranca(ctx context.Context, limite int) ([]transacao.Transacao, error)
+
+	// Cancela em bloco as que esperam forma e já venceram — a reserva do outro
+	// lado já liberou as poltronas, e ninguém mais vai pagar por elas.
+	CancelarEsperasVencidas(ctx context.Context, agora time.Time, limite int) ([]transacao.Transacao, error)
+
+	// As que já têm desfecho durável mas cujo anúncio não saiu. Um anúncio que
+	// falha depois de o estado estar gravado não pode se perder: é o que a
+	// entrega ao menos uma vez exige de quem publica.
+	AnunciosPendentes(ctx context.Context, limite int) ([]transacao.Transacao, error)
+
 	Finalizar(ctx context.Context, t transacao.Transacao) error
 
 	ReivindicarCobranca(ctx context.Context, id string, agora time.Time) (bool, error)

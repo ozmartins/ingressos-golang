@@ -2,26 +2,30 @@
 
 Processa de forma assíncrona as cobranças do sistema de cinema. Consome o fato
 `reserva.criada`, cobra por trás de uma porta de adquirente e anuncia o desfecho
-em `pagamento.sucesso` ou `pagamento.falhou`. Expõe uma única operação síncrona:
-a consulta do andamento pelo identificador da reserva.
+em `pagamento.sucesso` ou `pagamento.falhou`. Expõe duas operações síncronas: a
+escolha da forma de pagamento de uma reserva e a consulta do andamento dela.
 
 Especificação, plano e decisões: [`specs/001-pagamento-assincrono/`](specs/001-pagamento-assincrono/).
 
-## ⚠ Dependência de integração aberta
+## Reserva e cobrança são separadas
 
-O `Servico-Estoque` publica `reserva.criada` **sem** `valor_total` e sem
-`forma_pagamento` — ver `estoque/internal/usecase/bloquear_poltronas.go`
-(`EventoReservaCriada`) e `estoque/proto/estoque.proto` (`SolicitacaoBloqueio`,
-que sequer recebe esses dados do catálogo).
+Reservar uma poltrona e escolher como pagar são decisões distintas, e o fluxo as
+trata assim:
 
-Este serviço exige os dois campos (FR-003). **Enquanto o estoque não os propagar,
-todo evento real vindo dele é inválido aqui e vai para a fila morta.** A validação
-ponta a ponta usa o publicador manual `cmd/publicar`.
+1. o `Servico-Estoque` publica `reserva.criada` com `valor_total` — o preço vem
+   do catálogo, dono do cadastro da sessão;
+2. o consumo do fato cria a transação em **`AGUARDANDO_FORMA`**: ela já sabe
+   quanto cobrar, e ainda não como;
+3. quem paga escolhe a forma em `POST /api/v1/pagamentos/reserva/{reserva_id}`,
+   que responde **`202`** — a cobrança acontece fora da requisição, então ninguém
+   fica esperando o adquirente;
+4. uma varredura periódica cobra as escolhidas, desiste das que venceram sem
+   escolha, e republica anúncio que não saiu.
 
-A divergência foi decidida com o mantenedor em 2026-08-30 e está registrada em
-`specs/001-pagamento-assincrono/research.md` (D1) e na caixa de aviso de
-`contracts/eventos.md` §1. Fechá-la exige, no estoque: os dois campos em
-`SolicitacaoBloqueio`, na tabela `reservas` e em `reserva.criada` v2.
+Até 2026-09-06 este serviço exigia `forma_pagamento` dentro do fato, e o estoque
+nunca a enviou — porque ninguém no sistema a pedia. O resultado é que **todo**
+anúncio vindo dele era inválido e ia para a fila morta. O histórico da decisão
+está na caixa de `contracts/eventos.md` §1.
 
 ## Como subir
 
@@ -72,6 +76,8 @@ malformada impede o processo de subir.
 | `AMQP_PREFETCH` | não | `10` | teto de cobranças simultâneas (FR-019) |
 | `AMQP_LIMITE_ENTREGAS` | não | `3` | tentativas antes da quarentena (FR-021) |
 | `ADQUIRENTE_TIMEOUT` | não | `10s` | prazo de resposta do adquirente (FR-022) |
+| `VARREDURA_INTERVALO` | não | `2s` | intervalo da varredura; é o atraso entre a escolha da forma e o início da cobrança |
+| `VARREDURA_LOTE` | não | `50` | transações examinadas por varredura |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | não | — | destino de métricas e rastros |
 | `NIVEL_LOG` | não | `info` | `debug`, `info`, `warn` ou `error` |
 
@@ -89,11 +95,17 @@ Quatro decisões moldam o resto (detalhes em `research.md`):
    Ordem invariável: gravar estado final → publicar → marcar → confirmar a
    mensagem. A entrega é ao menos uma vez; consumidores deduplicam por `reserva_id`.
 3. **Ausência de resposta do adquirente é um estado do domínio**
-   (`PENDENTE_VERIFICACAO`), não uma recusa. É terminal, nunca anunciado, e a
-   mensagem vai para a quarentena. É o único silêncio deliberado do serviço.
+   (`PENDENTE_VERIFICACAO`), não uma recusa. É terminal e nunca anunciado — o
+   único silêncio deliberado do serviço. Desde que a cobrança saiu do consumo, ele
+   não descarta mais a mensagem: o anúncio da reserva foi processado com sucesso,
+   e o que ficou indeterminado é a cobrança, sinalizada pelo estado da transação.
 4. **O direito de cobrar é reivindicado atomicamente** no banco antes de falar com
    o adquirente, e devolvido se ele responder com erro. É o que permite a uma
    falha transitória se completar (FR-020) sem jamais recobrar (FR-008).
+5. **A cobrança mora numa varredura, não no consumo do fato.** Quem paga escolheu
+   a forma e não precisa esperar o adquirente; e o que retoma trabalho perdido —
+   cobrança interrompida, anúncio que não saiu, espera vencida — passa a ser um
+   lugar só, que roda pela passagem do tempo e não pela chegada de mensagem.
 
 ## Testes
 

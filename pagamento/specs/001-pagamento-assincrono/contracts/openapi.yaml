@@ -44,6 +44,7 @@ paths:
                     status: PAGO
                     valor_total: 84.00
                     forma_pagamento: PIX
+                    expira_em: "2026-08-29T21:45:00Z"
                     criado_em: "2026-08-29T21:35:00Z"
                 processando:
                   value:
@@ -52,6 +53,7 @@ paths:
                     status: PROCESSANDO
                     valor_total: 84.00
                     forma_pagamento: CARTAO_CREDITO
+                    expira_em: "2026-08-29T21:45:00Z"
                     criado_em: "2026-08-29T21:35:00Z"
         "400":
           description: "`reserva_id` não é um UUID válido"
@@ -73,6 +75,77 @@ paths:
               schema: { $ref: "#/components/schemas/Erro" }
         "503":
           description: Serviço incapaz de consultar o armazenamento
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erro" }
+    post:
+      summary: Escolhe a forma de pagamento da reserva
+      description: |
+        Reservar uma poltrona e escolher como pagar são decisões distintas: a
+        reserva cria a transação sabendo **quanto** cobrar, e é esta operação que
+        diz **como**. Até ela acontecer, a transação fica em `AGUARDANDO_FORMA`.
+
+        A resposta é `202`, não `200`: o pedido foi aceito e a cobrança acontece
+        **fora desta requisição** — quem paga não espera o adquirente responder.
+        O desfecho chega pelo `GET` desta mesma rota ou pela notificação.
+
+        Só a pessoa dona da reserva escolhe; para qualquer outra a resposta é
+        indistinguível de reserva inexistente.
+
+        Se o prazo da reserva venceu antes da escolha, nada é cobrado: a
+        transação é cancelada e a resposta é `409`. As poltronas já foram
+        liberadas do outro lado, e cobrar por elas seria cobrar por assento que
+        outra pessoa pode ter levado.
+      operationId: escolherFormaDePagamento
+      security:
+        - clientCredentials: []
+      parameters:
+        - name: reserva_id
+          in: path
+          required: true
+          description: UUID v4 da reserva
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EscolhaDeForma" }
+      responses:
+        "202":
+          description: |
+            Escolha aceita; a transação passou a `PROCESSANDO` e a cobrança será
+            feita fora desta requisição.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Pagamento" }
+        "400":
+          description: "`reserva_id` não é um UUID, corpo inválido, ou forma de pagamento desconhecida"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erro" }
+        "401":
+          description: Credencial ausente, malformada, expirada ou com assinatura inválida
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erro" }
+        "404":
+          description: |
+            Não há pagamento visível para essa reserva — não existe, ou pertence
+            a outra pessoa.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erro" }
+        "409":
+          description: |
+            A forma já havia sido escolhida, ou o prazo da reserva venceu e ela
+            foi cancelada. O `codigo` do corpo distingue os dois.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erro" }
+        "503":
+          description: Serviço incapaz de gravar a escolha
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Erro" }
@@ -112,17 +185,35 @@ components:
           tokenUrl: http://localhost:8081/realms/cinema/protocol/openid-connect/token
           scopes: {}
   schemas:
+    EscolhaDeForma:
+      type: object
+      required: [forma_pagamento]
+      properties:
+        forma_pagamento: { type: string, enum: [PIX, CARTAO_CREDITO] }
+      additionalProperties: false
+
     Pagamento:
       type: object
-      required: [transacao_id, reserva_id, status, valor_total, forma_pagamento, criado_em]
+      required: [transacao_id, reserva_id, status, valor_total, expira_em, criado_em]
       properties:
         transacao_id:   { type: string, format: uuid }
         reserva_id:     { type: string, format: uuid }
         status:
           type: string
-          enum: [PROCESSANDO, PAGO, RECUSADO, CANCELADO, PENDENTE_VERIFICACAO]
+          enum: [AGUARDANDO_FORMA, PROCESSANDO, PAGO, RECUSADO, CANCELADO, PENDENTE_VERIFICACAO]
         valor_total:    { type: number, format: double, exclusiveMinimum: 0 }
-        forma_pagamento: { type: string, enum: [PIX, CARTAO_CREDITO] }
+        forma_pagamento:
+          type: string
+          enum: [PIX, CARTAO_CREDITO]
+          description: |
+            Ausente enquanto a escolha não acontece: o valor é conhecido desde a
+            reserva, a forma não.
+        expira_em:
+          type: string
+          format: date-time
+          description: |
+            Prazo da reserva. Depois dele não há mais o que pagar, e a escolha da
+            forma responde 409.
         criado_em:      { type: string, format: date-time }
       description: |
         `motivo_falha` e `codigo_transacao_gateway` NÃO são expostos: o motivo da

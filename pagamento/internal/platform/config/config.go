@@ -21,7 +21,9 @@ type Config struct {
 	AMQPPrefetch       int
 	AMQPLimiteEntregas int
 
-	AdquirenteTimeout time.Duration
+	AdquirenteTimeout  time.Duration
+	VarreduraIntervalo time.Duration
+	VarreduraLote      int
 
 	JWKSURL   string
 	JWTIssuer string
@@ -54,6 +56,11 @@ func Carregar() (Config, error) {
 	c.AMQPPrefetch = inteiro("AMQP_PREFETCH", 10, &f)
 	c.AMQPLimiteEntregas = inteiro("AMQP_LIMITE_ENTREGAS", 3, &f)
 	c.AdquirenteTimeout = duracao("ADQUIRENTE_TIMEOUT", 10*time.Second, &f)
+	// De quanto em quanto tempo a cobrança e a desistência por prazo vencido
+	// são varridas. Curto de propósito: é o atraso entre a escolha da forma de
+	// pagamento e o início da cobrança.
+	c.VarreduraIntervalo = duracao("VARREDURA_INTERVALO", 2*time.Second, &f)
+	c.VarreduraLote = inteiro("VARREDURA_LOTE", 50, &f)
 
 	if c.AMQPPrefetch <= 0 {
 		f = append(f, "AMQP_PREFETCH deve ser maior que zero")

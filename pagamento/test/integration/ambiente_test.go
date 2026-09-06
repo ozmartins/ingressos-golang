@@ -136,12 +136,17 @@ func subirAmbiente(t *testing.T) *ambiente {
 
 func aplicarMigracao(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
-	b, err := os.ReadFile(filepath.Join("..", "..", "migrations", "000001_criar_transacoes.up.sql"))
-	if err != nil {
-		t.Fatalf("ler migração: %v", err)
-	}
-	if _, err := pool.Exec(context.Background(), string(b)); err != nil {
-		t.Fatalf("aplicar migração: %v", err)
+	for _, arquivo := range []string{
+		"000001_criar_transacoes.up.sql",
+		"000002_forma_escolhida_depois.up.sql",
+	} {
+		b, err := os.ReadFile(filepath.Join("..", "..", "migrations", arquivo))
+		if err != nil {
+			t.Fatalf("ler migração %s: %v", arquivo, err)
+		}
+		if _, err := pool.Exec(context.Background(), string(b)); err != nil {
+			t.Fatalf("aplicar migração %s: %v", arquivo, err)
+		}
 	}
 }
 
@@ -160,17 +165,16 @@ func (a *ambiente) publicarIntencao(t *testing.T, i map[string]any) {
 	}
 }
 
-func intencao(reservaID, valor, forma string, expiraEm time.Duration) map[string]any {
+func intencao(reservaID, valor string, expiraEm time.Duration) map[string]any {
 	return map[string]any{
 		"evento": "RESERVA_CRIADA", "versao": 1,
-		"ocorrido_em":     time.Now().UTC().Format(time.RFC3339),
-		"reserva_id":      reservaID,
-		"sessao_id":       uuid.NewString(),
-		"usuario_id":      uuid.NewString(),
-		"poltronas_ids":   []string{"A1", "A2"},
-		"valor_total":     json.Number(valor),
-		"forma_pagamento": forma,
-		"expira_em":       time.Now().UTC().Add(expiraEm).Format(time.RFC3339),
+		"ocorrido_em":   time.Now().UTC().Format(time.RFC3339),
+		"reserva_id":    reservaID,
+		"sessao_id":     uuid.NewString(),
+		"usuario_id":    uuid.NewString(),
+		"poltronas_ids": []string{"A1", "A2"},
+		"valor_total":   valor,
+		"expira_em":     time.Now().UTC().Add(expiraEm).Format(time.RFC3339),
 	}
 }
 
@@ -182,17 +186,72 @@ func (a *ambiente) consumidorDe(t *testing.T, adq usecase.Adquirente, prefetch i
 	}
 	c := &adaptamqp.Consumidor{
 		Canal: canal, Fila: filaReserva, Prefetch: prefetch,
-		Caso: usecase.ProcessarPagamento{
-			Repo: a.Repo, Adquirente: adq, Publicador: a.Publica,
-			Relogio: relogioReal{}, IDs: idsReais{},
-			PrazoAdquirente: 2 * time.Second,
-		},
-		Log: a.Log, Propagador: propagation.TraceContext{},
+		// O consumo só registra a intenção; a cobrança é do varredor.
+		Caso: usecase.RegistrarIntencao{Repo: a.Repo, Relogio: relogioReal{}, IDs: idsReais{}},
+		Log:  a.Log, Propagador: propagation.TraceContext{},
 		EmAndamento: &adaptamqp.Medidor{},
 	}
 	ctx, cancelar := context.WithCancel(context.Background())
 	go func() { _ = c.Consumir(ctx) }()
+
+	// Em produção estes dois são processos separados: o consumidor registra e o
+	// varredor cobra. Aqui eles sobem juntos porque os testes verificam o
+	// desfecho da cobrança, e o varredor é a única coisa que o produz.
+	varrer := usecase.VarrerCobrancas{
+		Repo: a.Repo,
+		Cobranca: usecase.ProcessarPagamento{
+			Repo: a.Repo, Adquirente: adq, Publicador: a.Publica,
+			Relogio: relogioReal{}, IDs: idsReais{},
+			PrazoAdquirente: 2 * time.Second,
+		},
+		Relogio: relogioReal{}, Log: a.Log,
+	}
+	go func() {
+		// Mais rápido que o padrão de produção: o teste espera o desfecho.
+		tique := time.NewTicker(50 * time.Millisecond)
+		defer tique.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-tique.C:
+				a.escolherFormasPendentes(ctx)
+				_ = varrer.Executar(ctx)
+			}
+		}
+	}()
 	return c, cancelar
+}
+
+// A escolha da forma é uma ação de quem paga, e nos testes ninguém a faz: este
+// laço a simula para toda transação recém-registrada, para que o fluxo chegue
+// até a cobrança. É o único ponto em que o ambiente de teste faz o papel do
+// cliente HTTP.
+func (a *ambiente) escolherFormasPendentes(ctx context.Context) {
+	// A consulta é SQL direto, e não um método do repositório: "quem está
+	// esperando a escolha" é pergunta que só o teste faz, e acrescentá-la ao
+	// port de produção seria ampliar a interface para servir ao teste.
+	linhas, err := a.Pool.Query(ctx,
+		`SELECT reserva_id, usuario_id FROM transacoes_pagamento WHERE status = 'AGUARDANDO_FORMA'`)
+	if err != nil {
+		return
+	}
+	type pendente struct{ reserva, usuario string }
+	var pendentes []pendente
+	for linhas.Next() {
+		var p pendente
+		if err := linhas.Scan(&p.reserva, &p.usuario); err != nil {
+			linhas.Close()
+			return
+		}
+		pendentes = append(pendentes, p)
+	}
+	linhas.Close()
+
+	escolher := usecase.EscolherForma{Repo: a.Repo, Relogio: relogioReal{}}
+	for _, p := range pendentes {
+		_, _ = escolher.Executar(ctx, p.reserva, p.usuario, transacao.PIX)
+	}
 }
 
 func (a *ambiente) esperarStatus(t *testing.T, reservaID string, querido transacao.Status, prazo time.Duration) transacao.Transacao {

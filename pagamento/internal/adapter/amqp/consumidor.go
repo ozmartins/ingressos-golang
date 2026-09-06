@@ -18,7 +18,7 @@ type Consumidor struct {
 	Canal      *amqp.Channel
 	Fila       string
 	Prefetch   int
-	Caso       usecase.ProcessarPagamento
+	Caso       usecase.RegistrarIntencao
 	Log        *slog.Logger
 	Propagador propagation.TextMapPropagator
 
@@ -112,7 +112,7 @@ func (c *Consumidor) tratar(ctx context.Context, d amqp.Delivery) {
 		if err := d.Ack(false); err != nil {
 			log.Error("falha ao confirmar entrega", "erro", err)
 		} else {
-			log.Info("intenção processada")
+			log.Info("intenção registrada; aguardando a escolha da forma de pagamento")
 		}
 	case usecase.Quarentena:
 		log.Warn("intenção encaminhada para a quarentena", "erro", err)

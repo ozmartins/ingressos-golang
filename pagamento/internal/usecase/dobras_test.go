@@ -3,7 +3,9 @@ package usecase
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/oseias/ingressos-golang/pagamento/internal/domain/transacao"
@@ -31,6 +33,7 @@ type repoFalso struct {
 	erroMarcar    error
 	Finalizacoes  int
 	Marcacoes     int
+	Escolhas      int
 }
 
 func novoRepo() *repoFalso {
@@ -38,6 +41,61 @@ func novoRepo() *repoFalso {
 }
 
 func (r *repoFalso) semear(t transacao.Transacao) { r.porReserva[t.ReservaID] = t }
+
+func (r *repoFalso) RegistrarEscolha(_ context.Context, t transacao.Transacao) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	atual, ok := r.porReserva[t.ReservaID]
+	// A escolha só pega quando a linha ainda espera por ela: é o mesmo `WHERE
+	// status = 'AGUARDANDO_FORMA'` do adaptador real.
+	if !ok || atual.Status != transacao.AguardandoForma {
+		return ErrJaFinalizada
+	}
+	r.porReserva[t.ReservaID] = t
+	r.Escolhas++
+	return nil
+}
+
+func (r *repoFalso) AnunciosPendentes(_ context.Context, limite int) ([]transacao.Transacao, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var lista []transacao.Transacao
+	for _, t := range r.porReserva {
+		if t.Status.Anunciavel() && !t.ResultadoAnunciado && len(lista) < limite {
+			lista = append(lista, t)
+		}
+	}
+	return lista, nil
+}
+
+func (r *repoFalso) AguardandoCobranca(_ context.Context, limite int) ([]transacao.Transacao, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var lista []transacao.Transacao
+	for _, t := range r.porReserva {
+		if t.Status == transacao.Processando && !t.CobrancaEmitida && len(lista) < limite {
+			lista = append(lista, t)
+		}
+	}
+	return lista, nil
+}
+
+func (r *repoFalso) CancelarEsperasVencidas(_ context.Context, agora time.Time, limite int) ([]transacao.Transacao, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var lista []transacao.Transacao
+	for id, t := range r.porReserva {
+		if t.Status != transacao.AguardandoForma || !transacao.Expirada(t.ExpiraEm, agora) || len(lista) >= limite {
+			continue
+		}
+		t.Status = transacao.Cancelado
+		t.MotivoFalha = transacao.MotivoReservaExpirada
+		t.AtualizadoEm = agora
+		r.porReserva[id] = t
+		lista = append(lista, t)
+	}
+	return lista, nil
+}
 
 func (r *repoFalso) CriarSeAusente(_ context.Context, t transacao.Transacao) (bool, transacao.Transacao, error) {
 	if r.erroCriar != nil {
@@ -174,6 +232,8 @@ func (p *publicadorFalso) rotas() []string {
 
 var errInfra = errors.New("infra fora do ar")
 
+func logDescartado() *slog.Logger { return slog.New(slog.DiscardHandler) }
+
 func cenario(res ResultadoCobranca) (ProcessarPagamento, *repoFalso, *adquirenteFalso, *publicadorFalso) {
 	repo, adq, pub := novoRepo(), &adquirenteFalso{resultado: res}, &publicadorFalso{}
 	uc := ProcessarPagamento{
@@ -183,11 +243,45 @@ func cenario(res ResultadoCobranca) (ProcessarPagamento, *repoFalso, *adquirente
 	return uc, repo, adq, pub
 }
 
+// O fluxo inteiro, do anúncio da reserva até o desfecho da cobrança, como ele
+// acontece em produção: o consumo registra a intenção, quem paga escolhe a
+// forma, e o varredor cobra. Os testes de cobrança exercitam os três de uma vez
+// porque o que eles verificam é o desfecho, não o caminho.
+//
+// Devolve o desfecho da cobrança — é o que os testes inspecionavam quando isso
+// era uma chamada só.
+func fluxoCompleto(t *testing.T, uc ProcessarPagamento, repo *repoFalso, i Intencao) (Desfecho, error) {
+	t.Helper()
+	ctx := context.Background()
+
+	registrar := RegistrarIntencao{Repo: repo, Relogio: uc.Relogio, IDs: uc.IDs}
+	if d, err := registrar.Executar(ctx, i); err != nil {
+		return d, err
+	}
+
+	escolher := EscolherForma{Repo: repo, Relogio: uc.Relogio}
+	tr, err := escolher.Executar(ctx, i.ReservaID, i.UsuarioID, transacao.PIX)
+
+	// A reserva já vencida recusa a escolha. Quem cancela e anuncia é a
+	// varredura, e é ela que o teste precisa exercitar para chegar ao desfecho.
+	if errors.Is(err, transacao.ErrReservaExpirada) {
+		varrer := VarrerCobrancas{Repo: repo, Cobranca: uc, Relogio: uc.Relogio, Log: logDescartado()}
+		if err := varrer.Executar(ctx); err != nil {
+			return Requeue, err
+		}
+		return Confirmar, nil
+	}
+	if err != nil {
+		return Requeue, err
+	}
+	return uc.Cobrar(ctx, tr)
+}
+
 func intencaoValida() Intencao {
 	return Intencao{
 		Evento: "RESERVA_CRIADA", ReservaID: "r-1", UsuarioID: "u-1",
-		ValorTotal: "84.00", FormaPagamento: "PIX",
-		ExpiraEm: prazoOK.Format(time.RFC3339),
+		ValorTotal: "84.00",
+		ExpiraEm:   prazoOK.Format(time.RFC3339),
 	}
 }
 

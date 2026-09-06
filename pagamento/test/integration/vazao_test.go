@@ -35,7 +35,7 @@ func TestRajadaRespeitaTetoEMantemConsultasRapidas(t *testing.T) {
 	inicio := time.Now()
 	for i := range reservas {
 		reservas[i] = uuid.NewString()
-		a.publicarIntencao(t, intencao(reservas[i], "84.00", "PIX", 30*time.Minute))
+		a.publicarIntencao(t, intencao(reservas[i], "84.00", 30*time.Minute))
 	}
 
 	latencias := medirConsultasDuranteOPico(t, a, reservas)

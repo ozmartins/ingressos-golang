@@ -103,11 +103,26 @@ func executar() error {
 		PrazoAdquirente: cfg.AdquirenteTimeout,
 	}
 
+	// O consumo do anúncio só registra a intenção. A cobrança depende da escolha
+	// da forma de pagamento, que ainda não aconteceu.
+	registrar := usecase.RegistrarIntencao{Repo: repo, Relogio: relogio{}, IDs: ids{}}
+
 	consumidor := &adaptamqp.Consumidor{
 		Canal: canalCons, Fila: cfg.AMQPFilaReserva, Prefetch: cfg.AMQPPrefetch,
-		Caso: processar, Log: log, Propagador: propagador,
+		Caso: registrar, Log: log, Propagador: propagador,
 		EmAndamento: &adaptamqp.Medidor{},
 	}
+
+	// A cobrança e a desistência por prazo vencido dependem da passagem do
+	// tempo, não de mensagem: vivem num processo de fundo.
+	varrer := usecase.VarrerCobrancas{
+		Repo: repo, Cobranca: processar, Relogio: relogio{}, Log: log,
+		Lote: cfg.VarreduraLote,
+	}
+	postgres.RotinaPeriodica(ctx, "varredura-cobrancas", cfg.VarreduraIntervalo,
+		varrer.Executar, func(nome string, err error) {
+			log.Warn("rotina periódica falhou; será repetida", "rotina", nome, "erro", err)
+		})
 
 	auth, err := adapthttp.NovoAutenticador(cfg.JWKSURL, cfg.JWTIssuer, cfg.JWTAud)
 	if err != nil {
@@ -125,6 +140,7 @@ func executar() error {
 
 	api := &adapthttp.API{
 		Consulta:  usecase.ConsultarPagamento{Repo: repo},
+		Escolha:   usecase.EscolherForma{Repo: repo, Relogio: relogio{}},
 		Auth:      auth,
 		Prontidao: prontidao,
 		Log:       log,

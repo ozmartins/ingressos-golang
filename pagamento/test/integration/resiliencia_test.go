@@ -40,7 +40,7 @@ func TestFalhaTransitoriaDevolveAFilaEDepoisCompleta(t *testing.T) {
 	defer parar()
 
 	reserva := uuid.NewString()
-	a.publicarIntencao(t, intencao(reserva, "84.00", "PIX", 30*time.Minute))
+	a.publicarIntencao(t, intencao(reserva, "84.00", 30*time.Minute))
 
 	tr := a.esperarStatus(t, reserva, transacao.Pago, 60*time.Second)
 	if tr.CodigoTransacaoGateway != "gw-depois-da-volta" {
@@ -64,7 +64,7 @@ func TestNadaEAnunciadoEnquantoAInfraEstaFora(t *testing.T) {
 	defer parar()
 
 	reserva := uuid.NewString()
-	a.publicarIntencao(t, intencao(reserva, "84.00", "PIX", 30*time.Minute))
+	a.publicarIntencao(t, intencao(reserva, "84.00", 30*time.Minute))
 
 	time.Sleep(6 * time.Second)
 	if fatos := a.fatosEspiados(t); len(fatos) != 0 {

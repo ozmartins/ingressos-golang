@@ -25,35 +25,44 @@ o processamento e reinjetado nos fatos publicados.
   "sessao_id": "f781a9b2-11e2-4f81-a901-8890bc123456",
   "usuario_id": "c394c8b3-76a1-4328-b803-02f5923b7a15",
   "poltronas_ids": ["A1", "A2"],
-  "valor_total": 84.00,
-  "forma_pagamento": "PIX",
+  "valor_total": "84.00",
   "expira_em": "2026-08-29T21:43:00Z"
 }
 ```
 
-**Campos exigidos**: `reserva_id`, `usuario_id`, `valor_total` (> 0),
-`forma_pagamento` (`PIX` ou `CARTAO_CREDITO`), `expira_em`. Ausência, valor não
-positivo ou forma desconhecida invalidam a mensagem inteira (FR-003, FR-004).
-`sessao_id` e `poltronas_ids` são aceitos e **ignorados** — nenhum requisito os usa
-e este serviço não é dono desse estado. Campos extras não invalidam a mensagem.
+**Campos exigidos**: `reserva_id`, `usuario_id`, `valor_total` (> 0) e
+`expira_em`. Ausência ou valor não positivo invalidam a mensagem inteira
+(FR-003, FR-004). `sessao_id` e `poltronas_ids` são aceitos e **ignorados** —
+nenhum requisito os usa e este serviço não é dono desse estado. Campos extras
+não invalidam a mensagem.
 
-> ### ⚠ Dependência de integração — este fato ainda não é publicado assim
+`valor_total` chega como **texto** decimal, e não como número JSON: nenhum ponto
+flutuante binário representa centavo sem erro, e este valor vira cobrança.
+
+**`forma_pagamento` não é esperada neste fato, de propósito.** Reservar uma
+poltrona e escolher como pagar são decisões distintas, e amarrá-las na mesma
+mensagem obrigava quem publica a reserva a conhecer uma escolha que ninguém
+havia feito. A forma é escolhida depois, por
+`POST /api/v1/pagamentos/reserva/{reserva_id}` — ver `openapi.yaml`. Se o campo
+vier no fato, é ignorado como qualquer extra.
+
+**Efeito**: cria a transação em `AGUARDANDO_FORMA`, sabendo quanto cobrar e até
+quando, e para aí. Nenhuma cobrança sai deste consumo.
+
+> ### Fechamento da lacuna, em 2026-09-06
 >
-> O `Servico-Estoque` publica `reserva.criada` **sem** `valor_total` e sem
-> `forma_pagamento`: ver `estoque/internal/usecase/bloquear_poltronas.go:15`
-> (`EventoReservaCriada`, oito campos) e `estoque/proto/estoque.proto:30`
-> (`SolicitacaoBloqueio`, que sequer recebe esses dados do catálogo).
+> Até esta data o `Servico-Estoque` publicava `reserva.criada` sem `valor_total`
+> e sem `forma_pagamento`, e este serviço exigia os dois: **todo** anúncio vindo
+> dele era inválido e ia para a fila morta.
 >
-> A divergência foi levada ao mantenedor em 2026-08-30 (princípio IV) e a
-> resolução escolhida foi manter este contrato como o que o pagamento **exige**,
-> tratando a lacuna como dependência de integração — o mesmo padrão que o estoque
-> usa para `sessao.criada`, que o catálogo ainda não publica.
+> A resolução não foi propagar os dois campos. `valor_total` passou a viajar pela
+> cadeia — o catálogo o calcula do `preco_base` da sessão, informa ao estoque na
+> solicitação de bloqueio, e o estoque o repassa neste fato. `forma_pagamento`
+> saiu de cena: ela não era conhecida por ninguém no sistema, e virou uma
+> operação própria depois da reserva.
 >
-> **Enquanto o estoque não propagar os dois campos**, todo evento vindo dele é
-> inválido para este serviço e vai para a fila morta. A validação ponta a ponta
-> usa o publicador manual `cmd/publicar` (ver `quickstart.md`). Fechar a lacuna
-> exige, no estoque: os dois campos em `SolicitacaoBloqueio`, na tabela `reservas`
-> e em `reserva.criada` v2 — trabalho fora do escopo desta feature.
+> O acréscimo de `valor_total` é adição compatível, então `reserva.criada`
+> permanece na versão 1.
 
 ---
 

@@ -18,10 +18,19 @@ func TestReentregaPublicaResultadoPendenteSemRecobrar(t *testing.T) {
 
 	reserva := uuid.NewString()
 	usuario := uuid.NewString()
-	tr := transacao.Nova(uuid.NewString(), reserva, usuario, "84.00", transacao.PIX, time.Now().UTC())
+	// A retomada parte de uma transação que já passou pelos três momentos:
+	// registrada pelo anúncio, escolhida por quem paga e cobrada.
+	agora := time.Now().UTC()
+	tr := transacao.Nova(uuid.NewString(), reserva, usuario, "84.00", agora.Add(10*time.Minute), agora)
 	criada, _, err := a.Repo.CriarSeAusente(ctx, tr)
 	if err != nil || !criada {
 		t.Fatalf("preparação falhou: criada=%v err=%v", criada, err)
+	}
+	if err := tr.EscolherForma(transacao.PIX, agora); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Repo.RegistrarEscolha(ctx, tr); err != nil {
+		t.Fatal(err)
 	}
 	if err := tr.Aprovar("gw-antes-da-queda", time.Now().UTC()); err != nil {
 		t.Fatal(err)
@@ -39,7 +48,7 @@ func TestReentregaPublicaResultadoPendenteSemRecobrar(t *testing.T) {
 	_, parar := a.consumidorDe(t, adq, 4)
 	defer parar()
 
-	msg := intencao(reserva, "84.00", "PIX", 10*time.Minute)
+	msg := intencao(reserva, "84.00", 10*time.Minute)
 	msg["usuario_id"] = usuario
 	a.publicarIntencao(t, msg)
 

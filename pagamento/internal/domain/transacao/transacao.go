@@ -8,6 +8,10 @@ import (
 type Status string
 
 const (
+	// A transação nasce aqui: o valor já é conhecido, a forma de pagamento
+	// ainda não. Reservar uma poltrona e escolher como pagar são decisões
+	// distintas, e o serviço espera a segunda.
+	AguardandoForma     Status = "AGUARDANDO_FORMA"
 	Processando         Status = "PROCESSANDO"
 	Pago                Status = "PAGO"
 	Recusado            Status = "RECUSADO"
@@ -37,6 +41,9 @@ func FormaReconhecida(f FormaPagamento) bool {
 
 var (
 	ErrTransicaoInvalida = errors.New("transacao: transição inválida a partir de estado terminal")
+	ErrFormaJaEscolhida  = errors.New("transacao: forma de pagamento já escolhida")
+	ErrReservaExpirada   = errors.New("transacao: prazo da reserva vencido")
+	ErrFormaDesconhecida = errors.New("transacao: forma de pagamento desconhecida")
 	ErrAnuncioInvalido   = errors.New("transacao: estado não é anunciável")
 )
 
@@ -51,25 +58,60 @@ type Transacao struct {
 	MotivoFalha            Motivo
 	CobrancaEmitida        bool
 	ResultadoAnunciado     bool
-	PagoEm                 *time.Time
-	CriadoEm               time.Time
-	AtualizadoEm           time.Time
+	// Prazo da reserva, vindo do fato. Guardado porque a escolha da forma
+	// acontece depois: sem ele não há como saber se ainda dá tempo de cobrar.
+	ExpiraEm     time.Time
+	PagoEm       *time.Time
+	CriadoEm     time.Time
+	AtualizadoEm time.Time
 }
 
-func Nova(id, reservaID, usuarioID, valor string, forma FormaPagamento, agora time.Time) Transacao {
+// A transação nasce sem forma de pagamento: o que o fato da reserva traz é o
+// valor e o prazo. A forma chega depois, por escolha de quem vai pagar.
+func Nova(id, reservaID, usuarioID, valor string, expiraEm, agora time.Time) Transacao {
 	return Transacao{
-		ID:             id,
-		ReservaID:      reservaID,
-		UsuarioID:      usuarioID,
-		ValorTotal:     valor,
-		FormaPagamento: forma,
-		Status:         Processando,
-		CriadoEm:       agora,
-		AtualizadoEm:   agora,
+		ID:           id,
+		ReservaID:    reservaID,
+		UsuarioID:    usuarioID,
+		ValorTotal:   valor,
+		Status:       AguardandoForma,
+		ExpiraEm:     expiraEm,
+		CriadoEm:     agora,
+		AtualizadoEm: agora,
 	}
 }
 
-func (s Status) Final() bool { return s != Processando }
+// EscolherForma move a transação para a cobrança. Recusa a escolha tardia: uma
+// reserva vencida já liberou as poltronas do outro lado, e cobrar por ela seria
+// cobrar por assento que outra pessoa pode ter levado.
+//
+// Recusar é tudo o que ela faz nesse caso — não cancela. Quem cancela por prazo
+// vencido é a varredura, num lugar só, e é ela que anuncia o desfecho a quem
+// espera. Cancelar aqui também deixaria um cancelamento sem anúncio.
+func (t *Transacao) EscolherForma(f FormaPagamento, agora time.Time) error {
+	if t.Status != AguardandoForma {
+		if t.Status == Processando || t.Status.Final() {
+			return ErrFormaJaEscolhida
+		}
+		return ErrTransicaoInvalida
+	}
+	if !FormaReconhecida(f) {
+		return ErrFormaDesconhecida
+	}
+	if Expirada(t.ExpiraEm, agora) {
+		return ErrReservaExpirada
+	}
+
+	t.FormaPagamento = f
+	t.Status = Processando
+	t.AtualizadoEm = agora
+	return nil
+}
+
+// Terminal é o que não admite mais transição. `AGUARDANDO_FORMA` e
+// `PROCESSANDO` admitem: o primeiro espera a escolha, o segundo espera a
+// cobrança.
+func (s Status) Final() bool { return s != AguardandoForma && s != Processando }
 
 func (s Status) Anunciavel() bool {
 	return s == Pago || s == Recusado || s == Cancelado

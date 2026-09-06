@@ -18,7 +18,7 @@ func TestVinteEntregasSimultaneasCobramUmaVez(t *testing.T) {
 	defer parar()
 
 	reserva := uuid.NewString()
-	msg := intencao(reserva, "84.00", "PIX", 10*time.Minute)
+	msg := intencao(reserva, "84.00", 10*time.Minute)
 	for i := 0; i < 20; i++ {
 		a.publicarIntencao(t, msg)
 	}

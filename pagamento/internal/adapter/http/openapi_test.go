@@ -82,8 +82,8 @@ func TestEnumDeStatusBateComODominio(t *testing.T) {
 	sort.Strings(doContrato)
 
 	doDominio := []string{
-		string(transacao.Processando), string(transacao.Pago), string(transacao.Recusado),
-		string(transacao.Cancelado), string(transacao.PendenteVerificacao),
+		string(transacao.AguardandoForma), string(transacao.Processando), string(transacao.Pago),
+		string(transacao.Recusado), string(transacao.Cancelado), string(transacao.PendenteVerificacao),
 	}
 	sort.Strings(doDominio)
 

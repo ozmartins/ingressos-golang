@@ -15,7 +15,7 @@ import (
 func TestCobrancaAprovada(t *testing.T) {
 	uc, repo, adq, pub := cenario(ResultadoCobranca{Desfecho: Aprovada, Codigo: "gw-9"})
 
-	d, err := uc.Executar(context.Background(), intencaoValida())
+	d, err := fluxoCompleto(t, uc, repo, intencaoValida())
 	if err != nil || d != Confirmar {
 		t.Fatalf("esperava Confirmar sem erro, veio %v / %v", d, err)
 	}
@@ -37,7 +37,7 @@ func TestCobrancaAprovada(t *testing.T) {
 func TestCobrancaRecusada(t *testing.T) {
 	uc, repo, _, pub := cenario(ResultadoCobranca{Desfecho: Recusada, Motivo: transacao.MotivoSaldoInsuficiente})
 
-	if d, err := uc.Executar(context.Background(), intencaoValida()); err != nil || d != Confirmar {
+	if d, err := fluxoCompleto(t, uc, repo, intencaoValida()); err != nil || d != Confirmar {
 		t.Fatalf("esperava Confirmar, veio %v / %v", d, err)
 	}
 	tr, _ := repo.BuscarPorReserva(context.Background(), "r-1")
@@ -51,7 +51,7 @@ func TestCobrancaRecusada(t *testing.T) {
 
 func TestRecusaSemMotivoUsaGenerico(t *testing.T) {
 	uc, repo, _, _ := cenario(ResultadoCobranca{Desfecho: Recusada})
-	if _, err := uc.Executar(context.Background(), intencaoValida()); err != nil {
+	if _, err := fluxoCompleto(t, uc, repo, intencaoValida()); err != nil {
 		t.Fatal(err)
 	}
 	tr, _ := repo.BuscarPorReserva(context.Background(), "r-1")
@@ -65,7 +65,7 @@ func TestReservaExpiradaNaoCobra(t *testing.T) {
 	i := intencaoValida()
 	i.ExpiraEm = prazoIdo.Format(time.RFC3339)
 
-	if d, err := uc.Executar(context.Background(), i); err != nil || d != Confirmar {
+	if d, err := fluxoCompleto(t, uc, repo, i); err != nil || d != Confirmar {
 		t.Fatalf("esperava Confirmar, veio %v / %v", d, err)
 	}
 	if adq.Cobrancas != 0 {
@@ -82,15 +82,13 @@ func TestReservaExpiradaNaoCobra(t *testing.T) {
 
 func TestAnuncioInvalidoVaiParaQuarentena(t *testing.T) {
 	casos := map[string]func(*Intencao){
-		"sem reserva":        func(i *Intencao) { i.ReservaID = "" },
-		"sem usuario":        func(i *Intencao) { i.UsuarioID = "" },
-		"sem valor":          func(i *Intencao) { i.ValorTotal = "" },
-		"valor zero":         func(i *Intencao) { i.ValorTotal = "0.00" },
-		"valor negativo":     func(i *Intencao) { i.ValorTotal = "-10.00" },
-		"sem forma":          func(i *Intencao) { i.FormaPagamento = "" },
-		"forma desconhecida": func(i *Intencao) { i.FormaPagamento = "BOLETO" },
-		"sem prazo":          func(i *Intencao) { i.ExpiraEm = "" },
-		"prazo malformado":   func(i *Intencao) { i.ExpiraEm = "ontem" },
+		"sem reserva":      func(i *Intencao) { i.ReservaID = "" },
+		"sem usuario":      func(i *Intencao) { i.UsuarioID = "" },
+		"sem valor":        func(i *Intencao) { i.ValorTotal = "" },
+		"valor zero":       func(i *Intencao) { i.ValorTotal = "0.00" },
+		"valor negativo":   func(i *Intencao) { i.ValorTotal = "-10.00" },
+		"sem prazo":        func(i *Intencao) { i.ExpiraEm = "" },
+		"prazo malformado": func(i *Intencao) { i.ExpiraEm = "ontem" },
 	}
 	for nome, quebrar := range casos {
 		t.Run(nome, func(t *testing.T) {
@@ -98,7 +96,7 @@ func TestAnuncioInvalidoVaiParaQuarentena(t *testing.T) {
 			i := intencaoValida()
 			quebrar(&i)
 
-			d, err := uc.Executar(context.Background(), i)
+			d, err := fluxoCompleto(t, uc, repo, i)
 			if d != Quarentena {
 				t.Fatalf("esperava Quarentena, veio %v", d)
 			}
@@ -122,7 +120,7 @@ func TestOrdemGravarPublicarMarcar(t *testing.T) {
 	uc, repo, _, pub := cenario(ResultadoCobranca{Desfecho: Aprovada, Codigo: "gw"})
 	pub.erro = errInfra
 
-	d, err := uc.Executar(context.Background(), intencaoValida())
+	d, err := fluxoCompleto(t, uc, repo, intencaoValida())
 	if d != Requeue || !errors.Is(err, errInfra) {
 		t.Fatalf("falha ao publicar deve devolver Requeue, veio %v / %v", d, err)
 	}
@@ -139,7 +137,7 @@ func TestAdquirenteIndisponivelDevolveAFila(t *testing.T) {
 	uc, repo, _, pub := cenario(ResultadoCobranca{})
 	uc.Adquirente = &adquirenteFalso{erro: errInfra}
 
-	d, err := uc.Executar(context.Background(), intencaoValida())
+	d, err := fluxoCompleto(t, uc, repo, intencaoValida())
 	if d != Requeue || !errors.Is(err, errInfra) {
 		t.Fatalf("esperava Requeue com o erro de infra, veio %v / %v", d, err)
 	}
@@ -155,7 +153,7 @@ func TestAdquirenteIndisponivelDevolveAFila(t *testing.T) {
 func TestDesfechoIndeterminadoNaoAnunciaEVaiParaQuarentena(t *testing.T) {
 	uc, repo, adq, pub := cenario(ResultadoCobranca{Desfecho: Indeterminada})
 
-	d, err := uc.Executar(context.Background(), intencaoValida())
+	d, err := fluxoCompleto(t, uc, repo, intencaoValida())
 	if err != nil {
 		t.Fatalf("desfecho indeterminado não é erro do processamento: %v", err)
 	}
@@ -185,7 +183,7 @@ func TestPrazoDoAdquirenteProduzDesfechoIndeterminado(t *testing.T) {
 		PrazoAdquirente: 50 * time.Millisecond,
 	}
 
-	d, err := uc.Executar(context.Background(), intencaoValida())
+	d, err := fluxoCompleto(t, uc, repo, intencaoValida())
 	if err != nil {
 		t.Fatalf("prazo estourado não é erro do processamento: %v", err)
 	}
@@ -210,7 +208,7 @@ func TestSemPrazoConfiguradoNaoHaDeadline(t *testing.T) {
 		Repo: repo, Adquirente: &adquirenteFalso{resultado: ResultadoCobranca{Desfecho: Aprovada, Codigo: "gw"}},
 		Publicador: &publicadorFalso{}, Relogio: relogioFixo{instante}, IDs: idsFixos{"t-1"},
 	}
-	if _, err := uc.Executar(context.Background(), intencaoValida()); err != nil {
+	if _, err := fluxoCompleto(t, uc, repo, intencaoValida()); err != nil {
 		t.Fatal(err)
 	}
 	tr, _ := repo.BuscarPorReserva(context.Background(), "r-1")
@@ -219,9 +217,15 @@ func TestSemPrazoConfiguradoNaoHaDeadline(t *testing.T) {
 	}
 }
 
+// A retomada parte de uma transação que já existe num certo estado — é o que
+// acontece quando o varredor volta a pegar uma linha que ficou pelo caminho.
+// Por isso estes casos chamam `Cobrar` direto, sem passar pela escolha da forma:
+// ela já foi feita, e é justamente o estado posterior a ela que se testa.
 func TestReentregaEmCadaEstado(t *testing.T) {
 	base := func() transacao.Transacao {
-		return transacao.Nova("t-existente", "r-1", "u-1", "84.00", transacao.PIX, instante)
+		t := transacao.Nova("t-existente", "r-1", "u-1", "84.00", instante.Add(10*time.Minute), instante)
+		t.Status, t.FormaPagamento = transacao.Processando, transacao.PIX
+		return t
 	}
 	casos := []struct {
 		nome      string
@@ -304,9 +308,10 @@ func TestReentregaEmCadaEstado(t *testing.T) {
 	for _, c := range casos {
 		t.Run(c.nome, func(t *testing.T) {
 			uc, repo, adq, pub := cenario(ResultadoCobranca{Desfecho: Aprovada, Codigo: "novo"})
-			repo.semear(c.preparar())
+			semeada := c.preparar()
+			repo.semear(semeada)
 
-			d, err := uc.Executar(context.Background(), intencaoValida())
+			d, err := uc.Cobrar(context.Background(), semeada)
 			if err != nil {
 				t.Fatalf("erro inesperado: %v", err)
 			}
@@ -334,7 +339,7 @@ func TestEntregasSimultaneasCobramUmaVez(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_, _ = uc.Executar(context.Background(), intencaoValida())
+			_, _ = fluxoCompleto(t, uc, repo, intencaoValida())
 		}()
 	}
 	wg.Wait()
@@ -356,7 +361,7 @@ func TestEntregasSimultaneasCobramUmaVez(t *testing.T) {
 }
 
 func TestFatoSucessoConformeContrato(t *testing.T) {
-	tr := transacao.Nova("t-1", "r-1", "u-1", "84.00", transacao.PIX, instante)
+	tr := transacao.Nova("t-1", "r-1", "u-1", "84.00", instante.Add(10*time.Minute), instante)
 	if err := tr.Aprovar("gw-1", instante); err != nil {
 		t.Fatal(err)
 	}
@@ -390,7 +395,7 @@ func TestFatoSucessoConformeContrato(t *testing.T) {
 }
 
 func TestFatoFalhouConformeContrato(t *testing.T) {
-	tr := transacao.Nova("t-1", "r-1", "u-1", "84.00", transacao.PIX, instante)
+	tr := transacao.Nova("t-1", "r-1", "u-1", "84.00", instante.Add(10*time.Minute), instante)
 	if err := tr.Recusar(transacao.MotivoSaldoInsuficiente, instante); err != nil {
 		t.Fatal(err)
 	}
@@ -414,7 +419,7 @@ func TestFatoFalhouConformeContrato(t *testing.T) {
 }
 
 func TestPendenteVerificacaoNuncaViraFato(t *testing.T) {
-	tr := transacao.Nova("t-1", "r-1", "u-1", "84.00", transacao.PIX, instante)
+	tr := transacao.Nova("t-1", "r-1", "u-1", "84.00", instante.Add(10*time.Minute), instante)
 	if err := tr.MarcarPendenteVerificacao(instante); err != nil {
 		t.Fatal(err)
 	}

@@ -3,10 +3,12 @@ package http
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -29,6 +31,37 @@ var segredo = []byte("chave-de-teste")
 type repoStub struct {
 	t   transacao.Transacao
 	err error
+}
+
+func (r repoStub) RegistrarEscolha(context.Context, transacao.Transacao) error { return nil }
+
+// Guarda a transação para que a escolha seja observável, e devolve o mesmo erro
+// em qualquer operação — é o que os casos de indisponibilidade precisam.
+type repoEscolha struct {
+	repoStub
+	t   transacao.Transacao
+	err error
+}
+
+func (r *repoEscolha) BuscarPorReserva(context.Context, string) (transacao.Transacao, error) {
+	if r.err != nil {
+		return transacao.Transacao{}, r.err
+	}
+	return r.t, nil
+}
+
+func (r *repoEscolha) RegistrarEscolha(_ context.Context, t transacao.Transacao) error {
+	r.t = t
+	return nil
+}
+func (r repoStub) AguardandoCobranca(context.Context, int) ([]transacao.Transacao, error) {
+	return nil, nil
+}
+func (r repoStub) AnunciosPendentes(context.Context, int) ([]transacao.Transacao, error) {
+	return nil, nil
+}
+func (r repoStub) CancelarEsperasVencidas(context.Context, time.Time, int) ([]transacao.Transacao, error) {
+	return nil, nil
 }
 
 func (r repoStub) CriarSeAusente(context.Context, transacao.Transacao) (bool, transacao.Transacao, error) {
@@ -69,16 +102,153 @@ func apiCom(repo usecase.Repositorio) *API {
 	p.Registrar("banco", func(context.Context) error { return nil })
 	return &API{
 		Consulta:  usecase.ConsultarPagamento{Repo: repo},
+		Escolha:   usecase.EscolherForma{Repo: repo, Relogio: relogioReal{}},
 		Auth:      NovoAutenticadorComChave(kf, issuer, audience),
 		Prontidao: p,
 		Log:       slog.New(slog.DiscardHandler),
 	}
 }
 
+type relogioReal struct{}
+
+func (relogioReal) Agora() time.Time { return time.Now().UTC() }
+
+// Uma transação em qualquer estado posterior à escolha da forma — que é a
+// maioria dos casos que a API responde, e o único em que todos os campos do
+// contrato estão preenchidos. Para o estado que ainda espera a escolha, use
+// `transacao.Nova` direto.
 func transacaoDe(status transacao.Status, reservaID string) transacao.Transacao {
-	tr := transacao.Nova("t-1", reservaID, dona, "84.00", transacao.PIX, time.Now().UTC())
+	agora := time.Now().UTC()
+	tr := transacao.Nova("t-1", reservaID, dona, "84.00", agora.Add(10*time.Minute), agora)
 	tr.Status = status
+	tr.FormaPagamento = transacao.PIX
 	return tr
+}
+
+func escolher(t *testing.T, api *API, reservaID, bearer, corpo string) *httptest.ResponseRecorder {
+	t.Helper()
+	r := httptest.NewRequest(http.MethodPost, "/api/v1/pagamentos/reserva/"+reservaID,
+		strings.NewReader(corpo))
+	if bearer != "" {
+		r.Header.Set("Authorization", "Bearer "+bearer)
+	}
+	w := httptest.NewRecorder()
+	api.Rotas().ServeHTTP(w, r)
+	return w
+}
+
+// Uma transação que ainda espera a escolha da forma — o único estado em que a
+// escolha é aceita.
+func aguardandoForma(reservaID string) transacao.Transacao {
+	agora := time.Now().UTC()
+	return transacao.Nova("t-1", reservaID, dona, "84.00", agora.Add(10*time.Minute), agora)
+}
+
+// O 202 é deliberado: a escolha foi aceita e a cobrança acontece fora da
+// requisição, então quem paga não fica esperando o adquirente.
+func TestEscolhaDaFormaAceita(t *testing.T) {
+	reserva := uuid.NewString()
+	api := apiCom(&repoEscolha{t: aguardandoForma(reserva)})
+	w := escolher(t, api, reserva, token(t, dona, nil), `{"forma_pagamento":"PIX"}`)
+
+	if w.Code != http.StatusAccepted {
+		t.Fatalf("esperava 202, veio %d: %s", w.Code, w.Body)
+	}
+	var corpo map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &corpo); err != nil {
+		t.Fatal(err)
+	}
+	if corpo["status"] != string(transacao.Processando) || corpo["forma_pagamento"] != "PIX" {
+		t.Fatalf("corpo inesperado: %v", corpo)
+	}
+}
+
+func TestEscolhaDaFormaRecusaCadaCategoriaDeErro(t *testing.T) {
+	reserva := uuid.NewString()
+	agora := time.Now().UTC()
+
+	vencida := aguardandoForma(reserva)
+	vencida.ExpiraEm = agora.Add(-time.Minute)
+
+	jaEscolhida := transacaoDe(transacao.Processando, reserva)
+
+	casos := map[string]struct {
+		repo    usecase.Repositorio
+		bearer  string
+		corpo   string
+		status  int
+		codigo  string
+		reserva string
+	}{
+		"sem token": {
+			repo: &repoEscolha{t: aguardandoForma(reserva)}, bearer: "",
+			corpo: `{"forma_pagamento":"PIX"}`, status: http.StatusUnauthorized,
+			codigo: CodCredencialInvalida,
+		},
+		"reserva_id não é UUID": {
+			repo: &repoEscolha{t: aguardandoForma(reserva)}, bearer: token(t, dona, nil),
+			corpo: `{"forma_pagamento":"PIX"}`, status: http.StatusBadRequest,
+			codigo: CodReservaIDInvalido, reserva: "nao-e-uuid",
+		},
+		"corpo não é JSON": {
+			repo: &repoEscolha{t: aguardandoForma(reserva)}, bearer: token(t, dona, nil),
+			corpo: `{`, status: http.StatusBadRequest, codigo: CodCorpoInvalido,
+		},
+		"forma desconhecida": {
+			repo: &repoEscolha{t: aguardandoForma(reserva)}, bearer: token(t, dona, nil),
+			corpo: `{"forma_pagamento":"BOLETO"}`, status: http.StatusBadRequest,
+			codigo: CodFormaDesconhecida,
+		},
+		"forma ausente": {
+			repo: &repoEscolha{t: aguardandoForma(reserva)}, bearer: token(t, dona, nil),
+			corpo: `{}`, status: http.StatusBadRequest, codigo: CodFormaDesconhecida,
+		},
+		"reserva de outra pessoa": {
+			repo: &repoEscolha{t: aguardandoForma(reserva)}, bearer: token(t, "outra-pessoa", nil),
+			corpo: `{"forma_pagamento":"PIX"}`, status: http.StatusNotFound,
+			codigo: CodNaoEncontrado,
+		},
+		"reserva inexistente": {
+			repo: &repoEscolha{err: usecase.ErrNaoEncontrada}, bearer: token(t, dona, nil),
+			corpo: `{"forma_pagamento":"PIX"}`, status: http.StatusNotFound,
+			codigo: CodNaoEncontrado,
+		},
+		"forma já escolhida": {
+			repo: &repoEscolha{t: jaEscolhida}, bearer: token(t, dona, nil),
+			corpo: `{"forma_pagamento":"CARTAO_CREDITO"}`, status: http.StatusConflict,
+			codigo: CodFormaJaEscolhida,
+		},
+		"prazo da reserva vencido": {
+			repo: &repoEscolha{t: vencida}, bearer: token(t, dona, nil),
+			corpo: `{"forma_pagamento":"PIX"}`, status: http.StatusConflict,
+			codigo: CodReservaExpirada,
+		},
+		"armazenamento indisponível": {
+			repo: &repoEscolha{err: errors.New("banco fora do ar")}, bearer: token(t, dona, nil),
+			corpo: `{"forma_pagamento":"PIX"}`, status: http.StatusServiceUnavailable,
+			codigo: CodIndisponivel,
+		},
+	}
+
+	for nome, c := range casos {
+		t.Run(nome, func(t *testing.T) {
+			alvo := c.reserva
+			if alvo == "" {
+				alvo = reserva
+			}
+			w := escolher(t, apiCom(c.repo), alvo, c.bearer, c.corpo)
+			if w.Code != c.status {
+				t.Fatalf("esperava %d, veio %d: %s", c.status, w.Code, w.Body)
+			}
+			var e erroResposta
+			if err := json.Unmarshal(w.Body.Bytes(), &e); err != nil {
+				t.Fatal(err)
+			}
+			if e.Codigo != c.codigo {
+				t.Fatalf("codigo = %q, esperado %q", e.Codigo, c.codigo)
+			}
+		})
+	}
 }
 
 func chamar(t *testing.T, api *API, reservaID, bearer string) *httptest.ResponseRecorder {

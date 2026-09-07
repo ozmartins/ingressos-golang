@@ -13,16 +13,19 @@ const (
 	FilaPagamentoSucesso = "estoque.pagamento-sucesso"
 	FilaPagamentoFalhou  = "estoque.pagamento-falhou"
 	FilaSessaoCriada     = "estoque.sessao-criada"
+	FilaSessaoCancelada  = "estoque.sessao-cancelada"
 
 	BindingPagamentoSucesso = "pagamento.sucesso"
 	BindingPagamentoFalhou  = "pagamento.falhou"
 	BindingSessaoCriada     = "sessao.criada"
+	BindingSessaoCancelada  = "sessao.cancelada"
 )
 
 var filas = map[string]string{
 	FilaPagamentoSucesso: BindingPagamentoSucesso,
 	FilaPagamentoFalhou:  BindingPagamentoFalhou,
 	FilaSessaoCriada:     BindingSessaoCriada,
+	FilaSessaoCancelada:  BindingSessaoCancelada,
 }
 
 func NomeDLQ(fila string) string { return fila + ".dlq" }

@@ -119,6 +119,40 @@ sala deixa a matriz provisionada aqui apontando para a planta antiga.
 Para exercitar o consumo sem subir o catálogo, `make publicar-sessao` publica um
 payload equivalente (ver `quickstart.md`).
 
+## 5. Consumido — `sessao.cancelada`
+
+**Fila**: `estoque.sessao-cancelada` · **Binding**: `sessao.cancelada`
+
+```json
+{
+  "evento": "SESSAO_CANCELADA",
+  "versao": 1,
+  "ocorrido_em": "2026-09-06T18:20:00Z",
+  "sessao_id": "f781a9b2-11e2-4f81-a901-8890bc123456"
+}
+```
+
+**Efeito**: as reservas `PENDENTE` da sessão passam a `CANCELADA` e as poltronas
+delas voltam a `LIVRE`; o prazo de cada uma sai do índice de expiração. Chave de
+idempotência: `sessao_id`.
+
+**As reservas `CONFIRMADA` não são tocadas.** Uma reserva confirmada é um
+ingresso pago, e apagá-la porque a sessão caiu destruiria o registro de uma venda
+sem devolver o dinheiro — reembolso não existe neste sistema. Elas são contadas, e
+o serviço registra um aviso quando existem: uma sessão cancelada com ingresso
+vendido é problema que alguém precisa resolver fora daqui.
+
+**A matriz de poltronas permanece.** Ninguém reserva numa sessão que saiu da
+grade, e apagá-la levaria consigo o histórico das confirmadas.
+
+Sessão desconhecida, ou sem reserva pendente alguma, não é erro: não há o que
+soltar, e a mensagem é confirmada.
+
+**Não consumimos `sessao.alterada`**, e não há fila para ela. Com a sala imutável
+do lado do produtor, nada que uma alteração mude — horário, idioma, preço — afeta
+a matriz de poltronas. Sem binding, o exchange descarta a mensagem, que é o
+destino certo de um fato sem interessado.
+
 ## Regras de consumo (todas as filas)
 
 - **Ack manual, depois do commit**: a mensagem só é confirmada após a transação

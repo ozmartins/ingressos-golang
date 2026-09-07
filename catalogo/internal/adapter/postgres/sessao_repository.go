@@ -125,33 +125,37 @@ func (r *SessaoRepository) Criar(ctx context.Context, s catalogo.Sessao, fato us
 	})
 }
 
-func (r *SessaoRepository) Atualizar(ctx context.Context, s catalogo.Sessao) error {
-	const sqlAtualizar = `UPDATE sessoes SET filme_id = $2, sala_id = $3, data_hora_inicio = $4,
-	                          idioma = $5, preco_base = $6, status = $7,
-	                          atualizado_em = CURRENT_TIMESTAMP
-	                      WHERE id = $1`
-	etiqueta, err := r.pool.Exec(ctx, sqlAtualizar, s.ID, s.FilmeID, s.SalaID, s.DataHoraInicio,
-		string(s.Idioma), s.PrecoBase.String(), string(s.Status))
-	if err != nil {
-		return fmt.Errorf("atualizando sessão: %w", err)
-	}
-	if etiqueta.RowsAffected() == 0 {
-		return shared.NaoEncontrado("sessao", s.ID)
-	}
-	return nil
+func (r *SessaoRepository) Atualizar(ctx context.Context, s catalogo.Sessao, fato usecase.FatoPendente) error {
+	return emTransacao(ctx, r.pool, func(tx pgx.Tx) error {
+		const sqlAtualizar = `UPDATE sessoes SET filme_id = $2, sala_id = $3, data_hora_inicio = $4,
+		                          idioma = $5, preco_base = $6, status = $7,
+		                          atualizado_em = CURRENT_TIMESTAMP
+		                      WHERE id = $1`
+		etiqueta, err := tx.Exec(ctx, sqlAtualizar, s.ID, s.FilmeID, s.SalaID, s.DataHoraInicio,
+			string(s.Idioma), s.PrecoBase.String(), string(s.Status))
+		if err != nil {
+			return fmt.Errorf("atualizando sessão: %w", err)
+		}
+		if etiqueta.RowsAffected() == 0 {
+			return shared.NaoEncontrado("sessao", s.ID)
+		}
+		return enfileirarFato(ctx, tx, fato)
+	})
 }
 
-func (r *SessaoRepository) Cancelar(ctx context.Context, sessaoID string) error {
-	const sqlCancelar = `UPDATE sessoes SET status = $2, atualizado_em = CURRENT_TIMESTAMP
-	                     WHERE id = $1`
-	etiqueta, err := r.pool.Exec(ctx, sqlCancelar, sessaoID, string(catalogo.SessaoCancelada))
-	if err != nil {
-		return fmt.Errorf("cancelando sessão: %w", err)
-	}
-	if etiqueta.RowsAffected() == 0 {
-		return shared.NaoEncontrado("sessao", sessaoID)
-	}
-	return nil
+func (r *SessaoRepository) Cancelar(ctx context.Context, sessaoID string, fato usecase.FatoPendente) error {
+	return emTransacao(ctx, r.pool, func(tx pgx.Tx) error {
+		const sqlCancelar = `UPDATE sessoes SET status = $2, atualizado_em = CURRENT_TIMESTAMP
+		                     WHERE id = $1`
+		etiqueta, err := tx.Exec(ctx, sqlCancelar, sessaoID, string(catalogo.SessaoCancelada))
+		if err != nil {
+			return fmt.Errorf("cancelando sessão: %w", err)
+		}
+		if etiqueta.RowsAffected() == 0 {
+			return shared.NaoEncontrado("sessao", sessaoID)
+		}
+		return enfileirarFato(ctx, tx, fato)
+	})
 }
 
 // A duração de cada sessão concorrente é a do filme dela, então a janela sai do

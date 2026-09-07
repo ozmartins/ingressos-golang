@@ -170,9 +170,10 @@ verificado por teste (`test/arquitetura_test.go`) e pelo linter, não por revis�
 - O `Servico-Catalogo` publica `sessao.criada` desde que passou a guardar a planta
   das salas, e o contrato em
   [`contracts/eventos.md`](specs/001-estoque-bloqueio-poltronas/contracts/eventos.md)
-  foi adotado por ele sem alteração. Falta o outro lado do ciclo de vida: alterar
-  ou cancelar uma sessão não emite fato, e mover uma sessão já anunciada para
-  outra sala deixa a matriz daqui apontando para a planta antiga.
+  foi adotado por ele sem alteração. O ciclo de vida está fechado: ele também
+  publica `sessao.cancelada`, que este serviço consome para soltar as reservas
+  pendentes, e `sessao.alterada`, que não afetamos porque a sala de uma sessão
+  não pode mudar do lado dele.
 - A solicitação de bloqueio passou a exigir `valor_total`, e a reserva o guarda
   para repassá-lo em `reserva.criada` — sem ele o `Servico-Pagamento` não tem o
   que cobrar. O valor não é decidido aqui: quem tem autoridade sobre o preço é o

@@ -79,10 +79,11 @@ type FatoPendente struct {
 type SessaoRepository interface {
 	Consultar(ctx context.Context, filtro FiltroSessoes, req shared.PageRequest) (shared.Page[catalogo.SessaoDetalhada], error)
 	BuscarPorID(ctx context.Context, sessaoID string) (catalogo.Sessao, error)
-	// A sessão e o anúncio dela são gravados juntos ou não são gravados.
+	// A sessão e o anúncio dela são gravados juntos ou não são gravados. Vale
+	// para os três momentos do ciclo de vida: criar, alterar e cancelar.
 	Criar(ctx context.Context, s catalogo.Sessao, fato FatoPendente) error
-	Atualizar(ctx context.Context, s catalogo.Sessao) error
-	Cancelar(ctx context.Context, sessaoID string) error
+	Atualizar(ctx context.Context, s catalogo.Sessao, fato FatoPendente) error
+	Cancelar(ctx context.Context, sessaoID string, fato FatoPendente) error
 	// Uma sala projeta um filme de cada vez: a janela é `[inicio, fim)`, e o fim
 	// de cada sessão concorrente sai da duração do filme dela.
 	SalaOcupada(ctx context.Context, salaID string, inicio, fim time.Time, excetoID string) (bool, error)

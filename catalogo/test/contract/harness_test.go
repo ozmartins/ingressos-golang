@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -226,20 +227,22 @@ func (s *sessoesFalsas) Criar(_ context.Context, sessao catalogo.Sessao, fato us
 	return nil
 }
 
-func (s *sessoesFalsas) Atualizar(_ context.Context, sessao catalogo.Sessao) error {
+func (s *sessoesFalsas) Atualizar(_ context.Context, sessao catalogo.Sessao, fato usecase.FatoPendente) error {
 	for i, existente := range s.itens {
 		if existente.ID == sessao.ID {
 			s.itens[i] = sessao
+			s.fatos = append(s.fatos, fato)
 			return nil
 		}
 	}
 	return shared.NaoEncontrado("sessao", sessao.ID)
 }
 
-func (s *sessoesFalsas) Cancelar(_ context.Context, id string) error {
+func (s *sessoesFalsas) Cancelar(_ context.Context, id string, fato usecase.FatoPendente) error {
 	for i, existente := range s.itens {
 		if existente.ID == id {
 			s.itens[i].Status = catalogo.SessaoCancelada
+			s.fatos = append(s.fatos, fato)
 			return nil
 		}
 	}
@@ -333,8 +336,11 @@ func montar(t *testing.T, ajustar func(*ambiente)) *ambiente {
 			CriarSessao: usecase.CriarSessao{
 				Sessoes: amb.sessoes, Filmes: amb.filmes, Salas: amb.salas, GerarID: gerarID(),
 			},
-			AtualizarSessao: usecase.AtualizarSessao{Sessoes: amb.sessoes, Filmes: amb.filmes, Salas: amb.salas},
-			RemoverSessao:   usecase.RemoverSessao{Repo: amb.sessoes},
+			AtualizarSessao: usecase.AtualizarSessao{
+				Sessoes: amb.sessoes, Filmes: amb.filmes, Salas: amb.salas,
+				GerarID: uuid.NewString, Agora: agora,
+			},
+			RemoverSessao: usecase.RemoverSessao{Repo: amb.sessoes, Agora: agora},
 			ReservarPoltronas: usecase.ReservarPoltronas{
 				Sessoes: amb.sessoes, Estoque: amb.estoque, Agora: agora,
 			},

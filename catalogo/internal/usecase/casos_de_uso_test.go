@@ -80,13 +80,15 @@ func (s *sessaoRepoFalso) Criar(_ context.Context, sessao catalogo.Sessao, fato 
 	return nil
 }
 
-func (s *sessaoRepoFalso) Atualizar(_ context.Context, sessao catalogo.Sessao) error {
+func (s *sessaoRepoFalso) Atualizar(_ context.Context, sessao catalogo.Sessao, fato FatoPendente) error {
 	s.atualizada = sessao
+	s.fatoEnfileirado = fato
 	return nil
 }
 
-func (s *sessaoRepoFalso) Cancelar(_ context.Context, id string) error {
+func (s *sessaoRepoFalso) Cancelar(_ context.Context, id string, fato FatoPendente) error {
 	s.cancelada = id
+	s.fatoEnfileirado = fato
 	return nil
 }
 
@@ -868,14 +870,133 @@ func TestCriarSessaoRecusaSalaInexistente(t *testing.T) {
 }
 
 func TestAtualizarSessaoIgnoraAPropriaNaChecagemDeOcupacao(t *testing.T) {
-	sessoes := &sessaoRepoFalso{sessao: sessaoReservavel()}
-	uc := AtualizarSessao{Sessoes: sessoes, Filmes: &filmeRepoFalso{duracao: 100}, Salas: &salaRepoFalso{}}
+	atual := sessaoReservavel()
+	atual.SalaID = dadosSessao().SalaID
+	sessoes := &sessaoRepoFalso{sessao: atual}
+	uc := AtualizarSessao{
+		Sessoes: sessoes, Filmes: &filmeRepoFalso{duracao: 100}, Salas: &salaRepoFalso{},
+		GerarID: idFixo, Agora: agoraFixo,
+	}
 
 	if _, err := uc.Executar(context.Background(), "sessao-1", dadosSessao()); err != nil {
 		t.Fatalf("erro inesperado: %v", err)
 	}
 	if sessoes.excetoRecebido != "sessao-1" {
 		t.Fatalf("excetoID = %q, esperava a própria sessão", sessoes.excetoRecebido)
+	}
+}
+
+// A sala é do cadastro da sessão, não do estado que o PUT redesenha: trocá-la
+// apagaria o chão sob quem já reservou. Mesma regra do `cinema_id` da sala.
+func TestAtualizarSessaoRecusaTrocaDeSala(t *testing.T) {
+	atual := sessaoReservavel()
+	atual.SalaID = "sala-original"
+	sessoes := &sessaoRepoFalso{sessao: atual}
+	uc := AtualizarSessao{
+		Sessoes: sessoes, Filmes: &filmeRepoFalso{duracao: 100}, Salas: &salaRepoFalso{},
+		GerarID: idFixo, Agora: agoraFixo,
+	}
+
+	dados := dadosSessao()
+	dados.SalaID = "outra-sala"
+	if _, err := uc.Executar(context.Background(), "sessao-1", dados); !errors.Is(err, shared.ErrConflito) {
+		t.Fatalf("esperava ErrConflito, obteve %v", err)
+	}
+	if sessoes.atualizada.ID != "" {
+		t.Fatal("a sessão não deveria ter sido gravada")
+	}
+	if sessoes.fatoEnfileirado.MessageID != "" {
+		t.Fatal("nada foi alterado; nada deveria ser anunciado")
+	}
+}
+
+func TestAtualizarSessaoSemSalaIDMantemASalaAtual(t *testing.T) {
+	atual := sessaoReservavel()
+	atual.SalaID = "sala-original"
+	sessoes := &sessaoRepoFalso{sessao: atual}
+	uc := AtualizarSessao{
+		Sessoes: sessoes, Filmes: &filmeRepoFalso{duracao: 100}, Salas: &salaRepoFalso{},
+		GerarID: idFixo, Agora: agoraFixo,
+	}
+
+	dados := dadosSessao()
+	dados.SalaID = ""
+	sessao, err := uc.Executar(context.Background(), "sessao-1", dados)
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if sessao.SalaID != "sala-original" {
+		t.Fatalf("sala = %q, esperava a atual", sessao.SalaID)
+	}
+}
+
+// Alterar anuncia. Sem isso, quem tem estado preso à sessão não fica sabendo.
+func TestAtualizarSessaoEnfileiraOAnuncio(t *testing.T) {
+	atual := sessaoReservavel()
+	atual.SalaID = dadosSessao().SalaID
+	sessoes := &sessaoRepoFalso{sessao: atual}
+	uc := AtualizarSessao{
+		Sessoes: sessoes, Filmes: &filmeRepoFalso{duracao: 100}, Salas: &salaRepoFalso{},
+		GerarID: idFixo, Agora: agoraFixo,
+		TraceContextDe: func(context.Context) map[string]string { return map[string]string{"traceparent": "00-abc-def-01"} },
+	}
+
+	dados := dadosSessao()
+	dados.PrecoBase = "55.00"
+	if _, err := uc.Executar(context.Background(), "sessao-1", dados); err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+
+	fato := sessoes.fatoEnfileirado
+	if fato.RoutingKey != RoutingKeySessaoAlterada {
+		t.Errorf("routing key = %q", fato.RoutingKey)
+	}
+	// Identificador próprio, e não o da sessão: duas alterações não podem
+	// colidir na caixa de saída, cujo `message_id` é único.
+	if fato.MessageID != idFixo() {
+		t.Errorf("message_id = %q, esperava um identificador próprio do fato", fato.MessageID)
+	}
+	if fato.TraceContext["traceparent"] == "" {
+		t.Error("o contexto de rastreamento deveria viajar com o fato")
+	}
+
+	var evento EventoSessaoAlterada
+	if err := json.Unmarshal(fato.Payload, &evento); err != nil {
+		t.Fatalf("o corpo não é JSON válido: %v", err)
+	}
+	if evento.Evento != "SESSAO_ALTERADA" || evento.Versao != 1 {
+		t.Errorf("envelope inesperado: %+v", evento)
+	}
+	if evento.PrecoBase != "55.00" || evento.SalaID != dadosSessao().SalaID {
+		t.Errorf("o fato deveria levar o estado final: %+v", evento)
+	}
+}
+
+// Cancelar anuncia: é o fato que solta as reservas pendentes no estoque.
+func TestRemoverSessaoEnfileiraOAnuncio(t *testing.T) {
+	sessoes := &sessaoRepoFalso{sessao: sessaoReservavel()}
+	uc := RemoverSessao{Repo: sessoes, Agora: agoraFixo}
+
+	if err := uc.Executar(context.Background(), "sessao-1"); err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+
+	fato := sessoes.fatoEnfileirado
+	if fato.RoutingKey != RoutingKeySessaoCancelada {
+		t.Errorf("routing key = %q", fato.RoutingKey)
+	}
+	// O cancelamento é terminal e acontece uma vez: a chave é estável, e é ela
+	// que dá idempotência a quem consome.
+	if fato.MessageID != "sessao-1:cancelada" {
+		t.Errorf("message_id = %q", fato.MessageID)
+	}
+
+	var evento EventoSessaoCancelada
+	if err := json.Unmarshal(fato.Payload, &evento); err != nil {
+		t.Fatalf("o corpo não é JSON válido: %v", err)
+	}
+	if evento.Evento != "SESSAO_CANCELADA" || evento.SessaoID != "sessao-1" {
+		t.Errorf("fato inesperado: %+v", evento)
 	}
 }
 

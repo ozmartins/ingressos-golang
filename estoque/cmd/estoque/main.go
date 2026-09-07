@@ -100,6 +100,9 @@ func executar() error {
 	cancelar := usecase.CancelarReserva{Reservas: reservas, Prazo: indiceDePrazo, Relogio: relogio, Log: obs.Log}
 	expirar := usecase.ExpirarReservas{Reservas: reservas, Prazo: indiceDePrazo, Relogio: relogio, Log: obs.Log}
 	provisionar := usecase.ProvisionarSessao{Poltronas: poltronas, Log: obs.Log}
+	cancelarSessao := usecase.CancelarSessao{
+		Reservas: reservas, Prazo: indiceDePrazo, Relogio: relogio, Log: obs.Log,
+	}
 
 	if err := adaptadoramqp.ConsumirPagamentoSucesso(ctx, broker, cfg.AMQPPrefetch, obs, confirmar); err != nil {
 		return fmt.Errorf("consumidor de pagamento aprovado: %w", err)
@@ -109,6 +112,9 @@ func executar() error {
 	}
 	if err := adaptadoramqp.ConsumirSessaoCriada(ctx, broker, cfg.AMQPPrefetch, obs, provisionar); err != nil {
 		return fmt.Errorf("consumidor de sessão criada: %w", err)
+	}
+	if err := adaptadoramqp.ConsumirSessaoCancelada(ctx, broker, cfg.AMQPPrefetch, obs, cancelarSessao); err != nil {
+		return fmt.Errorf("consumidor de sessão cancelada: %w", err)
 	}
 
 	publicador := &adaptadoramqp.Publicador{Conexao: broker, Banco: banco, Obs: obs, Intervalo: time.Second}

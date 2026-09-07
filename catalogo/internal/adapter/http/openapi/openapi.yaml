@@ -464,17 +464,24 @@ paths:
         opcional omitido volta ao padrão. A checagem de ocupação da sala ignora
         a própria sessão.
 
-        **Não emite fato.** Trocar a sala de uma sessão já anunciada deixa a
-        matriz de poltronas do estoque na planta da sala antiga: enquanto não
-        houver um fato de alteração, uma mudança dessas precisa ser tratada como
-        sessão nova.
+        **A sala não muda.** Ela é do cadastro da sessão, não do estado que a
+        substituição redesenha: omitida, permanece a atual; informada, precisa
+        repetir a atual — outra sala responde `409`. Trocar a sala apagaria o
+        chão sob quem já reservou, porque os assentos vendidos deixariam de
+        existir. Quem precisa de outra sala cancela a sessão e cria outra. É a
+        mesma regra que o `cinema_id` de uma sala já segue.
+
+        **Emite o fato `sessao.alterada`**, com o estado final. Ele nunca
+        invalida a matriz de poltronas de quem a provisionou, justamente porque a
+        sala não pode mudar. Como em `POST /sessoes`, o `200` não espera pela
+        publicação.
       security:
         - clientCredentials: []
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/SessaoEntrada' }
+            schema: { $ref: '#/components/schemas/SessaoAtualizacao' }
       responses:
         '200':
           description: Sessão atualizada
@@ -493,8 +500,10 @@ paths:
         permanece — as reservas já feitas apontam para ela. Segue disponível em
         `GET /sessoes/{id}`.
 
-        **Não emite fato**: a matriz de poltronas provisionada no estoque
-        permanece como está.
+        **Emite o fato `sessao.cancelada`**, e é ele que solta o estado preso à
+        sessão: no serviço de estoque, as reservas pendentes das poltronas dela,
+        cujo prazo continuaria correndo. As reservas já pagas não são desfeitas —
+        reembolso não é uma operação deste sistema.
       security:
         - clientCredentials: []
       responses:
@@ -791,6 +800,31 @@ components:
       properties:
         filme_id: { type: string, format: uuid }
         sala_id: { type: string, format: uuid }
+        data_hora_inicio: { type: string, format: date-time }
+        idioma: { type: string, enum: [DUBLADO, LEGENDADO] }
+        preco_base:
+          type: string
+          description: Decimal exato em texto, com até duas casas
+          example: '42.00'
+        status:
+          type: string
+          enum: [AGENDADA, EM_ANDAMENTO, FINALIZADA, CANCELADA]
+          default: AGENDADA
+
+    SessaoAtualizacao:
+      type: object
+      description: |
+        O corpo do PUT. Igual ao do cadastro, menos o `sala_id`: o vínculo com a
+        sala é do cadastro, não do estado que a substituição redesenha.
+      required: [filme_id, data_hora_inicio, idioma, preco_base]
+      properties:
+        filme_id: { type: string, format: uuid }
+        sala_id:
+          type: string
+          format: uuid
+          description: |
+            Opcional. Omitido, a sessão permanece na sala atual; informado,
+            precisa repetir essa sala — movê-la de sala responde 409.
         data_hora_inicio: { type: string, format: date-time }
         idioma: { type: string, enum: [DUBLADO, LEGENDADO] }
         preco_base:

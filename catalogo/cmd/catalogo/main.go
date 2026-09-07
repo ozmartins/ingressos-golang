@@ -138,8 +138,13 @@ func executar() error {
 				Sessoes: sessoes, Filmes: filmes, Salas: salas, GerarID: uuid.NewString,
 				Agora: time.Now, TraceContextDe: contextoDeRastreamento,
 			},
-			AtualizarSessao: usecase.AtualizarSessao{Sessoes: sessoes, Filmes: filmes, Salas: salas},
-			RemoverSessao:   usecase.RemoverSessao{Repo: sessoes},
+			AtualizarSessao: usecase.AtualizarSessao{
+				Sessoes: sessoes, Filmes: filmes, Salas: salas, GerarID: uuid.NewString,
+				Agora: time.Now, TraceContextDe: contextoDeRastreamento,
+			},
+			RemoverSessao: usecase.RemoverSessao{
+				Repo: sessoes, Agora: time.Now, TraceContextDe: contextoDeRastreamento,
+			},
 			ReservarPoltronas: usecase.ReservarPoltronas{
 				Sessoes: sessoes,
 				Estoque: clienteEstoque,

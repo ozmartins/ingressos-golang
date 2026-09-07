@@ -83,3 +83,24 @@ func ConsumirSessaoCriada(ctx context.Context, conexao *Conexao, prefetch int,
 	}
 	return c.Iniciar(ctx)
 }
+
+func ConsumirSessaoCancelada(ctx context.Context, conexao *Conexao, prefetch int,
+	obs *observability.Observabilidade, uc usecase.CancelarSessao) error {
+
+	c := &Consumidor{
+		Conexao: conexao, Fila: FilaSessaoCancelada, Prefetch: prefetch, Obs: obs,
+		Trata: func(ctx context.Context, msg amqp.Delivery) (string, error) {
+			evento, err := usecase.LerSessaoCancelada(msg.Body)
+			if err != nil {
+				return "invalida", Definitivo(err)
+			}
+			resultado, err := uc.Executar(ctx, FilaSessaoCancelada,
+				chaveIdempotencia(msg, evento.SessaoID), evento.SessaoID)
+			if err != nil {
+				return "falha", err
+			}
+			return resultado.String(), nil
+		},
+	}
+	return c.Iniciar(ctx)
+}

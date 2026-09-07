@@ -238,14 +238,14 @@ func TestEscritaDeSessaoRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := repo.Atualizar(ctx, alterada); err != nil {
+	if err := repo.Atualizar(ctx, alterada, fatoDeTeste(id+":alterada")); err != nil {
 		t.Fatalf("Atualizar: %v", err)
 	}
 	if relida, err := repo.BuscarPorID(ctx, id); err != nil || relida != alterada {
 		t.Fatalf("a atualização não persistiu: %+v (%v)", relida, err)
 	}
 
-	if err := repo.Cancelar(ctx, id); err != nil {
+	if err := repo.Cancelar(ctx, id, fatoDeTeste(id+":cancelada")); err != nil {
 		t.Fatalf("Cancelar: %v", err)
 	}
 	cancelada, err := repo.BuscarPorID(ctx, id)
@@ -267,7 +267,7 @@ func TestSessaoCanceladaSaiDaGrade(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := repo.Cancelar(ctx, naGrade); err != nil {
+	if err := repo.Cancelar(ctx, naGrade, fatoDeTeste(naGrade+":cancelada")); err != nil {
 		t.Fatal(err)
 	}
 	depois, err := repo.Consultar(ctx, usecase.FiltroSessoes{}, pagina(t, 1, 20))
@@ -362,10 +362,10 @@ func TestEscritaDeSessaoInexistenteDevolveNaoEncontrado(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := repo.Atualizar(ctx, sessao); !errors.Is(err, shared.ErrNaoEncontrado) {
+	if err := repo.Atualizar(ctx, sessao, fatoDeTeste("ausente:alterada")); !errors.Is(err, shared.ErrNaoEncontrado) {
 		t.Errorf("Atualizar: esperava ErrNaoEncontrado, obteve %v", err)
 	}
-	if err := repo.Cancelar(ctx, ausente); !errors.Is(err, shared.ErrNaoEncontrado) {
+	if err := repo.Cancelar(ctx, ausente, fatoDeTeste("ausente:cancelada")); !errors.Is(err, shared.ErrNaoEncontrado) {
 		t.Errorf("Cancelar: esperava ErrNaoEncontrado, obteve %v", err)
 	}
 }

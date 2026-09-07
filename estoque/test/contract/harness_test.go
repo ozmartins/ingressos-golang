@@ -84,6 +84,11 @@ func (e *estoqueDeTeste) Confirmar(context.Context, string, string, string, time
 func (e *estoqueDeTeste) Cancelar(context.Context, string, string, string, time.Time) (usecase.ResultadoTransicao, error) {
 	return usecase.TransicaoAplicada, nil
 }
+func (e *estoqueDeTeste) CancelarPendentesDaSessao(
+	context.Context, string, string, string, time.Time,
+) (usecase.DesfechoCancelamentoDeSessao, error) {
+	return usecase.DesfechoCancelamentoDeSessao{Resultado: usecase.TransicaoAplicada}, nil
+}
 func (e *estoqueDeTeste) ExpirarVencidas(context.Context, time.Time, int) ([]string, error) {
 	return nil, nil
 }

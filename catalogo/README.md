@@ -52,8 +52,10 @@ broker confirmar. Disso decorrem três coisas que quem integra precisa saber:
   sucesso mesmo com o broker fora do ar, e o fato sai quando ele voltar;
 - a entrega é **ao menos uma vez**: a mesma mensagem pode chegar repetida, e o
   consumidor descarta pelo `sessao_id`, que também vai no `message_id`;
-- alterar ou cancelar uma sessão **não** emite fato — não há consumidor para
-  isso, e o contrato registra a consequência.
+- alterar e cancelar também emitem fato: `sessao.alterada` e `sessao.cancelada`.
+  O cancelamento é o que solta, no estoque, as reservas pendentes das poltronas
+  da sessão; a alteração nunca invalida a matriz, porque a sala de uma sessão não
+  pode mudar — `PUT` com outra sala responde `409`.
 
 O contexto de rastreamento da requisição viaja nos cabeçalhos da mensagem, de
 modo que o span de quem consome não nasça órfão.

@@ -158,6 +158,53 @@ func (e *estoqueFalso) Cancelar(_ context.Context, fila, messageID, reservaID st
 	return e.aplicar(fila, messageID, reservaID, agora, reserva.Cancelada, poltrona.Livre)
 }
 
+func (e *estoqueFalso) CancelarPendentesDaSessao(
+	_ context.Context, fila, messageID, sessaoID string, agora time.Time,
+) (DesfechoCancelamentoDeSessao, error) {
+	desfecho := DesfechoCancelamentoDeSessao{Resultado: TransicaoIgnoradaInexistente}
+	if e.erroForcado != nil {
+		return desfecho, e.erroForcado
+	}
+
+	e.mu.Lock()
+	if messageID != "" {
+		chave := fila + "|" + messageID
+		if e.processadas[chave] {
+			e.mu.Unlock()
+			desfecho.Resultado = TransicaoIgnoradaDuplicata
+			return desfecho, nil
+		}
+		e.processadas[chave] = true
+	}
+	var pendentes []string
+	for id, r := range e.reservas {
+		if r.SessaoID != sessaoID {
+			continue
+		}
+		switch r.Status {
+		case reserva.Pendente:
+			pendentes = append(pendentes, id)
+		case reserva.Confirmada:
+			desfecho.Confirmadas++
+		}
+	}
+	e.mu.Unlock()
+
+	for _, id := range pendentes {
+		res, err := e.aplicar("", "", id, agora, reserva.Cancelada, poltrona.Livre)
+		if err != nil {
+			return desfecho, err
+		}
+		if res == TransicaoAplicada {
+			desfecho.Canceladas = append(desfecho.Canceladas, id)
+		}
+	}
+	if len(desfecho.Canceladas) > 0 {
+		desfecho.Resultado = TransicaoAplicada
+	}
+	return desfecho, nil
+}
+
 func (e *estoqueFalso) ExpirarVencidas(_ context.Context, agora time.Time, limite int) ([]string, error) {
 	e.mu.Lock()
 	ids := []string{}

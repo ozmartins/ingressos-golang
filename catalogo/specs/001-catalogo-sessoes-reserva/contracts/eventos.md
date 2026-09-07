@@ -1,6 +1,7 @@
 # Contrato de eventos — Servico-Catalogo
 
-Este serviço publica um fato e não consome nenhum.
+Este serviço publica três fatos, o ciclo de vida de uma sessão, e não consome
+nenhum.
 
 O intermediário é o RabbitMQ, no exchange compartilhado `cinema.eventos`, do tipo
 `topic` e durável — o mesmo que os quatro serviços usam. O catálogo declara o
@@ -81,11 +82,80 @@ O consumidor deve descartar a repetição pelo `sessao_id`.
 
 ---
 
-## Não publicado, e por quê
+## Publicado — `sessao.alterada`
 
-Alterar (`PUT`) ou cancelar (`DELETE`) uma sessão **não** emite fato. Não é
-esquecimento: não existe consumidor para eles, e nenhum contrato de evento os
-descreve do outro lado. Enquanto for assim, mudar a sala de uma sessão já
-anunciada deixa a matriz do estoque apontando para a planta antiga — a alteração
-precisa ser tratada como sessão nova até que um fato de alteração seja
-especificado e consumido.
+| | |
+|---|---|
+| Routing key | `sessao.alterada` |
+| Exchange | `cinema.eventos` |
+| Chave de idempotência | o `message_id` da mensagem, próprio de cada alteração |
+| Produzido quando | uma sessão é alterada com sucesso por `PUT /api/v1/sessoes/{id}` |
+| Versão | 1 |
+
+```json
+{
+  "evento": "SESSAO_ALTERADA",
+  "versao": 1,
+  "ocorrido_em": "2026-09-06T18:10:00Z",
+  "sessao_id": "f781a9b2-11e2-4f81-a901-8890bc123456",
+  "sala_id": "d1b2c3d4-0000-4000-8000-000000000002",
+  "data_hora_inicio": "2026-12-01T22:00:00Z",
+  "idioma": "DUBLADO",
+  "preco_base": "38.00"
+}
+```
+
+O corpo traz o estado final da sessão, como o `PUT` a redesenhou.
+
+**Este fato nunca invalida a matriz de poltronas**, e é de propósito: a sala não
+pode mudar. `PUT` com outra sala responde `409` — a sala é do cadastro da sessão,
+não do estado que a substituição redesenha, pela mesma razão que o `cinema_id` de
+uma sala não muda. Quem precisa de outra sala cancela a sessão e cria outra.
+`sala_id` viaja aqui de todo modo, para que quem consome não precise guardar de
+qual sala era só para concluir que não mudou.
+
+Diferente dos outros dois, o `message_id` **não** é derivado do `sessao_id`: a
+mesma sessão pode ser alterada muitas vezes, e uma chave estável faria a segunda
+alteração colidir com a primeira na caixa de saída e ser descartada em silêncio.
+Cada alteração tem identificador próprio, e a deduplicação é por ele.
+
+---
+
+## Publicado — `sessao.cancelada`
+
+| | |
+|---|---|
+| Routing key | `sessao.cancelada` |
+| Exchange | `cinema.eventos` |
+| Chave de idempotência | `sessao_id`, repetida no `message_id` como `<sessao_id>:cancelada` |
+| Produzido quando | uma sessão é retirada da grade por `DELETE /api/v1/sessoes/{id}` |
+| Versão | 1 |
+
+```json
+{
+  "evento": "SESSAO_CANCELADA",
+  "versao": 1,
+  "ocorrido_em": "2026-09-06T18:20:00Z",
+  "sessao_id": "f781a9b2-11e2-4f81-a901-8890bc123456"
+}
+```
+
+A remoção é lógica: a sessão passa a `CANCELADA` e sai da grade, mas a linha
+permanece. O fato existe porque quem tem estado preso à sessão precisa soltá-lo —
+no `Servico-Estoque`, as reservas pendentes das poltronas dela, cujo prazo
+continuaria correndo para uma sessão que ninguém mais pode comprar.
+
+O cancelamento é terminal e acontece uma vez, então a chave é estável e dá
+idempotência de graça.
+
+---
+
+## O que continua sem fato
+
+Redesenhar a planta de uma sala (`PUT /api/v1/salas/{id}`) não emite fato. As
+sessões já anunciadas daquela sala seguem com a matriz da planta antiga, porque
+`sessao.criada` carrega a planta do instante em que a sessão foi criada.
+
+É o mesmo problema uma camada acima, e fechá-lo exige a mesma decisão que a troca
+de sala levantou: o que fazer com reservas ativas quando os assentos mudam.
+Aqui a resposta foi proibir a troca; para a planta, ainda não há resposta.

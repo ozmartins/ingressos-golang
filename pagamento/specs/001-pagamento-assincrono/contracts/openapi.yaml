@@ -10,10 +10,18 @@ info:
     Mudança incompatível exige versão nova no caminho (/api/v2).
 servers:
   - url: /api/v1
+tags:
+  - name: Pagamentos
+    description: |
+      Consulta e escolha da forma de pagamento de uma reserva.
+  - name: Health
+    description: |
+      Sondas de infraestrutura, sem autenticação.
 paths:
   /pagamentos/reserva/{reserva_id}:
     get:
       summary: Consulta o andamento do pagamento de uma reserva
+      tags: [Pagamentos]
       description: |
         Devolve o estado atual da transação da reserva informada. Só a pessoa dona
         da reserva obtém dados: para qualquer outra, a resposta é indistinguível
@@ -80,6 +88,7 @@ paths:
               schema: { $ref: "#/components/schemas/Erro" }
     post:
       summary: Escolhe a forma de pagamento da reserva
+      tags: [Pagamentos]
       description: |
         Reservar uma poltrona e escolher como pagar são decisões distintas: a
         reserva cria a transação sabendo **quanto** cobrar, e é esta operação que
@@ -152,12 +161,14 @@ paths:
   /health/live:
     get:
       summary: O processo está no ar
+      tags: [Health]
       security: []
       responses:
         "200": { description: Processo vivo }
   /health/ready:
     get:
       summary: O serviço é capaz de processar cobranças
+      tags: [Health]
       description: Verifica armazenamento e canal de eventos.
       security: []
       responses:

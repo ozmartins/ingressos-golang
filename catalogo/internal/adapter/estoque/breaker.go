@@ -44,6 +44,13 @@ func NovaRecusaRapida(falhasParaAbrir uint32, intervaloAberto time.Duration, m *
 		OnStateChange: func(_ string, _, para gobreaker.State) {
 			r.registrarEstado(para)
 		},
+		// Uma recusa que o estoque decidiu — entrada inválida, poltrona
+		// inexistente — não é falha dele. Sem isto, cinco solicitações
+		// malformadas seguidas abririam o circuito e tirariam a reserva do ar
+		// para todo mundo, por conta de um cliente só.
+		IsSuccessful: func(err error) bool {
+			return err == nil || recusaDoEstoque(err)
+		},
 	})
 	return r
 }

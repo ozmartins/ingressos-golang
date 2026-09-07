@@ -510,6 +510,16 @@ paths:
       description: |
         Encaminha a solicitação ao Servico-Estoque via gRPC, com timeout de 2s e
         sem retentativa. O usuário é identificado pela claim `sub` do token.
+
+        As recusas que o estoque decide chegam com a culpa no lugar certo, e não
+        como indisponibilidade: `400 reserva-recusada` para entrada que ele
+        rejeitou (rótulo fora do formato, mais poltronas que o limite — o
+        `detail` traz o limite), `422 poltrona-inexistente` quando a poltrona não
+        existe na sessão, e `422 sessao-sem-poltronas` quando a matriz dela ainda
+        não foi provisionada. O `409` continua sendo só "a poltrona está tomada".
+
+        O `503` é falha de canal ou do parceiro, sobre a qual repetir faz
+        sentido; o `502` é defeito do estoque, que repetir não resolve.
       security:
         - clientCredentials: []
       parameters:

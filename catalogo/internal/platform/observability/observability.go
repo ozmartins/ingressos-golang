@@ -35,6 +35,10 @@ const (
 	DesfechoTimeout                = "timeout"
 	DesfechoRecusaRapida           = "recusa_rapida"
 	DesfechoPoltronasIndisponiveis = "poltronas_indisponiveis"
+	// O estoque entendeu a solicitação e a negou. Fica separado de
+	// `indisponivel` porque a operação é outra: aqui o parceiro está de pé, e
+	// contar isso como indisponibilidade esconderia a saúde dele.
+	DesfechoRecusadoPeloEstoque = "recusado_pelo_estoque"
 )
 
 type Metricas struct {

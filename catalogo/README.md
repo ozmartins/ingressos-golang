@@ -73,28 +73,36 @@ pré-requisito para subir o catálogo — não só o estoque.
 Sem as três variáveis de certificado o processo recusa subir, como qualquer outra
 configuração obrigatória. Não há modo em texto claro.
 
-### Limite conhecido: erro de entrada chega como 503
+### A culpa fica onde é
 
-O catálogo traduz **qualquer** erro do estoque em `503 estoque-indisponivel`. O
-estoque, porém, distingue categorias no seu contrato de erros, e algumas delas
-são culpa de quem chama:
+O estoque distingue, no contrato de erros dele, o que **decidiu negar** do que
+**nele falhou**, e o catálogo preserva essa distinção em vez de achatar tudo em
+"estoque indisponível":
 
-| O que aconteceu | Devia responder | Responde hoje |
-|---|---|---|
-| Poltrona que não existe na sala | 409 ou 422 | 503 |
-| Sessão sem matriz de poltronas provisionada | 409 ou 422 | 503 |
-| Mais de 10 poltronas num bloqueio | 400 | 503 |
-| Rótulo de poltrona fora do formato | 400 | 503 |
+| O que aconteceu | Resposta |
+|---|---|
+| A poltrona está tomada | `409 poltronas-indisponiveis` |
+| Rótulo fora do formato, ou mais poltronas que o limite | `400 reserva-recusada` |
+| A poltrona não existe na sessão | `422 poltrona-inexistente` |
+| A sessão ainda não tem matriz de poltronas | `422 sessao-sem-poltronas` |
+| Estoque fora do ar, timeout, ou disjuntor aberto | `503 estoque-indisponivel` |
+| Defeito interno do estoque | `502 resposta-invalida-do-parceiro` |
 
 Isso ficou escondido enquanto o catálogo falava com um dublê que nunca devolvia
-erro de gRPC. **Se você recebeu um 503 dizendo que o estoque está indisponível,
-confira primeiro a entrada** — a mensagem culpa a infraestrutura, e o defeito
-pode ser da requisição. Fechar isso é mapear as categorias de
-`estoque/specs/001-estoque-bloqueio-poltronas/contracts/erros.md` para os status
-certos, em `internal/adapter/estoque/mapper.go`.
+erro de gRPC: todas essas situações chegavam como `503`, mandando o cliente
+tentar de novo quando o defeito estava na própria solicitação.
 
-O caminho feliz não é afetado: toda sessão criada por esta API tem matriz
-provisionada, porque ela publica `sessao.criada`.
+O `502` para defeito do estoque não é escolha de estilo: o contrato dele diz que
+repetir um `INTERNAL` não tem por que dar certo, e o `503` — "tente novamente em
+instantes" — prometeria o contrário.
+
+A tradução olha a `reason` do `ErrorInfo`, nunca o texto da mensagem, porque só a
+primeira é parte do contrato.
+
+**E recusa não abre o disjuntor.** A recusa rápida existe para poupar parceiro
+doente; entrada inválida repetida não é doença do parceiro. Sem essa distinção,
+cinco solicitações malformadas seguidas abriam o circuito e tiravam a reserva do
+ar para todos, por conta de um cliente só.
 
 ## O preço da reserva sai daqui
 

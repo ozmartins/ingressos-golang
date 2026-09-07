@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
 
@@ -202,6 +203,46 @@ func TestRecusaRapidaAbreEDepoisRetomaSozinha(t *testing.T) {
 
 	if _, err := c.BloquearPoltronas(context.Background(), solicitacao()); err != nil {
 		t.Fatalf("após o intervalo, a chamada deveria voltar a passar: %v", err)
+	}
+}
+
+// O circuito protege contra parceiro doente. Uma entrada inválida repetida não
+// é doença do parceiro: contá-la abriria o circuito e tiraria a reserva do ar
+// para todos, por conta de um cliente só.
+func TestRecusaDoEstoqueNaoAbreRecusaRapida(t *testing.T) {
+	recusas := map[string]error{
+		"solicitação inválida": comRazao(codes.InvalidArgument, "rótulo inválido", razaoSolicitacaoInvalida, nil),
+		"poltrona inexistente": comRazao(codes.FailedPrecondition, "Z9 não existe", razaoPoltronaInexistente, nil),
+		"sessão sem matriz":    comRazao(codes.FailedPrecondition, "sem matriz", razaoSessaoNaoProvisionada, nil),
+	}
+
+	for nome, recusa := range recusas {
+		t.Run(nome, func(t *testing.T) {
+			sim := &estoqueSimulado{erro: recusa}
+			c := clienteCom(conectar(t, sim), time.Second, 2, time.Minute)
+
+			// Bem acima do limite de 2 falhas consecutivas que abriria o circuito.
+			for i := 0; i < 6; i++ {
+				_, _ = c.BloquearPoltronas(context.Background(), solicitacao())
+			}
+			if sim.chamadasFeitas() != 6 {
+				t.Fatalf("o estoque recebeu %d de 6 chamadas; a recusa rápida abriu com erro de cliente",
+					sim.chamadasFeitas())
+			}
+		})
+	}
+}
+
+// O contraste: indisponibilidade de verdade continua abrindo o circuito.
+func TestIndisponibilidadeSegueAbrindoRecusaRapida(t *testing.T) {
+	sim := &estoqueSimulado{erro: comRazao(codes.Unavailable, "banco fora", "DEPENDENCIA_INDISPONIVEL", nil)}
+	c := clienteCom(conectar(t, sim), time.Second, 2, time.Minute)
+
+	for i := 0; i < 6; i++ {
+		_, _ = c.BloquearPoltronas(context.Background(), solicitacao())
+	}
+	if n := sim.chamadasFeitas(); n >= 6 {
+		t.Fatalf("o estoque recebeu %d chamadas; o circuito deveria ter aberto e poupado o parceiro", n)
 	}
 }
 

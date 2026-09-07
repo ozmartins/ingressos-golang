@@ -37,6 +37,9 @@ const (
 	catSessaoNaoReservavel = "sessao-nao-reservavel"
 	catConflito            = "conflito"
 	catPoltronasIndisp     = "poltronas-indisponiveis"
+	catReservaRecusada     = "reserva-recusada"
+	catPoltronaInexistente = "poltrona-inexistente"
+	catSessaoSemPoltronas  = "sessao-sem-poltronas"
 	catEstoqueIndisponivel = "estoque-indisponivel"
 	catRespostaInvalida    = "resposta-invalida-do-parceiro"
 	catErroInterno         = "erro-interno"
@@ -58,6 +61,9 @@ var categorias = map[string]descricaoCategoria{
 	catSessaoNaoReservavel: {"Sessão não aceita reservas", http.StatusUnprocessableEntity},
 	catConflito:            {"Conflito com o estado atual", http.StatusConflict},
 	catPoltronasIndisp:     {"Poltronas indisponíveis", http.StatusConflict},
+	catReservaRecusada:     {"Reserva recusada", http.StatusBadRequest},
+	catPoltronaInexistente: {"Poltrona inexistente na sessão", http.StatusUnprocessableEntity},
+	catSessaoSemPoltronas:  {"Sessão ainda sem poltronas", http.StatusUnprocessableEntity},
 	catEstoqueIndisponivel: {"Serviço temporariamente indisponível", http.StatusServiceUnavailable},
 	catRespostaInvalida:    {"Resposta inválida do serviço parceiro", http.StatusBadGateway},
 	catErroInterno:         {"Erro interno", http.StatusInternalServerError},
@@ -96,6 +102,25 @@ func EscreverErroDeDominio(w http.ResponseWriter, r *http.Request, err error, co
 		EscreverProblem(w, r, catSessaoNaoReservavel, mensagemLimpa(err))
 	case errors.Is(err, shared.ErrPoltronasIndisponiveis):
 		EscreverProblem(w, r, catPoltronasIndisp, "Uma ou mais poltronas selecionadas não estão disponíveis.")
+
+	// As três recusas que o estoque decide. Antes caíam todas em
+	// `estoque-indisponivel`, o que dizia ao cliente para tentar de novo quando
+	// o defeito estava na própria solicitação.
+	case errors.Is(err, shared.ErrPoltronaInexistente):
+		EscreverProblem(w, r, catPoltronaInexistente,
+			"Uma ou mais poltronas informadas não existem nesta sessão.")
+	case errors.Is(err, shared.ErrSessaoSemPoltronas):
+		EscreverProblem(w, r, catSessaoSemPoltronas,
+			"Esta sessão ainda não tem poltronas disponíveis para reserva.")
+	case errors.Is(err, shared.ErrSolicitacaoRecusadaPeloEstoque):
+		EscreverProblem(w, r, catReservaRecusada, mensagemLimpa(err))
+
+	// Defeito do parceiro, e não indisponibilidade: o contrato dele diz que
+	// repetir não tem por que dar certo.
+	case errors.Is(err, shared.ErrEstoqueComDefeito):
+		EscreverProblem(w, r, catRespostaInvalida,
+			"O serviço responsável pela reserva falhou. Informe o identificador desta requisição ao suporte.")
+
 	case errors.Is(err, shared.ErrEstoqueIndisponivel):
 		EscreverProblem(w, r, catEstoqueIndisponivel, "Serviço temporariamente indisponível. Tente novamente em instantes.")
 	case errors.Is(err, shared.ErrRespostaInvalidaDoParceiro):

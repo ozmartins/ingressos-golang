@@ -13,8 +13,12 @@ import (
 
 func traduzir(resposta *estoquepb.RespostaBloqueio, desfecho Desfecho, err error) (reserva.ResultadoReserva, error) {
 	switch desfecho {
-	case DesfechoRecusado, DesfechoFalha:
+	case DesfechoRecusado:
+		// O circuito está aberto: não houve chamada, e não há categoria do
+		// estoque para traduzir.
 		return reserva.ResultadoReserva{}, fmt.Errorf("%w: %v", shared.ErrEstoqueIndisponivel, err)
+	case DesfechoFalha:
+		return reserva.ResultadoReserva{}, traduzirErroDeChamada(err)
 	}
 
 	if resposta == nil {
@@ -41,6 +45,8 @@ func desfechoFinal(d Desfecho, erroTransporte, erroDominio error) string {
 		return observability.DesfechoRecusaRapida
 	case d == DesfechoFalha && ehTempoExcedido(erroTransporte):
 		return observability.DesfechoTimeout
+	case d == DesfechoFalha && recusaDoEstoque(erroTransporte):
+		return observability.DesfechoRecusadoPeloEstoque
 	case d == DesfechoFalha:
 		return observability.DesfechoIndisponivel
 	case errors.Is(erroDominio, shared.ErrPoltronasIndisponiveis):

@@ -117,6 +117,62 @@ func TestLayoutSalaExpandeEmPoltronasNumeradas(t *testing.T) {
 	}
 }
 
+func TestLayoutSalaIgual(t *testing.T) {
+	base := func() LayoutSala {
+		l, err := NovoLayoutSala(fileirasValidas())
+		if err != nil {
+			t.Fatal(err)
+		}
+		return l
+	}
+
+	// A mesma planta em outra ordem é a mesma planta: `NovoLayoutSala` ordena.
+	invertida := fileirasValidas()
+	invertida[0], invertida[2] = invertida[2], invertida[0]
+	outraOrdem, err := NovoLayoutSala(invertida)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !base().Igual(outraOrdem) {
+		t.Fatal("a mesma planta em outra ordem deveria ser igual")
+	}
+
+	diferentes := map[string][]DadosFileira{
+		"fileira a mais":  append(fileirasValidas(), DadosFileira{Fileira: "Z", Assentos: 2}),
+		"fileira a menos": fileirasValidas()[:2],
+		"outro assento":   {{Fileira: "A", Assentos: 11}, {Fileira: "F", Assentos: 8, Tipo: "PCD"}, {Fileira: "J", Assentos: 6, Tipo: "NAMORADEIRA"}},
+		"outro tipo":      {{Fileira: "A", Assentos: 12, Tipo: "PCD"}, {Fileira: "F", Assentos: 8, Tipo: "PCD"}, {Fileira: "J", Assentos: 6, Tipo: "NAMORADEIRA"}},
+		"outra letra":     {{Fileira: "B", Assentos: 12}, {Fileira: "F", Assentos: 8, Tipo: "PCD"}, {Fileira: "J", Assentos: 6, Tipo: "NAMORADEIRA"}},
+	}
+	for nome, ds := range diferentes {
+		t.Run(nome, func(t *testing.T) {
+			outra, err := NovoLayoutSala(ds)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if base().Igual(outra) {
+				t.Fatal("plantas diferentes não deveriam ser iguais")
+			}
+		})
+	}
+}
+
+// `Dados` desfaz a planta na forma de entrada, e o resultado precisa reconstruir
+// a mesma planta — é assim que a atualização a preserva sem recebê-la.
+func TestLayoutSalaDadosFazIdaEVolta(t *testing.T) {
+	original, err := NovoLayoutSala(fileirasValidas())
+	if err != nil {
+		t.Fatal(err)
+	}
+	devolta, err := NovoLayoutSala(original.Dados())
+	if err != nil {
+		t.Fatalf("a forma de entrada devolvida deveria ser válida: %v", err)
+	}
+	if !original.Igual(devolta) {
+		t.Fatalf("a ida e volta mudou a planta:\n antes:  %+v\n depois: %+v", original, devolta)
+	}
+}
+
 func TestParseTipoPoltronaListaOsValoresAceitos(t *testing.T) {
 	_, err := ParseTipoPoltrona("PUFE")
 	if err == nil {

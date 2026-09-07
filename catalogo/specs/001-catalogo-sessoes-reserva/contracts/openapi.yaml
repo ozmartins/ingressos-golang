@@ -330,10 +330,19 @@ paths:
       summary: Substitui uma sala
       description: |
         Substituição total: o corpo descreve o estado final da sala, e campo
-        opcional omitido volta ao padrão. O `cinema_id` fica de fora dessa
-        substituição — omitido, a sala continua no cinema atual; informado,
-        precisa repetir esse cinema, porque a sala não muda de cinema e tentar
-        movê-la responde 409.
+        opcional omitido volta ao padrão. Dois campos ficam de fora dessa
+        substituição, porque são do cadastro da sala e não do estado que ela
+        redesenha — omitidos, permanecem; informados, precisam repetir o atual, e
+        divergir responde 409:
+
+        - o `cinema_id`, porque a sala não muda de cinema;
+        - as `fileiras`, porque as sessões já anunciadas desta sala carregam a
+          matriz de poltronas que valia quando foram criadas. Redesenhar a planta
+          deixaria essas matrizes descrevendo assentos que não existem mais, e
+          uma poltrona vendida numa fileira removida não teria para onde ir.
+
+        Quem precisa de outra planta desativa a sala e cadastra outra: o `DELETE`
+        é lógico e o número volta a ficar livre para a sala que a substituir.
       security:
         - clientCredentials: []
       requestBody:
@@ -752,9 +761,10 @@ components:
     SalaAtualizacao:
       type: object
       description: |
-        O corpo do PUT. Igual ao do cadastro, menos o `cinema_id`: o vínculo com
-        o cinema é do cadastro, não do estado que a substituição redesenha.
-      required: [numero, tipo_tela, fileiras]
+        O corpo do PUT. Igual ao do cadastro, menos o `cinema_id` e as
+        `fileiras`: os dois são do cadastro, não do estado que a substituição
+        redesenha.
+      required: [numero, tipo_tela]
       properties:
         cinema_id:
           type: string
@@ -772,8 +782,16 @@ components:
           minItems: 1
           items: { $ref: '#/components/schemas/Fileira' }
           description: |
-            A planta da sala. A capacidade sai daqui: não há campo de capacidade
-            no corpo da escrita.
+            Opcional, e **imutável**. Omitida, a planta permanece; informada,
+            precisa descrever a mesma planta — redesenhá-la responde 409. A ordem
+            das fileiras não importa na comparação.
+
+            A planta não muda porque as sessões já anunciadas desta sala carregam
+            a matriz de poltronas que valia quando foram criadas: redesenhá-la
+            deixaria essas matrizes descrevendo assentos que não existem mais, e
+            uma poltrona vendida numa fileira removida não teria para onde ir.
+            Quem precisa de outra planta desativa a sala e cadastra outra — o
+            `DELETE` é lógico e devolve o número.
         ativo: { type: boolean, default: true }
 
     Sessao:

@@ -168,6 +168,14 @@ comum se declara como fileira própria. `capacidade_total` deixou de ser um núm
 digitado: ela é a soma dos assentos, calculada pelo serviço, e sai só na
 resposta. Mandá-la no corpo da escrita responde `400`.
 
+**A planta é imutável.** Como o `cinema_id`, ela é do cadastro da sala e não do
+estado que o `PUT` redesenha: omitida, permanece; informada, precisa descrever a
+mesma planta, e redesenhá-la responde `409`. As sessões já anunciadas desta sala
+carregam a matriz de poltronas que valia quando foram criadas, e mudar a planta
+deixaria essas matrizes descrevendo assentos que não existem mais — uma poltrona
+vendida numa fileira removida não teria para onde ir. Quem precisa de outra
+planta desativa a sala e cadastra outra: o número volta a ficar livre.
+
 ## Executando localmente
 
 O compose da raiz do repositório sobe o catálogo com tudo de que ele depende —

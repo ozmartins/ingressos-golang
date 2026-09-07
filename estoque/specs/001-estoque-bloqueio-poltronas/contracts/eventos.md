@@ -110,11 +110,11 @@ A entrega é ao menos uma vez — o catálogo publica por caixa de saída —, e
 `sessao_id` que descarta a repetição. Nada disso muda o efeito descrito acima: o
 provisionamento já era idempotente por essa mesma chave.
 
-Duas consequências que o produtor registra e que valem para quem lê este
-contrato: o fato carrega a planta que a sala tinha no instante da criação da
-sessão, e redesenhar a sala depois não o reemite; e alterar ou cancelar uma
-sessão não emite fato algum, de modo que mover uma sessão já anunciada para outra
-sala deixa a matriz provisionada aqui apontando para a planta antiga.
+A planta que o fato carrega não fica obsoleta: do lado do produtor, nem a planta
+de uma sala nem a sala de uma sessão podem mudar — as duas tentativas respondem
+`409`. Uma sessão que precise de outra sala, ou uma sala que precise de outra
+planta, é cadastrada de novo, e a matriz provisionada aqui continua descrevendo
+os assentos que existem.
 
 Para exercitar o consumo sem subir o catálogo, `make publicar-sessao` publica um
 payload equivalente (ver `quickstart.md`).

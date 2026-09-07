@@ -72,6 +72,31 @@ func (l LayoutSala) Poltronas() []PoltronaDoLayout {
 	return poltronas
 }
 
+// Igual responde se duas plantas descrevem a mesma sala. A comparação é
+// posicional porque `NovoLayoutSala` sempre ordena as fileiras: a mesma planta
+// descrita em ordens diferentes chega aqui na mesma ordem.
+func (l LayoutSala) Igual(outra LayoutSala) bool {
+	if len(l.Fileiras) != len(outra.Fileiras) {
+		return false
+	}
+	for i, f := range l.Fileiras {
+		if f != outra.Fileiras[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// Dados desfaz a planta na forma de entrada, para quem precisa reapresentá-la a
+// `NovaSala` sem tê-la recebido do cliente.
+func (l LayoutSala) Dados() []DadosFileira {
+	ds := make([]DadosFileira, 0, len(l.Fileiras))
+	for _, f := range l.Fileiras {
+		ds = append(ds, DadosFileira{Fileira: f.Letra, Assentos: f.Assentos, Tipo: string(f.Tipo)})
+	}
+	return ds
+}
+
 type DadosFileira struct {
 	Fileira  string
 	Assentos int

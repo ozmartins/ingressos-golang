@@ -16,7 +16,7 @@ Prefixo dos URIs: `https://cinema.example/errors/`
 | `cinema-nao-encontrado` | 404 | `cinema_id` inexistente na consulta de salas | FR-013 |
 | `sessao-nao-encontrada` | 404 | `sessao_id` inexistente na reserva | FR-022 |
 | `sessao-nao-reservavel` | 422 | Sessão existe, mas já iniciou, foi finalizada ou cancelada | FR-022 |
-| `conflito` | 409 | Entrada bem-formada que colide com o que já está gravado: número de sala repetido entre as ativas do cinema, sala ocupada no horário pedido, tentativa de mover uma sala de cinema ou uma sessão de sala | Escrita de salas e sessões |
+| `conflito` | 409 | Entrada bem-formada que colide com o que já está gravado: número de sala repetido entre as ativas do cinema, sala ocupada no horário pedido, tentativa de mover uma sala de cinema, de redesenhar a planta de uma sala, ou de mover uma sessão de sala | Escrita de salas e sessões |
 | `poltronas-indisponiveis` | 409 | Estoque respondeu `sucesso=false` | FR-026 |
 | `reserva-recusada` | 400 | Estoque recusou a solicitação por entrada inválida: rótulo fora do formato, ou mais poltronas que o limite por reserva (o `detail` traz o limite vigente) | Contrato de erros do estoque, `INVALID_ARGUMENT` |
 | `poltrona-inexistente` | 422 | Uma ou mais poltronas informadas não existem na sessão | Contrato de erros do estoque, `POLTRONA_INEXISTENTE` |

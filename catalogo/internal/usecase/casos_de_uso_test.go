@@ -256,7 +256,7 @@ func TestListarSalasSemCinemaNaoConfereCinema(t *testing.T) {
 }
 
 func TestAtualizarSalaRecusaTrocaDeCinema(t *testing.T) {
-	salas := &salaRepoFalso{sala: catalogo.Sala{ID: "sala-1", CinemaID: "cinema-a", Numero: 3}}
+	salas := &salaRepoFalso{sala: salaGravada("sala-1", "cinema-a", 3)}
 	uc := AtualizarSala{Cinemas: &cinemaRepoFalso{existe: true}, Salas: salas}
 
 	_, err := uc.Executar(context.Background(), "sala-1", catalogo.DadosSala{
@@ -270,8 +270,72 @@ func TestAtualizarSalaRecusaTrocaDeCinema(t *testing.T) {
 	}
 }
 
+// A planta é do cadastro da sala: as sessões já anunciadas dela carregam a
+// matriz de poltronas que valia quando foram criadas, e redesenhá-la deixaria
+// essas matrizes descrevendo assentos que não existem mais.
+func TestAtualizarSalaRecusaRedesenhoDaPlanta(t *testing.T) {
+	salas := &salaRepoFalso{sala: salaGravada("sala-1", "cinema-a", 3)}
+	uc := AtualizarSala{Cinemas: &cinemaRepoFalso{existe: true}, Salas: salas}
+
+	outras := map[string][]catalogo.DadosFileira{
+		"fileira a mais":      append(fileirasSala(), catalogo.DadosFileira{Fileira: "Z", Assentos: 4}),
+		"fileira a menos":     fileirasSala()[:1],
+		"assentos diferentes": {{Fileira: "A", Assentos: 99}, {Fileira: "B", Assentos: 8}},
+		"tipo diferente":      {{Fileira: "A", Assentos: 10, Tipo: "PCD"}, {Fileira: "B", Assentos: 8}},
+		"letra diferente":     {{Fileira: "A", Assentos: 10}, {Fileira: "C", Assentos: 8}},
+	}
+	for nome, fileiras := range outras {
+		t.Run(nome, func(t *testing.T) {
+			_, err := uc.Executar(context.Background(), "sala-1", catalogo.DadosSala{
+				Numero: 3, TipoTela: "IMAX", Fileiras: fileiras,
+			})
+			if !errors.Is(err, shared.ErrConflito) {
+				t.Fatalf("esperava ErrConflito, obteve %v", err)
+			}
+			if salas.atualizada.ID != "" {
+				t.Fatal("a sala não deveria ter sido gravada")
+			}
+		})
+	}
+}
+
+// Repetir a mesma planta passa, e a ordem em que ela é enviada não importa: a
+// comparação é sobre a planta normalizada.
+func TestAtualizarSalaAceitaAMesmaPlantaEmOutraOrdem(t *testing.T) {
+	salas := &salaRepoFalso{sala: salaGravada("sala-1", "cinema-a", 3)}
+	uc := AtualizarSala{Cinemas: &cinemaRepoFalso{existe: true}, Salas: salas}
+
+	invertida := fileirasSala()
+	invertida[0], invertida[1] = invertida[1], invertida[0]
+
+	if _, err := uc.Executar(context.Background(), "sala-1", catalogo.DadosSala{
+		Numero: 4, TipoTela: "3D", Fileiras: invertida,
+	}); err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if salas.atualizada.Numero != 4 || salas.atualizada.TipoTela != catalogo.Tela3D {
+		t.Fatalf("o resto da sala deveria ter sido substituído: %+v", salas.atualizada)
+	}
+}
+
+// Sem `fileiras` no corpo a planta permanece — omitir não é apagar.
+func TestAtualizarSalaSemFileirasMantemAPlanta(t *testing.T) {
+	salas := &salaRepoFalso{sala: salaGravada("sala-1", "cinema-a", 3)}
+	uc := AtualizarSala{Cinemas: &cinemaRepoFalso{existe: true}, Salas: salas}
+
+	sala, err := uc.Executar(context.Background(), "sala-1", catalogo.DadosSala{
+		Numero: 4, TipoTela: "3D",
+	})
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if !sala.Layout.Igual(salaGravada("sala-1", "cinema-a", 3).Layout) {
+		t.Fatalf("a planta deveria ter permanecido: %+v", sala.Layout)
+	}
+}
+
 func TestAtualizarSalaSemCinemaIDMantemOCinemaAtual(t *testing.T) {
-	salas := &salaRepoFalso{sala: catalogo.Sala{ID: "sala-1", CinemaID: "cinema-a", Numero: 3}}
+	salas := &salaRepoFalso{sala: salaGravada("sala-1", "cinema-a", 3)}
 	uc := AtualizarSala{Cinemas: &cinemaRepoFalso{existe: true}, Salas: salas}
 
 	sala, err := uc.Executar(context.Background(), "sala-1", catalogo.DadosSala{
@@ -612,6 +676,18 @@ func TestRemoverCinemaDesativa(t *testing.T) {
 	if repo.desativado != "id-x" {
 		t.Fatalf("esperava remoção lógica de id-x, obteve %q", repo.desativado)
 	}
+}
+
+// A sala como o repositório a devolveria, com a planta que `fileirasSala`
+// descreve — a planta é imutável, e o corpo do PUT precisa repeti-la.
+func salaGravada(id, cinemaID string, numero int) catalogo.Sala {
+	sala, err := catalogo.NovaSala(id, catalogo.DadosSala{
+		CinemaID: cinemaID, Numero: numero, TipoTela: "IMAX", Fileiras: fileirasSala(),
+	})
+	if err != nil {
+		panic(err)
+	}
+	return sala
 }
 
 func fileirasSala() []catalogo.DadosFileira {

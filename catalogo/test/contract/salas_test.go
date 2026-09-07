@@ -21,12 +21,15 @@ const (
 	corpoSalaValido = `{"cinema_id":"` + cinemaID + `","numero":7,"tipo_tela":"IMAX",` + fileirasValidas + `}`
 )
 
+// A planta é a mesma que `fileirasValidas` descreve, e não outra qualquer: ela é
+// imutável, então todo PUT que espera 200 precisa repeti-la.
 func salaDeTeste() catalogo.Sala {
 	return catalogo.Sala{ID: salaID, CinemaID: cinemaID, Numero: 3,
 		TipoTela: catalogo.TelaIMAX, Ativo: true,
 		Layout: catalogo.LayoutSala{Fileiras: []catalogo.Fileira{
-			{Letra: "A", Assentos: 60, Tipo: catalogo.PoltronaNormal},
-			{Letra: "B", Assentos: 60, Tipo: catalogo.PoltronaNormal},
+			{Letra: "A", Assentos: 12, Tipo: catalogo.PoltronaNormal},
+			{Letra: "F", Assentos: 8, Tipo: catalogo.PoltronaPCD},
+			{Letra: "J", Assentos: 6, Tipo: catalogo.PoltronaNamoradeira},
 		}}}
 }
 
@@ -341,6 +344,45 @@ func TestPutSalaSemCinemaIDMantemOCinema(t *testing.T) {
 	}
 	if sala := decodificarSala(t, corpo); sala["cinema_id"] != cinemaID {
 		t.Fatalf("a sala deveria continuar no cinema atual: %v", sala)
+	}
+}
+
+// A planta é do cadastro, como o cinema: as sessões já anunciadas desta sala
+// carregam a matriz de poltronas que valia quando foram criadas.
+func TestPutSalaComOutraPlantaDevolve409(t *testing.T) {
+	amb := montarComSalas(t, []catalogo.Sala{salaDeTeste()})
+	redesenho := `{"cinema_id":"` + cinemaID + `","numero":3,"tipo_tela":"IMAX",` +
+		`"fileiras":[{"fileira":"A","assentos":20}]}`
+	resp, corpo := requisitar(t, amb.servidor, http.MethodPut, caminhoDasSalas+"/"+salaID, "token-bom", redesenho)
+
+	if resp.StatusCode != http.StatusConflict {
+		t.Fatalf("status %d, esperava 409 (corpo: %s)", resp.StatusCode, corpo)
+	}
+	if p := decodificarProblem(t, resp, corpo); !strings.HasSuffix(p.Type, "conflito") {
+		t.Fatalf("type inesperado: %s", p.Type)
+	}
+
+	_, corpoBusca := obter(t, amb.servidor, caminhoDasSalas+"/"+salaID)
+	if relida := decodificarSala(t, corpoBusca); relida["capacidade_total"] != float64(26) {
+		t.Fatalf("a planta não deveria ter mudado: %v", relida)
+	}
+}
+
+// Omitir a planta não é apagá-la: o resto da sala é substituído e ela permanece.
+func TestPutSalaSemFileirasMantemAPlanta(t *testing.T) {
+	amb := montarComSalas(t, []catalogo.Sala{salaDeTeste()})
+	semPlanta := `{"cinema_id":"` + cinemaID + `","numero":9,"tipo_tela":"VIP"}`
+	resp, corpo := requisitar(t, amb.servidor, http.MethodPut, caminhoDasSalas+"/"+salaID, "token-bom", semPlanta)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d, esperava 200 (corpo: %s)", resp.StatusCode, corpo)
+	}
+	sala := decodificarSala(t, corpo)
+	if sala["tipo_tela"] != "VIP" || sala["numero"] != float64(9) {
+		t.Fatalf("o resto da sala deveria ter sido substituído: %v", sala)
+	}
+	if sala["capacidade_total"] != float64(26) {
+		t.Fatalf("a planta deveria ter permanecido: %v", sala)
 	}
 }
 

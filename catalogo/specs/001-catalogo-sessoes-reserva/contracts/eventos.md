@@ -150,12 +150,15 @@ idempotência de graça.
 
 ---
 
-## O que continua sem fato
+## Por que a planta da sala não precisa de fato
 
-Redesenhar a planta de uma sala (`PUT /api/v1/salas/{id}`) não emite fato. As
-sessões já anunciadas daquela sala seguem com a matriz da planta antiga, porque
-`sessao.criada` carrega a planta do instante em que a sessão foi criada.
+`sessao.criada` carrega a planta do instante em que a sessão foi criada, e nada
+depois disso a altera — porque a planta de uma sala não pode ser redesenhada.
+`PUT /api/v1/salas/{id}` com outras fileiras responde `409`, pela mesma razão que
+uma sessão não muda de sala: quem já reservou perderia o assento, e uma poltrona
+vendida numa fileira removida não teria para onde ir.
 
-É o mesmo problema uma camada acima, e fechá-lo exige a mesma decisão que a troca
-de sala levantou: o que fazer com reservas ativas quando os assentos mudam.
-Aqui a resposta foi proibir a troca; para a planta, ainda não há resposta.
+Assim a matriz provisionada e a planta cadastrada não têm como divergir, e não há
+fato de redesenho a publicar. Quem precisa de outra planta desativa a sala e
+cadastra outra; as sessões da sala antiga seguem válidas, com a matriz que
+sempre tiveram.

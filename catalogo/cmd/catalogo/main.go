@@ -79,6 +79,9 @@ func executar() error {
 		FalhasParaAbrir: cfg.BreakerFalhasConsecutivas,
 		IntervaloAberto: cfg.BreakerIntervaloAberto,
 		Metricas:        metricas,
+		CAFile:          cfg.EstoqueTLSCAFile,
+		CertFile:        cfg.EstoqueTLSCertFile,
+		KeyFile:         cfg.EstoqueTLSKeyFile,
 	})
 
 	if err != nil {

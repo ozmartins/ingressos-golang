@@ -9,14 +9,16 @@ e os de dados em [`data-model.md`](./data-model.md) — este guia não os repete
 ## Pré-requisitos
 
 - Go 1.22+
-- Docker (Postgres, Keycloak e o estoque simulado sobem em contêiner)
+- Docker (Postgres, Keycloak, RabbitMQ e o `Servico-Estoque` sobem em contêiner)
+- os certificados de desenvolvimento do estoque: `cd ../estoque && make certs`.
+  O canal com ele é mTLS, e o diretório `certs/` não é versionado
 - `protoc` com `protoc-gen-go` e `protoc-gen-go-grpc`, para regerar `gen/pb`
 - `migrate` (golang-migrate) para aplicar o esquema
 
 ## Subir as dependências
 
 ```bash
-docker compose up -d          # postgres, keycloak, estoque simulado
+docker compose up -d          # postgres, keycloak, rabbitmq, estoque
 make migrate-up               # aplica as migrações (cria o schema `catalogo`)
 go run ./cmd/catalogo
 ```
@@ -100,10 +102,14 @@ curl -si -X POST "localhost:8080/api/v1/sessoes/<sessao_id>/reservar" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"poltronas_ids":["A1","A1"]}' | head -1
 
-# 409 — poltrona já ocupada (o estoque simulado marca B1 como ocupada)
+# 409 — poltrona já reservada. Com o estoque real não há poltrona "marcada como
+# ocupada" de fábrica: reserve uma e peça a mesma de novo.
 curl -si -X POST "localhost:8080/api/v1/sessoes/<sessao_id>/reservar" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"poltronas_ids":["B1"]}' | head -1
+  -d '{"poltronas_ids":["B1"]}' | head -1   # 201 na primeira
+curl -si -X POST "localhost:8080/api/v1/sessoes/<sessao_id>/reservar" \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"poltronas_ids":["B1"]}' | head -1   # 409 na segunda
 
 # 404 — sessão inexistente; o estoque NÃO deve ser contatado
 curl -si -X POST "localhost:8080/api/v1/sessoes/00000000-0000-0000-0000-000000000000/reservar" \
@@ -116,7 +122,7 @@ curl -si -X POST "localhost:8080/api/v1/sessoes/00000000-0000-0000-0000-00000000
 ### 5. Falha do estoque: timeout e recusa rápida (SC-004, SC-007)
 
 ```bash
-docker compose stop estoque-simulado
+docker compose stop estoque
 
 # 1ª a 5ª chamadas: ~2s cada (timeout), status 503
 time curl -si -X POST "localhost:8080/api/v1/sessoes/<sessao_id>/reservar" \
@@ -131,7 +137,7 @@ time curl -si -X POST "localhost:8080/api/v1/sessoes/<sessao_id>/reservar" \
 # navegação segue funcionando com o estoque fora do ar (SC-012)
 curl -s "localhost:8080/api/v1/sessoes" | jq '.pagina.total'
 
-docker compose start estoque-simulado
+docker compose start estoque
 # após o intervalo configurado (padrão 30s), a reserva volta a funcionar sozinha
 ```
 

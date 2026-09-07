@@ -2,8 +2,8 @@
 
 Ponto de entrada para clientes navegarem pelo catálogo de filmes, cinemas, salas
 e sessões, e para iniciarem a reserva de poltronas. Expõe uma API REST pública,
-atua como cliente gRPC do `Servico-Estoque` no momento da reserva e anuncia no
-RabbitMQ a sessão criada, com a planta da sala.
+atua como cliente gRPC do `Servico-Estoque` no momento da reserva — por um canal
+mTLS — e anuncia no RabbitMQ a sessão criada, com a planta da sala.
 
 Especificação, plano e tarefas: [`specs/001-catalogo-sessoes-reserva/`](specs/001-catalogo-sessoes-reserva/).
 Princípios que governam o código: [`.specify/memory/constitution.md`](.specify/memory/constitution.md).
@@ -57,6 +57,44 @@ broker confirmar. Disso decorrem três coisas que quem integra precisa saber:
 
 O contexto de rastreamento da requisição viaja nos cabeçalhos da mensagem, de
 modo que o span de quem consome não nasça órfão.
+
+## O canal com o estoque
+
+A reserva é a única chamada síncrona que este serviço faz, e ela vai ao
+`Servico-Estoque` por gRPC sobre **mTLS**: o estoque exige certificado de
+cliente, e é por ele que sabe quem está chamando — o `usuario_id` vai no corpo
+justamente porque a identidade do serviço vem do certificado, não do payload.
+
+O material é de desenvolvimento e sai de `make certs` no estoque, que emite um
+par de cliente com `CN=servico-catalogo` assinado pela mesma CA do servidor. O
+diretório `estoque/certs/` **não é versionado**, então gerar os certificados é
+pré-requisito para subir o catálogo — não só o estoque.
+
+Sem as três variáveis de certificado o processo recusa subir, como qualquer outra
+configuração obrigatória. Não há modo em texto claro.
+
+### Limite conhecido: erro de entrada chega como 503
+
+O catálogo traduz **qualquer** erro do estoque em `503 estoque-indisponivel`. O
+estoque, porém, distingue categorias no seu contrato de erros, e algumas delas
+são culpa de quem chama:
+
+| O que aconteceu | Devia responder | Responde hoje |
+|---|---|---|
+| Poltrona que não existe na sala | 409 ou 422 | 503 |
+| Sessão sem matriz de poltronas provisionada | 409 ou 422 | 503 |
+| Mais de 10 poltronas num bloqueio | 400 | 503 |
+| Rótulo de poltrona fora do formato | 400 | 503 |
+
+Isso ficou escondido enquanto o catálogo falava com um dublê que nunca devolvia
+erro de gRPC. **Se você recebeu um 503 dizendo que o estoque está indisponível,
+confira primeiro a entrada** — a mensagem culpa a infraestrutura, e o defeito
+pode ser da requisição. Fechar isso é mapear as categorias de
+`estoque/specs/001-estoque-bloqueio-poltronas/contracts/erros.md` para os status
+certos, em `internal/adapter/estoque/mapper.go`.
+
+O caminho feliz não é afetado: toda sessão criada por esta API tem matriz
+provisionada, porque ela publica `sessao.criada`.
 
 ## O preço da reserva sai daqui
 
@@ -207,12 +245,16 @@ verificação. O console de admin continua em `http://localhost:8081` (admin/adm
 ### Rodando o serviço fora do contêiner
 
 ```bash
-docker compose -f ../docker-compose.yml up -d keycloak estoque-simulado rabbitmq migrate-catalogo
+(cd ../estoque && make certs)   # material de desenvolvimento; não é versionado
+docker compose -f ../docker-compose.yml up -d keycloak estoque rabbitmq migrate-catalogo
 echo "127.0.0.1 keycloak" | sudo tee -a /etc/hosts   # uma vez, pelo emissor fixo
 export DATABASE_URL="postgres://catalogo:catalogo@localhost:5434/cinema?sslmode=disable"   # precisa da query string: `make migrate-up` anexa `&search_path=catalogo`
 export KEYCLOAK_ISSUER_URL="http://keycloak:8081/realms/cinema"
 export KEYCLOAK_AUDIENCE="cinema-app"
-export ESTOQUE_GRPC_ADDR="localhost:50052"   # o simulado; a 50051 é do estoque real
+export ESTOQUE_GRPC_ADDR="localhost:50051"
+export ESTOQUE_TLS_CA_FILE="../estoque/certs/ca.pem"
+export ESTOQUE_TLS_CERT_FILE="../estoque/certs/cliente.pem"
+export ESTOQUE_TLS_KEY_FILE="../estoque/certs/cliente-key.pem"
 export RABBITMQ_URL="amqp://guest:guest@localhost:5672/"
 export HTTP_PORT=8082
 make run
@@ -228,8 +270,12 @@ A imagem sobe apenas com variáveis de ambiente, sem arquivo de configuração:
 ```bash
 docker build -t servico-catalogo .
 docker run --rm -p 8080:8080 \
+  -v "$PWD/../estoque/certs:/certs:ro" \
   -e DATABASE_URL="..." -e KEYCLOAK_ISSUER_URL="..." \
-  -e KEYCLOAK_AUDIENCE="cinema-app" -e ESTOQUE_GRPC_ADDR="..." \
+  -e KEYCLOAK_AUDIENCE="cinema-app" -e ESTOQUE_GRPC_ADDR="estoque:50051" \
+  -e ESTOQUE_TLS_CA_FILE="/certs/ca.pem" \
+  -e ESTOQUE_TLS_CERT_FILE="/certs/cliente.pem" \
+  -e ESTOQUE_TLS_KEY_FILE="/certs/cliente-key.pem" \
   -e RABBITMQ_URL="amqp://guest:guest@rabbitmq:5672/" \
   servico-catalogo
 curl -s localhost:8080/health
@@ -246,6 +292,9 @@ malformada, e a mensagem lista todas as pendências de uma vez:
 | `KEYCLOAK_ISSUER_URL` | Emissor OIDC das credenciais |
 | `KEYCLOAK_AUDIENCE` | Audiência esperada no token |
 | `ESTOQUE_GRPC_ADDR` | Endereço gRPC do `Servico-Estoque` |
+| `ESTOQUE_TLS_CA_FILE` | CA que assina o certificado do estoque |
+| `ESTOQUE_TLS_CERT_FILE` | Certificado de cliente apresentado ao estoque |
+| `ESTOQUE_TLS_KEY_FILE` | Chave do certificado de cliente |
 | `RABBITMQ_URL` | Broker onde o fato `sessao.criada` é publicado |
 
 Opcionais, com padrão:

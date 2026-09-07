@@ -13,6 +13,9 @@ func ambienteMinimo(t *testing.T) {
 	t.Setenv("KEYCLOAK_AUDIENCE", "cinema-app")
 	t.Setenv("ESTOQUE_GRPC_ADDR", "localhost:50051")
 	t.Setenv("RABBITMQ_URL", "amqp://cinema:cinema@localhost:5672/")
+	t.Setenv("ESTOQUE_TLS_CA_FILE", "/certs/ca.pem")
+	t.Setenv("ESTOQUE_TLS_CERT_FILE", "/certs/cliente.pem")
+	t.Setenv("ESTOQUE_TLS_KEY_FILE", "/certs/cliente-key.pem")
 }
 
 func TestCarregarAplicaPadroes(t *testing.T) {
@@ -56,11 +59,17 @@ func TestCarregarAgregaTodasAsFalhas(t *testing.T) {
 	t.Setenv("KEYCLOAK_AUDIENCE", "")
 	t.Setenv("ESTOQUE_GRPC_ADDR", "")
 	t.Setenv("RABBITMQ_URL", "")
+	t.Setenv("ESTOQUE_TLS_CA_FILE", "")
+	t.Setenv("ESTOQUE_TLS_CERT_FILE", "")
+	t.Setenv("ESTOQUE_TLS_KEY_FILE", "")
 	_, err := Carregar()
 	if err == nil {
 		t.Fatal("esperava erro")
 	}
-	for _, campo := range []string{"DATABASE_URL", "KEYCLOAK_ISSUER_URL", "KEYCLOAK_AUDIENCE", "ESTOQUE_GRPC_ADDR", "RABBITMQ_URL"} {
+	for _, campo := range []string{
+		"DATABASE_URL", "KEYCLOAK_ISSUER_URL", "KEYCLOAK_AUDIENCE", "ESTOQUE_GRPC_ADDR",
+		"RABBITMQ_URL", "ESTOQUE_TLS_CA_FILE", "ESTOQUE_TLS_CERT_FILE", "ESTOQUE_TLS_KEY_FILE",
+	} {
 		if !strings.Contains(err.Error(), campo) {
 			t.Errorf("erro não menciona %s: %v", campo, err)
 		}

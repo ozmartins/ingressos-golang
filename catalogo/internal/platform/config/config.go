@@ -22,6 +22,12 @@ type Config struct {
 	EstoqueGRPCAddr string
 	EstoqueTimeout  time.Duration
 
+	// O canal com o estoque é mTLS: ele exige certificado de cliente, e é por
+	// ele que identifica quem chama.
+	EstoqueTLSCAFile   string
+	EstoqueTLSCertFile string
+	EstoqueTLSKeyFile  string
+
 	RabbitMQURL     string
 	OutboxIntervalo time.Duration
 	OutboxLote      int
@@ -51,8 +57,12 @@ func Carregar() (Config, error) {
 		KeycloakAudience:  os.Getenv("KEYCLOAK_AUDIENCE"),
 		EstoqueGRPCAddr:   os.Getenv("ESTOQUE_GRPC_ADDR"),
 		RabbitMQURL:       os.Getenv("RABBITMQ_URL"),
-		OTLPEndpoint:      os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
-		LogLevel:          comPadrao("LOG_LEVEL", "info"),
+
+		EstoqueTLSCAFile:   os.Getenv("ESTOQUE_TLS_CA_FILE"),
+		EstoqueTLSCertFile: os.Getenv("ESTOQUE_TLS_CERT_FILE"),
+		EstoqueTLSKeyFile:  os.Getenv("ESTOQUE_TLS_KEY_FILE"),
+		OTLPEndpoint:       os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+		LogLevel:           comPadrao("LOG_LEVEL", "info"),
 	}
 
 	for _, obrigatorio := range []struct {
@@ -64,6 +74,9 @@ func Carregar() (Config, error) {
 		{"KEYCLOAK_AUDIENCE", c.KeycloakAudience},
 		{"ESTOQUE_GRPC_ADDR", c.EstoqueGRPCAddr},
 		{"RABBITMQ_URL", c.RabbitMQURL},
+		{"ESTOQUE_TLS_CA_FILE", c.EstoqueTLSCAFile},
+		{"ESTOQUE_TLS_CERT_FILE", c.EstoqueTLSCertFile},
+		{"ESTOQUE_TLS_KEY_FILE", c.EstoqueTLSKeyFile},
 	} {
 		if strings.TrimSpace(obrigatorio.valor) == "" {
 			falhas = append(falhas, erroCampo{obrigatorio.campo, "obrigatória e ausente"})

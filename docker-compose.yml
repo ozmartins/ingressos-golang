@@ -104,16 +104,6 @@ services:
       postgres:
         condition: service_healthy
   
-  # O catálogo fala gRPC em texto claro, enquanto o estoque real exige mTLS.
-  # Até que o cliente do catálogo aprenda a apresentar certificado, ele continua
-  # apontando para o dublê simulado. No host o simulado sai na porta 50052. 
-  # A porta 50051 é do estoque real.
-  estoque-simulado:
-    build:
-      context: ./catalogo
-      dockerfile: Dockerfile.estoque-simulado
-    ports: ["${PORTA_ESTOQUE_SIMULADO:-50052}:50051"]
-
   catalogo:
     build:
       context: ./catalogo
@@ -121,16 +111,29 @@ services:
       DATABASE_URL: postgres://catalogo:catalogo@postgres:5432/cinema?sslmode=disable
       KEYCLOAK_ISSUER_URL: http://keycloak:8081/realms/cinema
       KEYCLOAK_AUDIENCE: cinema-app
-      ESTOQUE_GRPC_ADDR: estoque-simulado:50051
+      ESTOQUE_GRPC_ADDR: estoque:50051
+      # O canal com o estoque é mTLS: ele exige certificado de cliente, e é por
+      # ele que sabe quem chama. O par vem de `estoque/scripts/gerar-certs.sh`
+      # (`make certs` no estoque), que emite um cliente com CN
+      # `servico-catalogo` assinado pela mesma CA do servidor.
+      #
+      # O diretório não é versionado — material criptográfico nunca é —, então
+      # `make certs` é pré-requisito para subir o catálogo, e não só o estoque.
+      ESTOQUE_TLS_CA_FILE: /certs/ca.pem
+      ESTOQUE_TLS_CERT_FILE: /certs/cliente.pem
+      ESTOQUE_TLS_KEY_FILE: /certs/cliente-key.pem
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       LOG_LEVEL: info
+    volumes: ["./estoque/certs:/certs:ro"]
     ports: ["${PORTA_CATALOGO:-8082}:8080"]
     depends_on:
       migrate-catalogo:
         condition: service_completed_successfully
       keycloak:
         condition: service_healthy
-      estoque-simulado:
+      # Sem healthcheck de propósito: o cliente gRPC conecta na primeira
+      # chamada, não na largada, então subir junto basta.
+      estoque:
         condition: service_started
       # O catálogo anuncia a sessão criada. A caixa de saída o deixa subir e
       # atender sem o broker, mas ele o exige na largada como qualquer outra

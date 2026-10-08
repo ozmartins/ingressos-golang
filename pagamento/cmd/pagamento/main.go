@@ -49,15 +49,12 @@ func executar() error {
 	ctx, parar := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer parar()
 
-	pool, err := postgres.Abrir(ctx, cfg.DatabaseURL)
+	banco, err := postgres.Conectar(ctx, cfg.DatabaseURL)
 	if err != nil {
 		return err
 	}
-	defer pool.Close()
-	if err := pool.Ping(ctx); err != nil {
-		return err
-	}
-	repo := postgres.NovoRepositorio(pool)
+	defer banco.Fechar()
+	repo := postgres.NovoRepositorio(banco.DB())
 
 	conexao, err := amqp091.Dial(cfg.AMQPURL)
 	if err != nil {
@@ -130,7 +127,7 @@ func executar() error {
 	}
 
 	prontidao := health.NovaProntidao()
-	prontidao.Registrar("banco", repo.Ping)
+	prontidao.Registrar("banco", banco.Verificar)
 	prontidao.Registrar("canal-de-eventos", func(context.Context) error {
 		if conexao.IsClosed() {
 			return errors.New("conexão AMQP fechada")

@@ -12,7 +12,7 @@ func TestSchemaProprio(t *testing.T) {
 	ctx := context.Background()
 
 	var searchPath string
-	if err := amb.Pool.QueryRow(ctx, `SELECT current_setting('search_path')`).Scan(&searchPath); err != nil {
+	if err := amb.Banco.SQL().QueryRowContext(ctx, `SELECT current_setting('search_path')`).Scan(&searchPath); err != nil {
 		t.Fatalf("consultando search_path: %v", err)
 	}
 	if searchPath != "pagamento" {
@@ -20,7 +20,7 @@ func TestSchemaProprio(t *testing.T) {
 	}
 
 	var emPublic *string
-	if err := amb.Pool.QueryRow(ctx,
+	if err := amb.Banco.SQL().QueryRowContext(ctx,
 		`SELECT to_regclass('public.transacoes_pagamento')::text`).Scan(&emPublic); err != nil {
 		t.Fatalf("consultando public.transacoes_pagamento: %v", err)
 	}

@@ -43,7 +43,7 @@ func TestRajadaRespeitaTetoEMantemConsultasRapidas(t *testing.T) {
 	limite := time.Now().Add(3 * time.Minute)
 	var processadas int
 	for time.Now().Before(limite) {
-		if err := a.Pool.QueryRow(context.Background(),
+		if err := a.Banco.SQL().QueryRowContext(context.Background(),
 			"SELECT count(*) FROM transacoes_pagamento WHERE status='PAGO'").Scan(&processadas); err != nil {
 			t.Fatal(err)
 		}
@@ -79,7 +79,7 @@ func medirConsultasDuranteOPico(t *testing.T, a *ambiente, reservas []string) []
 	kf := func(*jwt.Token) (any, error) { return segredo, nil }
 
 	prontidao := health.NovaProntidao()
-	prontidao.Registrar("banco", a.Repo.Ping)
+	prontidao.Registrar("banco", a.Banco.Verificar)
 	api := &adapthttp.API{
 		Consulta:  usecase.ConsultarPagamento{Repo: a.Repo},
 		Auth:      adapthttp.NovoAutenticadorComChave(kf, iss, aud),

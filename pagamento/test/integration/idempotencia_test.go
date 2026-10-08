@@ -31,7 +31,7 @@ func TestVinteEntregasSimultaneasCobramUmaVez(t *testing.T) {
 	}
 
 	var linhas int
-	if err := a.Pool.QueryRow(t.Context(),
+	if err := a.Banco.SQL().QueryRowContext(t.Context(),
 		"SELECT count(*) FROM transacoes_pagamento WHERE reserva_id=$1", reserva).Scan(&linhas); err != nil {
 		t.Fatal(err)
 	}

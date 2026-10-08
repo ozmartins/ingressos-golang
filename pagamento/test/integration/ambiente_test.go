@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 	amqp091 "github.com/rabbitmq/amqp091-go"
 	"github.com/testcontainers/testcontainers-go"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
@@ -35,7 +34,7 @@ const (
 )
 
 type ambiente struct {
-	Pool    *pgxpool.Pool
+	Banco   *postgres.Banco
 	Repo    *postgres.Repositorio
 	Conexao *amqp091.Connection
 	Canal   *amqp091.Channel
@@ -72,12 +71,12 @@ func subirAmbiente(t *testing.T) *ambiente {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pool, err := postgres.Abrir(ctx, dsn)
+	banco, err := postgres.Conectar(ctx, dsn)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(pool.Close)
-	aplicarMigracao(t, pool)
+	t.Cleanup(banco.Fechar)
+	aplicarMigracao(t, banco)
 
 	rmq, err := tcrabbit.Run(ctx, "rabbitmq:3.13-management-alpine")
 	if err != nil {
@@ -128,13 +127,13 @@ func subirAmbiente(t *testing.T) *ambiente {
 	}
 
 	return &ambiente{
-		Pool: pool, Repo: postgres.NovoRepositorio(pool),
+		Banco: banco, Repo: postgres.NovoRepositorio(banco.DB()),
 		Conexao: conexao, Canal: canal, Publica: pub,
 		Log: slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError})),
 	}
 }
 
-func aplicarMigracao(t *testing.T, pool *pgxpool.Pool) {
+func aplicarMigracao(t *testing.T, banco *postgres.Banco) {
 	t.Helper()
 	for _, arquivo := range []string{
 		"000001_criar_transacoes.up.sql",
@@ -144,7 +143,7 @@ func aplicarMigracao(t *testing.T, pool *pgxpool.Pool) {
 		if err != nil {
 			t.Fatalf("ler migração %s: %v", arquivo, err)
 		}
-		if _, err := pool.Exec(context.Background(), string(b)); err != nil {
+		if _, err := banco.SQL().ExecContext(context.Background(), string(b)); err != nil {
 			t.Fatalf("aplicar migração %s: %v", arquivo, err)
 		}
 	}
@@ -231,7 +230,7 @@ func (a *ambiente) escolherFormasPendentes(ctx context.Context) {
 	// A consulta é SQL direto, e não um método do repositório: "quem está
 	// esperando a escolha" é pergunta que só o teste faz, e acrescentá-la ao
 	// port de produção seria ampliar a interface para servir ao teste.
-	linhas, err := a.Pool.Query(ctx,
+	linhas, err := a.Banco.SQL().QueryContext(ctx,
 		`SELECT reserva_id, usuario_id FROM transacoes_pagamento WHERE status = 'AGUARDANDO_FORMA'`)
 	if err != nil {
 		return

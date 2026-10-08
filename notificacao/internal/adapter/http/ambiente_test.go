@@ -174,7 +174,14 @@ func (a *ambiente) token(t *testing.T, sub string, ajustes ...func(jwt.MapClaims
 	return s
 }
 
-func (a *ambiente) get(t *testing.T, caminho string, cab map[string]string) (*http.Response, []byte) {
+// resposta guarda só o que os testes leem de uma resposta HTTP. O corpo já foi
+// consumido e fechado por enviar, então quem recebe isto não tem nada a fechar.
+type resposta struct {
+	StatusCode int
+	Header     http.Header
+}
+
+func (a *ambiente) get(t *testing.T, caminho string, cab map[string]string) (resposta, []byte) {
 	t.Helper()
 	req, err := http.NewRequest(http.MethodGet, a.srv.URL+caminho, nil)
 	if err != nil {
@@ -183,7 +190,7 @@ func (a *ambiente) get(t *testing.T, caminho string, cab map[string]string) (*ht
 	return a.enviar(t, req, cab)
 }
 
-func (a *ambiente) postValidar(t *testing.T, corpo string, cab map[string]string) (*http.Response, []byte) {
+func (a *ambiente) postValidar(t *testing.T, corpo string, cab map[string]string) (resposta, []byte) {
 	t.Helper()
 	req, err := http.NewRequest(http.MethodPost, a.srv.URL+"/api/v1/ingressos/validar", strings.NewReader(corpo))
 	if err != nil {
@@ -193,7 +200,7 @@ func (a *ambiente) postValidar(t *testing.T, corpo string, cab map[string]string
 	return a.enviar(t, req, cab)
 }
 
-func (a *ambiente) enviar(t *testing.T, req *http.Request, cab map[string]string) (*http.Response, []byte) {
+func (a *ambiente) enviar(t *testing.T, req *http.Request, cab map[string]string) (resposta, []byte) {
 	t.Helper()
 	for k, v := range cab {
 		req.Header.Set(k, v)
@@ -202,12 +209,12 @@ func (a *ambiente) enviar(t *testing.T, req *http.Request, cab map[string]string
 	if err != nil {
 		t.Fatalf("enviar: %v", err)
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	b, err := io.ReadAll(res.Body)
 	if err != nil {
 		t.Fatalf("ler corpo: %v", err)
 	}
-	return res, b
+	return resposta{StatusCode: res.StatusCode, Header: res.Header}, b
 }
 
 func decodificarLista(t *testing.T, b []byte) []map[string]any {

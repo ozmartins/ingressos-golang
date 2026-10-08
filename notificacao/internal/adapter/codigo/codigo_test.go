@@ -48,7 +48,8 @@ func TestCodigosDeIngressosDiferentesSaoDistintos(t *testing.T) {
 
 func TestGerarEDeterministico(t *testing.T) {
 	a := assinador(t, "segredo-de-teste")
-	if a.Gerar("ing-1") != a.Gerar("ing-1") {
+	primeiro, segundo := a.Gerar("ing-1"), a.Gerar("ing-1")
+	if primeiro != segundo {
 		t.Error("o mesmo ingresso gerou códigos diferentes")
 	}
 }

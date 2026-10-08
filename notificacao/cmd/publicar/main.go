@@ -57,13 +57,13 @@ func publicar(url, exchange string, corpo []byte) error {
 	if err != nil {
 		return fmt.Errorf("conectar: %w", err)
 	}
-	defer conexao.Close()
+	defer func() { _ = conexao.Close() }()
 
 	canal, err := conexao.Channel()
 	if err != nil {
 		return fmt.Errorf("abrir canal: %w", err)
 	}
-	defer canal.Close()
+	defer func() { _ = canal.Close() }()
 
 	if err := canal.ExchangeDeclare(exchange, "topic", true, false, false, false, nil); err != nil {
 		return fmt.Errorf("declarar exchange: %w", err)

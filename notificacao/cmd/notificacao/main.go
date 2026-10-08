@@ -59,13 +59,13 @@ func executar() error {
 	if err != nil {
 		return fmt.Errorf("conectar ao broker: %w", err)
 	}
-	defer conexao.Close()
+	defer func() { _ = conexao.Close() }()
 
 	canal, err := conexao.Channel()
 	if err != nil {
 		return fmt.Errorf("abrir canal: %w", err)
 	}
-	defer canal.Close()
+	defer func() { _ = canal.Close() }()
 
 	topologia := adaptamqp.Topologia{
 		Exchange: cfg.AMQPExchange, ExchangeDLX: cfg.AMQPExchangeDLX,

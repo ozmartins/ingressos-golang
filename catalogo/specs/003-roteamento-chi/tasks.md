@@ -72,9 +72,9 @@ dependência de tarefa incompleta. Todos os caminhos são relativos a `ingressos
 ## Phase 5: Polish & Cross-Cutting
 
 - [X] T016 `make test` completo e `make test-integration` (o `reservar_test.go` monta `NovoRouter`); SC-001.
-- [ ] T017 Executar o quickstart (passos 3 e 4) com `docker compose up --build catalogo`, conferir 405/HEAD/404/`/docs/` e o rótulo `rota` no log; SC-003.
-- [ ] T018 Levar ao mantenedor as divergências residuais de research D5 (limpeza de caminho `//`/`..` → 307 vs 404; `%2F` decodificado vs bruto), com o resultado de T009, e registrar a decisão em `research.md` — sem corrigir nem aceitar por conta própria.
-- [ ] T019 Commitar direto na `master` (sem branch de feature), mensagem em inglês no padrão Conventional Commits; push só se pedido.
+- [X] T017 Executar o quickstart (passos 3 e 4) com `docker compose up --build catalogo`, conferir 405/HEAD/404/`/docs/` e o rótulo `rota` no log; SC-003. (Verificado em 2026-10-08: 405 com `Allow: DELETE, GET, HEAD, PUT`, HEAD 200, 404, `/docs` e `/docs/` 200, `rota="GET /api/v1/filmes/{id}"` no log.)
+- [X] T018 Levar ao mantenedor as divergências residuais de research D5 (limpeza de caminho `//`/`..` → 307 vs 404; `%2F` decodificado vs bruto), com o resultado de T009, e registrar a decisão em `research.md` — sem corrigir nem aceitar por conta própria. (Mantenedor aceitou o 404 do chi em 2026-10-08.)
+- [X] T019 Commitar direto na `master` (sem branch de feature), mensagem em inglês no padrão Conventional Commits; push só se pedido.
 
 ---
 

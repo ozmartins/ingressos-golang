@@ -74,8 +74,9 @@ casamento de `{id}`).
 
 ## D5 — Divergências residuais que o chi não permite preservar a custo razoável
 
-Levadas ao mantenedor no relatório final da fase de plano (FR-006); **não resolvidas
-unilateralmente** (princípio X):
+Levadas ao mantenedor (FR-006). **Decisão (2026-10-08): aceitar o comportamento do chi**
+nos dois casos, fixado por `TestCaminhoNaoCanonicoResponde404` e
+`TestIdComBarraCodificadaDaAMesmaRecusaQueIdInvalido` em `router_test.go`:
 
 - **Limpeza de caminho**: `//` e `/../` — o ServeMux responde `307` para o caminho limpo; o
   chi responde `404`. Nenhum cliente do catálogo (frontend, estoque) gera esses caminhos.

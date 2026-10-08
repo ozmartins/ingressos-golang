@@ -57,7 +57,7 @@ Módulo Go único com arquitetura hexagonal, conforme `plan.md`: `cmd/`, `intern
 - [X] T017 [P] Escrever teste unitário de `problem.go` em `internal/adapter/http/problem_test.go`, verificando as dez categorias de `contracts/errors.md` e a ausência de vazamento de detalhe interno
 - [X] T018 [P] Configurar a observabilidade em `internal/platform/observability/`: `logger.go` (slog JSON com `trace_id`/`span_id`), `tracing.go` (provedor OTel + OTLP) e `metrics.go` (medidores nomeados de `research.md` D6)
 - [X] T019 Implementar o parsing e a validação de paginação em `internal/adapter/http/pagination.go`, traduzindo `page`/`page_size` para `PageRequest` e erros para `parametro-invalido`
-- [X] T020 Montar o roteador em `internal/adapter/http/router.go` com `net/http.ServeMux` e as seis rotas de `contracts/openapi.yaml`, ainda com handlers vazios
+- [X] T020 Montar o roteador em `internal/adapter/http/router.go` com `net/http.ServeMux` (hoje chi — ver `003-roteamento-chi`) e as seis rotas de `contracts/openapi.yaml`, ainda com handlers vazios
 - [X] T021 [P] Implementar os middlewares em `internal/adapter/http/middleware/`: `telemetria.go` (otelhttp + métricas), `correlacao.go` (extrai ou inicia o contexto W3C), `recuperacao.go` (pânico → 500 sem vazar stack) e `log.go` (registro estruturado por requisição, FR-034)
 - [X] T022 [P] Implementar o indicador de saúde em `internal/platform/health/health.go` e o handler `GET /health`, verificando o banco e ignorando deliberadamente o estado do estoque (SC-012)
 - [X] T023 Escrever a composição em `cmd/catalogo/main.go`: configuração → observabilidade → pool → adaptadores → casos de uso → servidor HTTP, com encerramento gracioso

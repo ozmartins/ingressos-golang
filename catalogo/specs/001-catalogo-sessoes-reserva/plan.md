@@ -12,7 +12,7 @@ A abordagem técnica é uma arquitetura hexagonal em Go: um núcleo de domínio 
 
 ## Technical Context
 
-**Language/Version**: Go 1.22+ (definido pela ERS; `net/http.ServeMux` com padrões de método e caminho exige 1.22)
+**Language/Version**: Go 1.22+ (definido pela ERS; o roteamento era `net/http.ServeMux`, hoje chi — ver `003-roteamento-chi`)
 
 **Primary Dependencies**:
 - `gorm.io/gorm` + `gorm.io/driver/postgres` sobre `github.com/jackc/pgx/v5` — acesso ao PostgreSQL nos adaptadores (originalmente `pgx` com SQL à mão; trocado pela [002](../002-persistencia-gorm/spec.md))
@@ -99,7 +99,7 @@ catalogo/
 │   │   └── ports.go                    # FilmeRepository, SessaoRepository, EstoqueGateway…
 │   ├── adapter/
 │   │   ├── http/                       # Adaptador de entrada
-│   │   │   ├── router.go               # net/http.ServeMux, rotas /api/v1/*
+│   │   │   ├── router.go               # chi (antes net/http.ServeMux; ver 003), rotas /api/v1/*
 │   │   │   ├── handler_*.go            # Um handler por caso de uso
 │   │   │   ├── dto.go                  # Envelopes de request/response
 │   │   │   ├── pagination.go           # Parsing e validação de page/page_size

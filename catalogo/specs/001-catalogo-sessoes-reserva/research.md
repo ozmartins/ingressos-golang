@@ -12,6 +12,16 @@ Nenhum marcador NEEDS CLARIFICATION restou. Cada lacuna abaixo foi decidida com 
 
 ## D1 — Roteamento HTTP
 
+> **Superada pela feature [`003-roteamento-chi`](../003-roteamento-chi/spec.md).** A decisão abaixo é a que
+> valia ao escrever a 001; por pedido do mantenedor, o roteamento passou a ser feito pelo chi. O texto original
+> foi mantido como registro do que foi pesado na época; o que o código faz hoje está na 003 e, em última
+> instância, em `internal/adapter/http/router.go`.
+>
+> **Decisão vigente**: `github.com/go-chi/chi/v5`, com a tabela declarativa de rotas e a sintaxe `{id}` intactas.
+> Os middlewares globais entram por `r.Use` (um middleware fora do chi leria `r.Pattern` vazio), `r.Pattern`
+> continua no formato `MÉTODO /caminho`, HEAD é atendido pela rota GET e o 405 reproduz o `Allow` completo e o
+> corpo do ServeMux.
+
 **Decision**: `net/http.ServeMux` da biblioteca padrão, com padrões de método e caminho (`GET /api/v1/filmes`, `GET /api/v1/cinemas/{id}/salas`).
 
 **Rationale**: a ERS exige Go 1.22+, versão em que o mux da stdlib passou a suportar método e variáveis de caminho — exatamente o que os 6 endpoints desta feature precisam. Um roteador externo acrescentaria dependência, superfície de atualização e vocabulário próprio sem entregar nada que o serviço use. A arquitetura hexagonal já isola o roteamento em um adaptador, então trocá-lo depois é barato.

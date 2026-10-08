@@ -24,7 +24,7 @@ func pagina(t *testing.T, numero, tamanho int) shared.PageRequest {
 
 func TestListarFilmesRecortePublico(t *testing.T) {
 	carregarFixtures(t)
-	uc := usecase.ListarFilmes{Repo: pgadapter.NovoFilmeRepository(pool)}
+	uc := usecase.ListarFilmes{Repo: pgadapter.NovoFilmeRepository(banco)}
 
 	p, err := uc.Executar(context.Background(), usecase.FiltroFilmes{}, pagina(t, 1, 20))
 	if err != nil {
@@ -42,7 +42,7 @@ func TestListarFilmesRecortePublico(t *testing.T) {
 
 func TestListarFilmesFiltradoPorStatus(t *testing.T) {
 	carregarFixtures(t)
-	uc := usecase.ListarFilmes{Repo: pgadapter.NovoFilmeRepository(pool)}
+	uc := usecase.ListarFilmes{Repo: pgadapter.NovoFilmeRepository(banco)}
 
 	fora := catalogo.StatusForaDeCartaz
 	p, err := uc.Executar(context.Background(), usecase.FiltroFilmes{Status: &fora}, pagina(t, 1, 20))
@@ -56,7 +56,7 @@ func TestListarFilmesFiltradoPorStatus(t *testing.T) {
 
 func TestListarFilmesOrdenaPorTituloComDesempate(t *testing.T) {
 	carregarFixtures(t)
-	uc := usecase.ListarFilmes{Repo: pgadapter.NovoFilmeRepository(pool)}
+	uc := usecase.ListarFilmes{Repo: pgadapter.NovoFilmeRepository(banco)}
 
 	p, err := uc.Executar(context.Background(), usecase.FiltroFilmes{}, pagina(t, 1, 20))
 	if err != nil {
@@ -71,7 +71,7 @@ func TestListarFilmesOrdenaPorTituloComDesempate(t *testing.T) {
 
 func TestListarFilmesPreservaCamposOpcionaisNulos(t *testing.T) {
 	carregarFixtures(t)
-	uc := usecase.ListarFilmes{Repo: pgadapter.NovoFilmeRepository(pool)}
+	uc := usecase.ListarFilmes{Repo: pgadapter.NovoFilmeRepository(banco)}
 
 	p, _ := uc.Executar(context.Background(), usecase.FiltroFilmes{}, pagina(t, 1, 20))
 	for _, f := range p.Itens {
@@ -87,7 +87,7 @@ func TestListarFilmesPreservaCamposOpcionaisNulos(t *testing.T) {
 
 func TestListarFilmesPaginacaoNaoRepeteRegistros(t *testing.T) {
 	carregarFixtures(t)
-	repo := pgadapter.NovoFilmeRepository(pool)
+	repo := pgadapter.NovoFilmeRepository(banco)
 
 	p1, _ := repo.Listar(context.Background(), usecase.FiltroFilmes{}, catalogo.StatusPublicos, pagina(t, 1, 2))
 	p2, _ := repo.Listar(context.Background(), usecase.FiltroFilmes{}, catalogo.StatusPublicos, pagina(t, 2, 2))
@@ -109,7 +109,7 @@ func TestListarFilmesPaginacaoNaoRepeteRegistros(t *testing.T) {
 
 func TestListarFilmesAlemDoFim(t *testing.T) {
 	carregarFixtures(t)
-	repo := pgadapter.NovoFilmeRepository(pool)
+	repo := pgadapter.NovoFilmeRepository(banco)
 
 	p, err := repo.Listar(context.Background(), usecase.FiltroFilmes{}, catalogo.StatusPublicos, pagina(t, 999, 20))
 	if err != nil {
@@ -125,8 +125,8 @@ func TestListarFilmesAlemDoFim(t *testing.T) {
 
 func TestListarCinemasESalas(t *testing.T) {
 	carregarFixtures(t)
-	cinemas := pgadapter.NovoCinemaRepository(pool)
-	salas := pgadapter.NovoSalaRepository(pool)
+	cinemas := pgadapter.NovoCinemaRepository(banco)
+	salas := pgadapter.NovoSalaRepository(banco)
 	uc := usecase.ListarSalas{Cinemas: cinemas, Salas: salas}
 
 	pc, err := cinemas.Listar(context.Background(), usecase.FiltroCinemas{}, pagina(t, 1, 20))
@@ -153,8 +153,8 @@ func TestListarCinemasESalas(t *testing.T) {
 func TestListarSalasDeCinemaInexistente(t *testing.T) {
 	carregarFixtures(t)
 	uc := usecase.ListarSalas{
-		Cinemas: pgadapter.NovoCinemaRepository(pool),
-		Salas:   pgadapter.NovoSalaRepository(pool),
+		Cinemas: pgadapter.NovoCinemaRepository(banco),
+		Salas:   pgadapter.NovoSalaRepository(banco),
 	}
 	filtro := usecase.FiltroSalas{CinemaID: "00000000-0000-0000-0000-000000000000"}
 	_, err := uc.Executar(context.Background(), filtro, pagina(t, 1, 20))
@@ -165,7 +165,7 @@ func TestListarSalasDeCinemaInexistente(t *testing.T) {
 
 func TestEscritaDeFilmeRoundTrip(t *testing.T) {
 	carregarFixtures(t)
-	repo := pgadapter.NovoFilmeRepository(pool)
+	repo := pgadapter.NovoFilmeRepository(banco)
 	ctx := context.Background()
 	const id = "b0000000-0000-4000-8000-00000000abcd"
 
@@ -225,7 +225,7 @@ func TestEscritaDeFilmeRoundTrip(t *testing.T) {
 
 func TestEscritaDeFilmeInexistenteDevolveNaoEncontrado(t *testing.T) {
 	carregarFixtures(t)
-	repo := pgadapter.NovoFilmeRepository(pool)
+	repo := pgadapter.NovoFilmeRepository(banco)
 	ctx := context.Background()
 	const ausente = "b0000000-0000-4000-8000-0000000000ff"
 
@@ -256,7 +256,7 @@ func dadosCinema() catalogo.DadosCinema {
 
 func TestCicloDeVidaDoCinema(t *testing.T) {
 	carregarFixtures(t)
-	repo := pgadapter.NovoCinemaRepository(pool)
+	repo := pgadapter.NovoCinemaRepository(banco)
 	ctx := context.Background()
 	const id = "b1b2c3d4-0000-4000-8000-0000000000aa"
 
@@ -329,7 +329,7 @@ func TestCicloDeVidaDoCinema(t *testing.T) {
 
 func TestEscritaDeCinemaInexistenteDevolveNaoEncontrado(t *testing.T) {
 	carregarFixtures(t)
-	repo := pgadapter.NovoCinemaRepository(pool)
+	repo := pgadapter.NovoCinemaRepository(banco)
 	ctx := context.Background()
 	const ausente = "b1b2c3d4-0000-4000-8000-0000000000ff"
 

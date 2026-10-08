@@ -15,7 +15,7 @@ A abordagem técnica é uma arquitetura hexagonal em Go: um núcleo de domínio 
 **Language/Version**: Go 1.22+ (definido pela ERS; `net/http.ServeMux` com padrões de método e caminho exige 1.22)
 
 **Primary Dependencies**:
-- `github.com/jackc/pgx/v5` — driver e pool PostgreSQL, SQL escrito à mão nos adaptadores
+- `gorm.io/gorm` + `gorm.io/driver/postgres` sobre `github.com/jackc/pgx/v5` — acesso ao PostgreSQL nos adaptadores (originalmente `pgx` com SQL à mão; trocado pela [002](../002-persistencia-gorm/spec.md))
 - `google.golang.org/grpc` + `google.golang.org/protobuf` — cliente do `Servico-Estoque`
 - `github.com/coreos/go-oidc/v3` — descoberta OIDC do Keycloak e cache de JWKS
 - `github.com/sony/gobreaker/v2` — recusa rápida após falhas consecutivas

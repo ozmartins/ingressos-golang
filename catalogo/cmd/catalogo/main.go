@@ -59,13 +59,13 @@ func executar() error {
 		}
 	}()
 
-	pool, err := postgres.NovoPool(ctx, cfg.DatabaseURL)
+	banco, err := postgres.Abrir(ctx, cfg.DatabaseURL)
 
 	if err != nil {
 		return err
 	}
 
-	defer pool.Close()
+	defer banco.Fechar()
 
 	verificador, err := identidade.NovoVerificador(ctx, cfg.KeycloakIssuerURL, cfg.KeycloakAudience)
 
@@ -98,11 +98,11 @@ func executar() error {
 
 	defer broker.Fechar()
 
-	filmes := postgres.NovoFilmeRepository(pool)
-	cinemas := postgres.NovoCinemaRepository(pool)
-	salas := postgres.NovoSalaRepository(pool)
-	sessoes := postgres.NovoSessaoRepository(pool)
-	caixa := postgres.NovaCaixaDeSaida(pool)
+	filmes := postgres.NovoFilmeRepository(banco)
+	cinemas := postgres.NovoCinemaRepository(banco)
+	salas := postgres.NovoSalaRepository(banco)
+	sessoes := postgres.NovoSessaoRepository(banco)
+	caixa := postgres.NovaCaixaDeSaida(banco)
 
 	// A caixa é drenada fora do caminho da requisição: criar uma sessão não
 	// espera pelo broker, e o fato sai quando ele estiver de pé.
@@ -155,7 +155,7 @@ func executar() error {
 				Maximo: cfg.PaginacaoTamanhoMaximo,
 			},
 		},
-		Saude:       health.Handler(pool),
+		Saude:       health.Handler(banco),
 		Verificador: verificador,
 		Metricas:    metricas,
 	})

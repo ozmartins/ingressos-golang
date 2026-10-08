@@ -22,13 +22,23 @@ Nenhum marcador NEEDS CLARIFICATION restou. Cada lacuna abaixo foi decidida com 
 
 ## D2 — Acesso a dados
 
-**Decision**: `pgx/v5` com pool de conexões e SQL escrito à mão dentro dos repositórios em `internal/adapter/postgres`.
+> **Superada pela feature [`002-persistencia-gorm`](../002-persistencia-gorm/spec.md).** A decisão abaixo é a que
+> valia ao escrever a 001; por pedido do mantenedor, o acesso a dados passou a ser feito pelo GORM. O texto
+> original foi mantido como registro do que foi pesado na época; o que o código faz hoje está na 002 e, em
+> última instância, em `internal/adapter/postgres`.
+>
+> **Decisão vigente**: GORM sobre o driver `pgx/v5` (`gorm.io/driver/postgres`), com os modelos privados ao adaptador,
+> sem `AutoMigrate` (as migrações SQL continuam sendo a fonte do esquema) e sem associações. Continuam
+> escritas à mão, por não terem forma no construtor do GORM, apenas as consultas como `SalaOcupada`
+> (soma de instante com `duracao * INTERVAL`). `preco_base` trafega como texto e vira `Dinheiro` por `big.Rat`.
+
+**Decision (original, superada)**: `pgx/v5` com pool de conexões e SQL escrito à mão dentro dos repositórios em `internal/adapter/postgres`.
 
 **Rationale**: as consultas desta feature são poucas, fixas e com junções explícitas (sessão → sala → cinema → filme). SQL à mão deixa o plano de execução visível e sob controle, o que importa diretamente para SC-003. `pgx` é o driver nativo mais maduro do ecossistema e expõe tipos do PostgreSQL (`timestamptz`, `numeric`) sem conversões surpresa — relevante porque `preco_base` é `DECIMAL(10,2)` e não pode virar `float64` silenciosamente.
 
 **Alternatives considered**: GORM (ORM completo; esconde o SQL justamente onde precisamos vê-lo, e carrega comportamento implícito de carregamento associado); `sqlc` (gera código tipado a partir do SQL — boa opção, descartada por adicionar etapa de geração ao build para um conjunto pequeno e estável de consultas); `database/sql` puro (perderia o mapeamento de tipos do pgx sem ganhar nada).
 
-**Consequência**: `preco_base` trafega como `pgtype.Numeric` no adaptador e é convertido para uma representação decimal exata no domínio; nunca para ponto flutuante binário.
+**Consequência**: `preco_base` é convertido para uma representação decimal exata no domínio; nunca para ponto flutuante binário. (Originalmente trafegava como `pgtype.Numeric`; desde a 002 trafega como texto e é convertido por `big.Rat`.)
 
 ---
 

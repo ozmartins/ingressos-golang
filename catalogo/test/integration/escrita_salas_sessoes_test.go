@@ -36,7 +36,7 @@ func dadosSala(numero int) catalogo.DadosSala {
 
 func TestEscritaDeSalaRoundTrip(t *testing.T) {
 	carregarFixtures(t)
-	repo := pgadapter.NovoSalaRepository(pool)
+	repo := pgadapter.NovoSalaRepository(banco)
 	ctx := context.Background()
 	const id = "d0000000-0000-4000-8000-00000000abcd"
 
@@ -87,8 +87,8 @@ func TestEscritaDeSalaRoundTrip(t *testing.T) {
 
 func TestListarSalasFiltraPorSituacao(t *testing.T) {
 	carregarFixtures(t)
-	repo := pgadapter.NovoSalaRepository(pool)
-	uc := usecase.ListarSalas{Cinemas: pgadapter.NovoCinemaRepository(pool), Salas: repo}
+	repo := pgadapter.NovoSalaRepository(banco)
+	uc := usecase.ListarSalas{Cinemas: pgadapter.NovoCinemaRepository(banco), Salas: repo}
 	ctx := context.Background()
 
 	if err := repo.Desativar(ctx, "d1b2c3d4-0000-4000-8000-000000000001"); err != nil {
@@ -115,7 +115,7 @@ func TestListarSalasFiltraPorSituacao(t *testing.T) {
 
 func TestNumeroDeSalaEhUnicoEntreAsAtivas(t *testing.T) {
 	carregarFixtures(t)
-	repo := pgadapter.NovoSalaRepository(pool)
+	repo := pgadapter.NovoSalaRepository(banco)
 	ctx := context.Background()
 
 	emUso, err := repo.NumeroEmUso(ctx, cinemaDasFixtures, 3, "")
@@ -154,7 +154,7 @@ func TestNumeroDeSalaEhUnicoEntreAsAtivas(t *testing.T) {
 
 func TestIndiceUnicoRecusaDuasSalasAtivasComOMesmoNumero(t *testing.T) {
 	carregarFixtures(t)
-	repo := pgadapter.NovoSalaRepository(pool)
+	repo := pgadapter.NovoSalaRepository(banco)
 	ctx := context.Background()
 
 	repetida, err := catalogo.NovaSala("d0000000-0000-4000-8000-00000000feed", dadosSala(3))
@@ -168,7 +168,7 @@ func TestIndiceUnicoRecusaDuasSalasAtivasComOMesmoNumero(t *testing.T) {
 
 func TestEscritaDeSalaInexistenteDevolveNaoEncontrado(t *testing.T) {
 	carregarFixtures(t)
-	repo := pgadapter.NovoSalaRepository(pool)
+	repo := pgadapter.NovoSalaRepository(banco)
 	ctx := context.Background()
 	const ausente = "d1b2c3d4-0000-4000-8000-0000000000ff"
 
@@ -209,7 +209,7 @@ func fatoDeTeste(sessaoID string) usecase.FatoPendente {
 
 func TestEscritaDeSessaoRoundTrip(t *testing.T) {
 	carregarFixtures(t)
-	repo := pgadapter.NovoSessaoRepository(pool)
+	repo := pgadapter.NovoSessaoRepository(banco)
 	ctx := context.Background()
 	const id = "e0000000-0000-4000-8000-00000000abcd"
 
@@ -259,7 +259,7 @@ func TestEscritaDeSessaoRoundTrip(t *testing.T) {
 
 func TestSessaoCanceladaSaiDaGrade(t *testing.T) {
 	carregarFixtures(t)
-	repo := pgadapter.NovoSessaoRepository(pool)
+	repo := pgadapter.NovoSessaoRepository(banco)
 	ctx := context.Background()
 	const naGrade = "e1b2c3d4-0000-4000-8000-000000000001"
 
@@ -283,7 +283,7 @@ func TestSessaoCanceladaSaiDaGrade(t *testing.T) {
 // minutos: ocupa a sala das 18h às 19h30.
 func TestSalaOcupadaUsaADuracaoDoFilme(t *testing.T) {
 	carregarFixtures(t)
-	repo := pgadapter.NovoSessaoRepository(pool)
+	repo := pgadapter.NovoSessaoRepository(banco)
 	ctx := context.Background()
 	dia := func(hora, minuto int) time.Time {
 		return time.Date(2026, 9, 2, hora, minuto, 0, 0, time.UTC)
@@ -316,7 +316,7 @@ func TestSalaOcupadaUsaADuracaoDoFilme(t *testing.T) {
 
 func TestSalaOcupadaIgnoraSessoesQueNaoOcupam(t *testing.T) {
 	carregarFixtures(t)
-	repo := pgadapter.NovoSessaoRepository(pool)
+	repo := pgadapter.NovoSessaoRepository(banco)
 	ctx := context.Background()
 
 	// A sessão CANCELADA das fixtures começa às 15h de 03/09 na sala IMAX.
@@ -334,7 +334,7 @@ func TestSalaOcupadaIgnoraSessoesQueNaoOcupam(t *testing.T) {
 
 func TestSalaOcupadaExcluiAPropriaSessao(t *testing.T) {
 	carregarFixtures(t)
-	repo := pgadapter.NovoSessaoRepository(pool)
+	repo := pgadapter.NovoSessaoRepository(banco)
 	ctx := context.Background()
 	const propria = "e1b2c3d4-0000-4000-8000-000000000003"
 	inicio := time.Date(2026, 9, 2, 18, 0, 0, 0, time.UTC)
@@ -350,7 +350,7 @@ func TestSalaOcupadaExcluiAPropriaSessao(t *testing.T) {
 
 func TestEscritaDeSessaoInexistenteDevolveNaoEncontrado(t *testing.T) {
 	carregarFixtures(t)
-	repo := pgadapter.NovoSessaoRepository(pool)
+	repo := pgadapter.NovoSessaoRepository(banco)
 	ctx := context.Background()
 	const ausente = "e1b2c3d4-0000-4000-8000-0000000000ff"
 

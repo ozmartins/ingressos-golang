@@ -3,23 +3,16 @@ package postgres
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"strings"
-
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/catalogo"
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/shared"
 	"github.com/oseias/ingressos-golang/catalogo/internal/usecase"
 )
 
-type SalaRepository struct{ pool *pgxpool.Pool }
+type SalaRepository struct{ banco *Banco }
 
-func NovoSalaRepository(p *pgxpool.Pool) *SalaRepository { return &SalaRepository{pool: p} }
-
-const colunasSala = `id, cinema_id, numero, tipo_tela, layout, ativo`
+func NovoSalaRepository(b *Banco) *SalaRepository { return &SalaRepository{banco: b} }
 
 // A forma do layout na coluna JSONB. Os nomes são os mesmos do corpo da API e os
 // mesmos que o estoque lê no anúncio de sessão criada — uma tradução a menos
@@ -30,24 +23,21 @@ type fileiraJSON struct {
 	Tipo     string `json:"tipo"`
 }
 
-func lerSala(scan func(...any) error) (catalogo.Sala, error) {
-	var (
-		s      catalogo.Sala
-		tipo   string
-		layout []fileiraJSON
-	)
-	if err := scan(&s.ID, &s.CinemaID, &s.Numero, &tipo, &layout, &s.Ativo); err != nil {
-		return s, fmt.Errorf("lendo sala: %w", err)
+func (r salaRow) paraDominio() (catalogo.Sala, error) {
+	var layout []fileiraJSON
+	if err := json.Unmarshal(r.Layout, &layout); err != nil {
+		return catalogo.Sala{}, fmt.Errorf("lendo sala: layout inválido: %w", err)
 	}
-	s.TipoTela = catalogo.TipoTela(tipo)
-
 	fileiras := make([]catalogo.Fileira, 0, len(layout))
 	for _, f := range layout {
 		fileiras = append(fileiras, catalogo.Fileira{
 			Letra: f.Fileira, Assentos: f.Assentos, Tipo: catalogo.TipoPoltrona(f.Tipo)})
 	}
-	s.Layout = catalogo.LayoutSala{Fileiras: fileiras}
-	return s, nil
+	return catalogo.Sala{
+		ID: r.ID, CinemaID: r.CinemaID, Numero: r.Numero,
+		TipoTela: catalogo.TipoTela(r.TipoTela), Layout: catalogo.LayoutSala{Fileiras: fileiras},
+		Ativo: r.Ativo,
+	}, nil
 }
 
 // O domínio já validou e ordenou as fileiras; aqui só se troca a forma.
@@ -65,36 +55,28 @@ func (r *SalaRepository) Listar(
 	filtro usecase.FiltroSalas,
 	req shared.PageRequest,
 ) (shared.Page[catalogo.Sala], error) {
-	// Filtro nulo significa "qualquer situação": um só SQL atende os dois casos.
-	condicoes := []string{"($1::boolean IS NULL OR ativo = $1)"}
-	filtros := []any{filtro.Ativo}
-
-	if filtro.CinemaID != "" {
-		filtros = append(filtros, filtro.CinemaID)
-		condicoes = append(condicoes, fmt.Sprintf("cinema_id = $%d", len(filtros)))
+	base := r.banco.conn(ctx).Model(&salaRow{})
+	// Filtro nulo significa "qualquer situação".
+	if filtro.Ativo != nil {
+		base = base.Where("ativo = ?", *filtro.Ativo)
 	}
-
+	if filtro.CinemaID != "" {
+		base = base.Where("cinema_id = ?", filtro.CinemaID)
+	}
 	// A ordem por cinema mantém as salas de cada um juntas quando a listagem é
 	// da rede inteira; dentro do cinema, o número segue mandando.
-	onde := strings.Join(condicoes, " AND ")
-	sqlPagina := fmt.Sprintf(`SELECT `+colunasSala+` FROM salas WHERE %s
-	                          ORDER BY cinema_id, numero, id LIMIT $%d OFFSET $%d`,
-		onde, len(filtros)+1, len(filtros)+2)
-	sqlTotal := fmt.Sprintf(`SELECT COUNT(*) FROM salas WHERE %s`, onde)
-
-	return consultarPaginado(ctx, r.pool, sqlPagina, sqlTotal, filtros, req, lerSala)
+	return consultarPaginado(base, "", "cinema_id, numero, id", req, salaRow.paraDominio)
 }
 
 func (r *SalaRepository) BuscarPorID(ctx context.Context, salaID string) (catalogo.Sala, error) {
-	linha := r.pool.QueryRow(ctx, `SELECT `+colunasSala+` FROM salas WHERE id = $1`, salaID)
-	s, err := lerSala(linha.Scan)
-	if errors.Is(err, pgx.ErrNoRows) {
+	var linhas []salaRow
+	if err := r.banco.conn(ctx).Where("id = ?", salaID).Limit(1).Find(&linhas).Error; err != nil {
+		return catalogo.Sala{}, fmt.Errorf("lendo sala: %w", err)
+	}
+	if len(linhas) == 0 {
 		return catalogo.Sala{}, shared.NaoEncontrado("sala", salaID)
 	}
-	if err != nil {
-		return catalogo.Sala{}, err
-	}
-	return s, nil
+	return linhas[0].paraDominio()
 }
 
 func (r *SalaRepository) Criar(ctx context.Context, s catalogo.Sala) error {
@@ -102,10 +84,9 @@ func (r *SalaRepository) Criar(ctx context.Context, s catalogo.Sala) error {
 	if err != nil {
 		return fmt.Errorf("inserindo sala: %w", err)
 	}
-	const sqlInserir = `INSERT INTO salas (id, cinema_id, numero, tipo_tela, layout, ativo)
-	                    VALUES ($1, $2, $3, $4, $5, $6)`
-	if _, err := r.pool.Exec(ctx, sqlInserir,
-		s.ID, s.CinemaID, s.Numero, string(s.TipoTela), layout, s.Ativo); err != nil {
+	linha := salaRow{ID: s.ID, CinemaID: s.CinemaID, Numero: s.Numero,
+		TipoTela: string(s.TipoTela), Layout: layout, Ativo: s.Ativo}
+	if err := r.banco.conn(ctx).Create(&linha).Error; err != nil {
 		return fmt.Errorf("inserindo sala: %w", err)
 	}
 	return nil
@@ -116,38 +97,39 @@ func (r *SalaRepository) Atualizar(ctx context.Context, s catalogo.Sala) error {
 	if err != nil {
 		return fmt.Errorf("atualizando sala: %w", err)
 	}
-	const sqlAtualizar = `UPDATE salas SET numero = $2, tipo_tela = $3, layout = $4,
-	                          ativo = $5, atualizado_em = CURRENT_TIMESTAMP
-	                      WHERE id = $1`
-	etiqueta, err := r.pool.Exec(ctx, sqlAtualizar, s.ID, s.Numero, string(s.TipoTela), layout, s.Ativo)
-	if err != nil {
-		return fmt.Errorf("atualizando sala: %w", err)
+	res := r.banco.conn(ctx).Model(&salaRow{}).Where("id = ?", s.ID).Updates(map[string]any{
+		"numero": s.Numero, "tipo_tela": string(s.TipoTela), "layout": layout,
+		"ativo": s.Ativo, "atualizado_em": gormAgora,
+	})
+	if res.Error != nil {
+		return fmt.Errorf("atualizando sala: %w", res.Error)
 	}
-	if etiqueta.RowsAffected() == 0 {
+	if res.RowsAffected == 0 {
 		return shared.NaoEncontrado("sala", s.ID)
 	}
 	return nil
 }
 
 func (r *SalaRepository) Desativar(ctx context.Context, salaID string) error {
-	const sqlDesativar = `UPDATE salas SET ativo = FALSE, atualizado_em = CURRENT_TIMESTAMP
-	                      WHERE id = $1`
-	etiqueta, err := r.pool.Exec(ctx, sqlDesativar, salaID)
-	if err != nil {
-		return fmt.Errorf("desativando sala: %w", err)
+	res := r.banco.conn(ctx).Model(&salaRow{}).Where("id = ?", salaID).Updates(map[string]any{
+		"ativo": false, "atualizado_em": gormAgora,
+	})
+	if res.Error != nil {
+		return fmt.Errorf("desativando sala: %w", res.Error)
 	}
-	if etiqueta.RowsAffected() == 0 {
+	if res.RowsAffected == 0 {
 		return shared.NaoEncontrado("sala", salaID)
 	}
 	return nil
 }
 
 func (r *SalaRepository) NumeroEmUso(ctx context.Context, cinemaID string, numero int, excetoID string) (bool, error) {
-	const sql = `SELECT EXISTS(SELECT 1 FROM salas
-	             WHERE cinema_id = $1 AND numero = $2 AND ativo AND id <> $3)`
-	var emUso bool
-	if err := r.pool.QueryRow(ctx, sql, cinemaID, numero, excetoID).Scan(&emUso); err != nil {
+	var n int64
+	err := r.banco.conn(ctx).Model(&salaRow{}).
+		Where("cinema_id = ? AND numero = ? AND ativo AND id <> ?", cinemaID, numero, excetoID).
+		Count(&n).Error
+	if err != nil {
 		return false, fmt.Errorf("verificando número da sala: %w", err)
 	}
-	return emUso, nil
+	return n > 0, nil
 }

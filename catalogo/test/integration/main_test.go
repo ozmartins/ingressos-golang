@@ -4,12 +4,12 @@ package integration
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"os"
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -17,7 +17,13 @@ import (
 	pgadapter "github.com/oseias/ingressos-golang/catalogo/internal/adapter/postgres"
 )
 
-var pool *pgxpool.Pool
+// `banco` é o que o serviço usa; `pool` é a mesma conexão crua, para os testes
+// prepararem e inspecionarem o banco com SQL que o adaptador não escreve.
+var (
+	banco    *pgadapter.Banco
+	pool     *sql.DB
+	urlBanco string
+)
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
@@ -42,12 +48,14 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	pool, err = pgadapter.NovoPool(ctx, url)
+	urlBanco = url
+	banco, err = pgadapter.Abrir(ctx, url)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "pool: %v\n", err)
+		fmt.Fprintf(os.Stderr, "banco: %v\n", err)
 		os.Exit(1)
 	}
-	defer pool.Close()
+	defer banco.Fechar()
+	pool = banco.SQL()
 
 	if err := aplicarMigracoes(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "migrações: %v\n", err)
@@ -70,7 +78,7 @@ func aplicarMigracoes(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("lendo %s: %w", arquivo, err)
 		}
-		if _, err := pool.Exec(ctx, string(sql)); err != nil {
+		if _, err := pool.ExecContext(ctx, string(sql)); err != nil {
 			return fmt.Errorf("aplicando %s: %w", arquivo, err)
 		}
 	}
@@ -80,14 +88,14 @@ func aplicarMigracoes(ctx context.Context) error {
 func carregarFixtures(t *testing.T) {
 	t.Helper()
 	ctx := context.Background()
-	if _, err := pool.Exec(ctx, `TRUNCATE outbox_eventos, sessoes, salas, cinemas, filmes CASCADE`); err != nil {
+	if _, err := pool.ExecContext(ctx, `TRUNCATE outbox_eventos, sessoes, salas, cinemas, filmes CASCADE`); err != nil {
 		t.Fatalf("limpando tabelas: %v", err)
 	}
 	sql, err := os.ReadFile("../fixtures/catalogo_exemplo.sql")
 	if err != nil {
 		t.Fatalf("lendo fixtures: %v", err)
 	}
-	if _, err := pool.Exec(ctx, string(sql)); err != nil {
+	if _, err := pool.ExecContext(ctx, string(sql)); err != nil {
 		t.Fatalf("carregando fixtures: %v", err)
 	}
 }
@@ -96,7 +104,7 @@ func TestSchemaProprio(t *testing.T) {
 	ctx := context.Background()
 
 	var searchPath string
-	if err := pool.QueryRow(ctx, `SELECT current_setting('search_path')`).Scan(&searchPath); err != nil {
+	if err := pool.QueryRowContext(ctx, `SELECT current_setting('search_path')`).Scan(&searchPath); err != nil {
 		t.Fatalf("consultando search_path: %v", err)
 	}
 	if searchPath != "catalogo" {
@@ -105,7 +113,7 @@ func TestSchemaProprio(t *testing.T) {
 
 	for _, tabela := range []string{"filmes", "cinemas", "salas", "sessoes"} {
 		var emPublic *string
-		if err := pool.QueryRow(ctx, `SELECT to_regclass('public.'|| $1)::text`, tabela).Scan(&emPublic); err != nil {
+		if err := pool.QueryRowContext(ctx, `SELECT to_regclass('public.'|| $1)::text`, tabela).Scan(&emPublic); err != nil {
 			t.Fatalf("consultando public.%s: %v", tabela, err)
 		}
 		if emPublic != nil {

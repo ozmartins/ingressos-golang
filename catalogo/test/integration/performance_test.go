@@ -18,7 +18,7 @@ func carregarVolume(t *testing.T, fator int) {
 	t.Helper()
 	ctx := context.Background()
 
-	if _, err := pool.Exec(ctx, `TRUNCATE sessoes, salas, cinemas, filmes CASCADE`); err != nil {
+	if _, err := pool.ExecContext(ctx, `TRUNCATE sessoes, salas, cinemas, filmes CASCADE`); err != nil {
 		t.Fatal(err)
 	}
 	cargas := []struct {
@@ -51,7 +51,7 @@ func carregarVolume(t *testing.T, fator int) {
 	}
 
 	for _, c := range cargas {
-		if _, err := pool.Exec(ctx, c.sql, c.args...); err != nil {
+		if _, err := pool.ExecContext(ctx, c.sql, c.args...); err != nil {
 			t.Fatalf("carregando volume (fator %d): %v", fator, err)
 		}
 	}
@@ -87,13 +87,13 @@ func TestDesempenhoDasConsultasPaginadas(t *testing.T) {
 		t.Run(fmt.Sprintf("fator-%d", c.fator), func(t *testing.T) {
 			carregarVolume(t, c.fator)
 
-			filmes := pgadapter.NovoFilmeRepository(pool)
-			cinemas := pgadapter.NovoCinemaRepository(pool)
-			salas := pgadapter.NovoSalaRepository(pool)
-			sessoes := pgadapter.NovoSessaoRepository(pool)
+			filmes := pgadapter.NovoFilmeRepository(banco)
+			cinemas := pgadapter.NovoCinemaRepository(banco)
+			salas := pgadapter.NovoSalaRepository(banco)
+			sessoes := pgadapter.NovoSessaoRepository(banco)
 
 			var cinemaID string
-			if err := pool.QueryRow(ctx, `SELECT id FROM cinemas LIMIT 1`).Scan(&cinemaID); err != nil {
+			if err := pool.QueryRowContext(ctx, `SELECT id FROM cinemas LIMIT 1`).Scan(&cinemaID); err != nil {
 				t.Fatal(err)
 			}
 			req := pagina(t, 1, 20)

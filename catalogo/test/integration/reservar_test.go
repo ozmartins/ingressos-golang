@@ -113,14 +113,14 @@ func montarServico(t *testing.T, sim *estoqueSimulado) (*httptest.Server, *estoq
 		Timeout: 2 * time.Second, FalhasParaAbrir: 5, IntervaloAberto: 30 * time.Second, Metricas: metricas,
 	})
 
-	sessoes := pgadapter.NovoSessaoRepository(pool)
-	cinemas := pgadapter.NovoCinemaRepository(pool)
+	sessoes := pgadapter.NovoSessaoRepository(banco)
+	cinemas := pgadapter.NovoCinemaRepository(banco)
 
 	router := adapterhttp.NovoRouter(adapterhttp.Dependencias{
 		Handlers: adapterhttp.Handlers{
-			ListarFilmes:     usecase.ListarFilmes{Repo: pgadapter.NovoFilmeRepository(pool)},
+			ListarFilmes:     usecase.ListarFilmes{Repo: pgadapter.NovoFilmeRepository(banco)},
 			ListarCinemas:    usecase.ListarCinemas{Repo: cinemas},
-			ListarSalas:      usecase.ListarSalas{Cinemas: cinemas, Salas: pgadapter.NovoSalaRepository(pool)},
+			ListarSalas:      usecase.ListarSalas{Cinemas: cinemas, Salas: pgadapter.NovoSalaRepository(banco)},
 			ConsultarSessoes: usecase.ConsultarSessoes{Repo: sessoes},
 			ReservarPoltronas: usecase.ReservarPoltronas{
 				Sessoes: sessoes, Estoque: cliente,

@@ -30,7 +30,7 @@ Módulo Go único com arquitetura hexagonal, conforme `plan.md`: `cmd/`, `intern
 **Purpose**: esqueleto do módulo, dependências e ferramental
 
 - [X] T001 Inicializar o módulo Go em `go.mod` (Go 1.22+) e criar a árvore de diretórios de `plan.md` com um `.gitkeep` por pacote ainda vazio
-- [X] T002 [P] Declarar as dependências de `research.md` em `go.mod`: `pgx/v5`, `grpc`, `protobuf`, `go-oidc/v3`, `gobreaker/v2`, `otel` (SDK + OTLP + otelhttp + otelgrpc), `golang-migrate/v4`, `testcontainers-go`
+- [X] T002 [P] Declarar as dependências de `research.md` em `go.mod` (_nota: a persistência passou a usar GORM sobre o pgx pela [002](../002-persistencia-gorm/tasks.md); T002 e T045 descrevem o estado original_): `pgx/v5`, `grpc`, `protobuf`, `go-oidc/v3`, `gobreaker/v2`, `otel` (SDK + OTLP + otelhttp + otelgrpc), `golang-migrate/v4`, `testcontainers-go`
 - [X] T003 [P] Configurar `.golangci.yml` com `govet`, `staticcheck`, `errcheck`, `revive` e o import-linter que impede `internal/domain` e `internal/usecase` de importarem `internal/adapter`
 - [X] T004 [P] Criar `Makefile` com alvos `build`, `test`, `test-integration`, `lint`, `proto`, `migrate-up`
 - [X] T005 [P] Escrever `docker-compose.yml` com PostgreSQL 16, Keycloak e um `estoque-simulado`, conforme o roteiro de `quickstart.md`

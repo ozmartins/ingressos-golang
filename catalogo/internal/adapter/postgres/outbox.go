@@ -5,35 +5,36 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/oseias/ingressos-golang/catalogo/internal/usecase"
 )
 
 // A caixa de saída. Ela é escrita por quem grava o fato — dentro da transação
 // daquele fato — e lida pelo publicador, que roda fora da requisição.
-type CaixaDeSaida struct{ pool *pgxpool.Pool }
+type CaixaDeSaida struct{ banco *Banco }
 
-func NovaCaixaDeSaida(p *pgxpool.Pool) *CaixaDeSaida { return &CaixaDeSaida{pool: p} }
+func NovaCaixaDeSaida(b *Banco) *CaixaDeSaida { return &CaixaDeSaida{banco: b} }
 
 // Enfileirar recebe a transação de quem está gravando: é isso que torna o fato e
 // o efeito que o produziu indivisíveis. O `DO NOTHING` cobre a retentativa de uma
 // escrita que já tinha enfileirado o mesmo fato.
-func enfileirarFato(ctx context.Context, tx pgx.Tx, fato usecase.FatoPendente) error {
-	var traceJSON []byte
+func enfileirarFato(tx *gorm.DB, fato usecase.FatoPendente) error {
+	linha := outboxRow{MessageID: fato.MessageID, RoutingKey: fato.RoutingKey, Payload: fato.Payload}
 	if len(fato.TraceContext) > 0 {
-		var err error
-		if traceJSON, err = json.Marshal(fato.TraceContext); err != nil {
+		trace, err := json.Marshal(fato.TraceContext)
+		if err != nil {
 			return fmt.Errorf("serializando contexto de rastreamento: %w", err)
 		}
+		linha.TraceContext = trace
 	}
 
-	const sqlInserir = `INSERT INTO outbox_eventos (message_id, routing_key, payload, trace_context)
-	                    VALUES ($1, $2, $3, $4)
-	                    ON CONFLICT (message_id) DO NOTHING`
-	if _, err := tx.Exec(ctx, sqlInserir,
-		fato.MessageID, fato.RoutingKey, fato.Payload, traceJSON); err != nil {
+	err := tx.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "message_id"}},
+		DoNothing: true,
+	}).Create(&linha).Error
+	if err != nil {
 		return fmt.Errorf("enfileirando fato: %w", err)
 	}
 	return nil
@@ -53,52 +54,36 @@ type FatoNaCaixa struct {
 // broker a aceitou mas a marcação não chegou a ser gravada.
 //
 // `FOR UPDATE SKIP LOCKED` deixa duas réplicas drenarem a mesma caixa sem
-// disputar as mesmas linhas.
+// disputar as mesmas linhas. Por isso a publicação acontece com a transação — e
+// os locks — ainda abertos: soltá-los antes devolveria o lote à outra réplica.
 func (c *CaixaDeSaida) Drenar(ctx context.Context, limite int, publicar func(FatoNaCaixa) error) (int, error) {
 	publicados := 0
 
-	err := emTransacao(ctx, c.pool, func(tx pgx.Tx) error {
-		const sqlPendentes = `SELECT id, message_id, routing_key, payload, trace_context
-		                        FROM outbox_eventos
-		                       WHERE publicado_em IS NULL
-		                       ORDER BY id
-		                       LIMIT $1
-		                         FOR UPDATE SKIP LOCKED`
-		linhas, err := tx.Query(ctx, sqlPendentes, limite)
+	err := c.banco.EmTransacao(ctx, func(tx *gorm.DB) error {
+		var pendentes []outboxRow
+		err := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
+			Where("publicado_em IS NULL").
+			Order("id").
+			Limit(limite).
+			Find(&pendentes).Error
 		if err != nil {
 			return fmt.Errorf("lendo a caixa de saída: %w", err)
 		}
 
-		var lote []FatoNaCaixa
-		for linhas.Next() {
-			var (
-				f         FatoNaCaixa
-				traceJSON []byte
-			)
-			if err := linhas.Scan(&f.ID, &f.MessageID, &f.RoutingKey, &f.Payload, &traceJSON); err != nil {
-				linhas.Close()
-				return fmt.Errorf("lendo fato da caixa: %w", err)
+		for _, p := range pendentes {
+			f := FatoNaCaixa{ID: p.ID, MessageID: p.MessageID, RoutingKey: p.RoutingKey, Payload: p.Payload}
+			if len(p.TraceContext) > 0 {
+				_ = json.Unmarshal(p.TraceContext, &f.TraceContext)
 			}
-			if len(traceJSON) > 0 {
-				_ = json.Unmarshal(traceJSON, &f.TraceContext)
-			}
-			lote = append(lote, f)
-		}
-		linhas.Close()
-		if err := linhas.Err(); err != nil {
-			return fmt.Errorf("lendo a caixa de saída: %w", err)
-		}
 
-		for _, f := range lote {
+			fato := tx.Model(&outboxRow{}).Where("id = ?", f.ID)
 			if err := publicar(f); err != nil {
-				const sqlTentativa = `UPDATE outbox_eventos SET tentativas = tentativas + 1 WHERE id = $1`
-				if _, errTentativa := tx.Exec(ctx, sqlTentativa, f.ID); errTentativa != nil {
+				if errTentativa := fato.Update("tentativas", gorm.Expr("tentativas + 1")).Error; errTentativa != nil {
 					return fmt.Errorf("contando a tentativa: %w", errTentativa)
 				}
 				continue
 			}
-			const sqlPublicado = `UPDATE outbox_eventos SET publicado_em = now() WHERE id = $1`
-			if _, err := tx.Exec(ctx, sqlPublicado, f.ID); err != nil {
+			if err := fato.Update("publicado_em", gorm.Expr("now()")).Error; err != nil {
 				return fmt.Errorf("marcando o fato como publicado: %w", err)
 			}
 			publicados++

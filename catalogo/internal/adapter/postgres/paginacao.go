@@ -1,48 +1,46 @@
 package postgres
 
 import (
-	"context"
 	"fmt"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"gorm.io/gorm"
 
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/shared"
 )
 
-func consultarPaginado[T any](
-	ctx context.Context,
-	pool *pgxpool.Pool,
-	sqlPagina string,
-	sqlTotal string,
-	filtros []any,
+// `base` carrega a origem, as junções e os filtros; a contagem e a página saem
+// dela, então os dois enxergam o mesmo conjunto. `selecionar` só vale para a
+// página: o COUNT não pode herdar a lista de colunas.
+func consultarPaginado[L, T any](
+	base *gorm.DB,
+	selecionar string,
+	ordem string,
 	req shared.PageRequest,
-	ler func(scan func(...any) error) (T, error),
+	converter func(L) (T, error),
 ) (shared.Page[T], error) {
 	var vazia shared.Page[T]
 
-	args := append(append([]any{}, filtros...), req.Limit(), req.Offset())
-	rows, err := pool.Query(ctx, sqlPagina, args...)
-	if err != nil {
+	var total int64
+	if err := base.Session(&gorm.Session{}).Count(&total).Error; err != nil {
+		return vazia, fmt.Errorf("contando registros: %w", err)
+	}
+
+	pagina := base.Session(&gorm.Session{})
+	if selecionar != "" {
+		pagina = pagina.Select(selecionar)
+	}
+	var linhas []L
+	if err := pagina.Order(ordem).Limit(req.Limit()).Offset(req.Offset()).Find(&linhas).Error; err != nil {
 		return vazia, fmt.Errorf("consultando página: %w", err)
 	}
-	defer rows.Close()
 
 	var itens []T
-	for rows.Next() {
-		item, err := ler(rows.Scan)
+	for _, l := range linhas {
+		item, err := converter(l)
 		if err != nil {
 			return vazia, err
 		}
 		itens = append(itens, item)
 	}
-	if err := rows.Err(); err != nil {
-		return vazia, fmt.Errorf("iterando página: %w", err)
-	}
-	rows.Close()
-
-	var total int
-	if err := pool.QueryRow(ctx, sqlTotal, filtros...).Scan(&total); err != nil {
-		return vazia, fmt.Errorf("contando registros: %w", err)
-	}
-	return shared.NovaPage(itens, total, req), nil
+	return shared.NovaPage(itens, int(total), req), nil
 }

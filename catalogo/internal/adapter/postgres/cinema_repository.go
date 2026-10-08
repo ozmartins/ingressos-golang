@@ -2,29 +2,22 @@ package postgres
 
 import (
 	"context"
-	"errors"
 	"fmt"
-
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/catalogo"
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/shared"
 	"github.com/oseias/ingressos-golang/catalogo/internal/usecase"
 )
 
-type CinemaRepository struct{ pool *pgxpool.Pool }
+type CinemaRepository struct{ banco *Banco }
 
-func NovoCinemaRepository(p *pgxpool.Pool) *CinemaRepository { return &CinemaRepository{pool: p} }
+func NovoCinemaRepository(b *Banco) *CinemaRepository { return &CinemaRepository{banco: b} }
 
-const colunasCinema = `id, nome, cidade, estado, endereco, ativo`
-
-func lerCinema(scan func(...any) error) (catalogo.Cinema, error) {
-	var c catalogo.Cinema
-	if err := scan(&c.ID, &c.Nome, &c.Cidade, &c.Estado, &c.Endereco, &c.Ativo); err != nil {
-		return c, fmt.Errorf("lendo cinema: %w", err)
-	}
-	return c, nil
+func (r cinemaRow) paraDominio() (catalogo.Cinema, error) {
+	return catalogo.Cinema{
+		ID: r.ID, Nome: r.Nome, Cidade: r.Cidade, Estado: r.Estado,
+		Endereco: r.Endereco, Ativo: r.Ativo,
+	}, nil
 }
 
 func (r *CinemaRepository) Listar(
@@ -32,71 +25,65 @@ func (r *CinemaRepository) Listar(
 	filtro usecase.FiltroCinemas,
 	req shared.PageRequest,
 ) (shared.Page[catalogo.Cinema], error) {
-	// Filtro nulo significa "qualquer situação": um só SQL atende os dois casos.
-	filtros := []any{filtro.Ativo}
-
-	const sqlPagina = `SELECT ` + colunasCinema + ` FROM cinemas
-	                   WHERE ($1::boolean IS NULL OR ativo = $1)
-	                   ORDER BY nome, id LIMIT $2 OFFSET $3`
-	const sqlTotal = `SELECT COUNT(*) FROM cinemas WHERE ($1::boolean IS NULL OR ativo = $1)`
-
-	return consultarPaginado(ctx, r.pool, sqlPagina, sqlTotal, filtros, req, lerCinema)
+	base := r.banco.conn(ctx).Model(&cinemaRow{})
+	// Filtro nulo significa "qualquer situação".
+	if filtro.Ativo != nil {
+		base = base.Where("ativo = ?", *filtro.Ativo)
+	}
+	return consultarPaginado(base, "", "nome, id", req, cinemaRow.paraDominio)
 }
 
 func (r *CinemaRepository) BuscarPorID(ctx context.Context, cinemaID string) (catalogo.Cinema, error) {
-	linha := r.pool.QueryRow(ctx, `SELECT `+colunasCinema+` FROM cinemas WHERE id = $1`, cinemaID)
-	c, err := lerCinema(linha.Scan)
-	if errors.Is(err, pgx.ErrNoRows) {
+	var linhas []cinemaRow
+	if err := r.banco.conn(ctx).Where("id = ?", cinemaID).Limit(1).Find(&linhas).Error; err != nil {
+		return catalogo.Cinema{}, fmt.Errorf("lendo cinema: %w", err)
+	}
+	if len(linhas) == 0 {
 		return catalogo.Cinema{}, shared.NaoEncontrado("cinema", cinemaID)
 	}
-	if err != nil {
-		return catalogo.Cinema{}, err
-	}
-	return c, nil
+	return linhas[0].paraDominio()
 }
 
 func (r *CinemaRepository) Criar(ctx context.Context, c catalogo.Cinema) error {
-	const sqlInserir = `INSERT INTO cinemas (id, nome, cidade, estado, endereco, ativo)
-	                    VALUES ($1, $2, $3, $4, $5, $6)`
-	_, err := r.pool.Exec(ctx, sqlInserir, c.ID, c.Nome, c.Cidade, c.Estado, c.Endereco, c.Ativo)
-	if err != nil {
+	linha := cinemaRow{ID: c.ID, Nome: c.Nome, Cidade: c.Cidade, Estado: c.Estado,
+		Endereco: c.Endereco, Ativo: c.Ativo}
+	if err := r.banco.conn(ctx).Create(&linha).Error; err != nil {
 		return fmt.Errorf("inserindo cinema: %w", err)
 	}
 	return nil
 }
 
 func (r *CinemaRepository) Atualizar(ctx context.Context, c catalogo.Cinema) error {
-	const sqlAtualizar = `UPDATE cinemas SET nome = $2, cidade = $3, estado = $4,
-	                          endereco = $5, ativo = $6, atualizado_em = CURRENT_TIMESTAMP
-	                      WHERE id = $1`
-	etiqueta, err := r.pool.Exec(ctx, sqlAtualizar, c.ID, c.Nome, c.Cidade, c.Estado, c.Endereco, c.Ativo)
-	if err != nil {
-		return fmt.Errorf("atualizando cinema: %w", err)
+	res := r.banco.conn(ctx).Model(&cinemaRow{}).Where("id = ?", c.ID).Updates(map[string]any{
+		"nome": c.Nome, "cidade": c.Cidade, "estado": c.Estado, "endereco": c.Endereco,
+		"ativo": c.Ativo, "atualizado_em": gormAgora,
+	})
+	if res.Error != nil {
+		return fmt.Errorf("atualizando cinema: %w", res.Error)
 	}
-	if etiqueta.RowsAffected() == 0 {
+	if res.RowsAffected == 0 {
 		return shared.NaoEncontrado("cinema", c.ID)
 	}
 	return nil
 }
 
 func (r *CinemaRepository) Desativar(ctx context.Context, cinemaID string) error {
-	const sqlDesativar = `UPDATE cinemas SET ativo = FALSE, atualizado_em = CURRENT_TIMESTAMP
-	                      WHERE id = $1`
-	etiqueta, err := r.pool.Exec(ctx, sqlDesativar, cinemaID)
-	if err != nil {
-		return fmt.Errorf("desativando cinema: %w", err)
+	res := r.banco.conn(ctx).Model(&cinemaRow{}).Where("id = ?", cinemaID).Updates(map[string]any{
+		"ativo": false, "atualizado_em": gormAgora,
+	})
+	if res.Error != nil {
+		return fmt.Errorf("desativando cinema: %w", res.Error)
 	}
-	if etiqueta.RowsAffected() == 0 {
+	if res.RowsAffected == 0 {
 		return shared.NaoEncontrado("cinema", cinemaID)
 	}
 	return nil
 }
 
 func (r *CinemaRepository) Existe(ctx context.Context, cinemaID string) (bool, error) {
-	var existe bool
-	err := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM cinemas WHERE id = $1)`, cinemaID).Scan(&existe)
-	if err != nil {
+	var n int64
+	if err := r.banco.conn(ctx).Model(&cinemaRow{}).Where("id = ?", cinemaID).Count(&n).Error; err != nil {
 		return false, fmt.Errorf("verificando cinema: %w", err)
 	}
-	return existe, nil
+	return n > 0, nil
 }

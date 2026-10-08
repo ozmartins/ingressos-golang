@@ -19,7 +19,7 @@ import (
 // exige.
 func TestSessaoRecusadaNaoDeixaFatoNaCaixa(t *testing.T) {
 	carregarFixtures(t)
-	repo := pgadapter.NovoSessaoRepository(pool)
+	repo := pgadapter.NovoSessaoRepository(banco)
 	ctx := context.Background()
 	const id = "e0000000-0000-4000-8000-0000000000f1"
 
@@ -35,7 +35,7 @@ func TestSessaoRecusadaNaoDeixaFatoNaCaixa(t *testing.T) {
 	}
 
 	var pendentes int
-	if err := pool.QueryRow(ctx,
+	if err := pool.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM outbox_eventos WHERE message_id = $1`, id).Scan(&pendentes); err != nil {
 		t.Fatal(err)
 	}
@@ -46,8 +46,8 @@ func TestSessaoRecusadaNaoDeixaFatoNaCaixa(t *testing.T) {
 
 func TestCaixaDeSaidaDrenaEMarcaOFatoPublicado(t *testing.T) {
 	carregarFixtures(t)
-	repo := pgadapter.NovoSessaoRepository(pool)
-	caixa := pgadapter.NovaCaixaDeSaida(pool)
+	repo := pgadapter.NovoSessaoRepository(banco)
+	caixa := pgadapter.NovaCaixaDeSaida(banco)
 	ctx := context.Background()
 	const id = "e0000000-0000-4000-8000-0000000000f2"
 
@@ -97,8 +97,8 @@ func TestCaixaDeSaidaDrenaEMarcaOFatoPublicado(t *testing.T) {
 // tentativa contada. É daí que vem o "ao menos uma vez".
 func TestCaixaDeSaidaMantemOFatoQuandoAPublicacaoFalha(t *testing.T) {
 	carregarFixtures(t)
-	repo := pgadapter.NovoSessaoRepository(pool)
-	caixa := pgadapter.NovaCaixaDeSaida(pool)
+	repo := pgadapter.NovoSessaoRepository(banco)
+	caixa := pgadapter.NovaCaixaDeSaida(banco)
 	ctx := context.Background()
 	const id = "e0000000-0000-4000-8000-0000000000f3"
 
@@ -116,7 +116,7 @@ func TestCaixaDeSaidaMantemOFatoQuandoAPublicacaoFalha(t *testing.T) {
 	}
 
 	var tentativas int
-	if err := pool.QueryRow(ctx,
+	if err := pool.QueryRowContext(ctx,
 		`SELECT tentativas FROM outbox_eventos WHERE message_id = $1 AND publicado_em IS NULL`,
 		id).Scan(&tentativas); err != nil {
 		t.Fatalf("o fato deveria continuar pendente: %v", err)

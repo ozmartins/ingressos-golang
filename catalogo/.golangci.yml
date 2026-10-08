@@ -57,6 +57,8 @@ linters:
               desc: "domain/usecase não podem importar infraestrutura de plataforma (constituição, princípio I)"
             - pkg: "github.com/jackc/pgx"
               desc: "driver de banco é detalhe de adaptador"
+            - pkg: "gorm.io"
+              desc: "biblioteca de persistência é detalhe de adaptador"
             - pkg: "google.golang.org/grpc"
               desc: "transporte é detalhe de adaptador"
             - pkg: "github.com/rabbitmq/amqp091-go"

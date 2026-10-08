@@ -4,24 +4,18 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/jackc/pgx/v5/pgtype"
-
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/catalogo"
 )
 
-func dinheiroDeNumeric(n pgtype.Numeric) (catalogo.Dinheiro, error) {
-	if !n.Valid {
+// O NUMERIC chega como texto (`42.50`) e é convertido por aritmética racional
+// exata, que recusa o que tem mais de duas casas decimais.
+func dinheiroDeTexto(texto string) (catalogo.Dinheiro, error) {
+	if texto == "" {
 		return catalogo.Dinheiro{}, fmt.Errorf("preco_base nulo")
 	}
-	if n.NaN || n.InfinityModifier != pgtype.Finite {
-		return catalogo.Dinheiro{}, fmt.Errorf("preco_base não é um número finito")
-	}
-	r := new(big.Rat).SetInt(n.Int)
-	dez := big.NewInt(10)
-	if n.Exp >= 0 {
-		r.Mul(r, new(big.Rat).SetInt(new(big.Int).Exp(dez, big.NewInt(int64(n.Exp)), nil)))
-	} else {
-		r.Quo(r, new(big.Rat).SetInt(new(big.Int).Exp(dez, big.NewInt(int64(-n.Exp)), nil)))
+	r, ok := new(big.Rat).SetString(texto)
+	if !ok {
+		return catalogo.Dinheiro{}, fmt.Errorf("preco_base %q não é um número finito", texto)
 	}
 	return catalogo.DinheiroDeRat(r)
 }

@@ -16,14 +16,14 @@ func TestConsultasRefletemAlteracaoImediatamente(t *testing.T) {
 	carregarFixtures(t)
 	ctx := context.Background()
 
-	filmes := usecase.ListarFilmes{Repo: pgadapter.NovoFilmeRepository(pool)}
+	filmes := usecase.ListarFilmes{Repo: pgadapter.NovoFilmeRepository(banco)}
 
 	antes, err := filmes.Executar(ctx, usecase.FiltroFilmes{}, pagina(t, 1, 20))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := pool.Exec(ctx,
+	if _, err := pool.ExecContext(ctx,
 		`UPDATE filmes SET titulo = 'Duna: Parte 2 (Reestreia)' WHERE id = $1`, filmeDuna); err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +40,7 @@ func TestConsultasRefletemAlteracaoImediatamente(t *testing.T) {
 	}
 
 	antesGrade := consultar(t, usecase.FiltroSessoes{}, pagina(t, 1, 20))
-	if _, err := pool.Exec(ctx,
+	if _, err := pool.ExecContext(ctx,
 		`UPDATE sessoes SET status = 'CANCELADA' WHERE id = 'e1b2c3d4-0000-4000-8000-000000000001'`); err != nil {
 		t.Fatal(err)
 	}

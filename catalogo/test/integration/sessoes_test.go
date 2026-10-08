@@ -21,7 +21,7 @@ const (
 
 func consultar(t *testing.T, filtro usecase.FiltroSessoes, req shared.PageRequest) shared.Page[catalogo.SessaoDetalhada] {
 	t.Helper()
-	uc := usecase.ConsultarSessoes{Repo: pgadapter.NovoSessaoRepository(pool)}
+	uc := usecase.ConsultarSessoes{Repo: pgadapter.NovoSessaoRepository(banco)}
 	p, err := uc.Executar(context.Background(), filtro, req)
 	if err != nil {
 		t.Fatal(err)
@@ -132,15 +132,15 @@ func TestSessaoOrfaEhOmitidaSemDerrubarAGrade(t *testing.T) {
 	carregarFixtures(t)
 	ctx := context.Background()
 
-	if _, err := pool.Exec(ctx, `ALTER TABLE sessoes DROP CONSTRAINT sessoes_filme_id_fkey`); err != nil {
+	if _, err := pool.ExecContext(ctx, `ALTER TABLE sessoes DROP CONSTRAINT sessoes_filme_id_fkey`); err != nil {
 		t.Fatal(err)
 	}
 	defer func() {
-		_, _ = pool.Exec(ctx, `DELETE FROM sessoes WHERE id = 'orfa'`)
-		_, _ = pool.Exec(ctx, `ALTER TABLE sessoes ADD CONSTRAINT sessoes_filme_id_fkey FOREIGN KEY (filme_id) REFERENCES filmes(id)`)
+		_, _ = pool.ExecContext(ctx, `DELETE FROM sessoes WHERE id = 'orfa'`)
+		_, _ = pool.ExecContext(ctx, `ALTER TABLE sessoes ADD CONSTRAINT sessoes_filme_id_fkey FOREIGN KEY (filme_id) REFERENCES filmes(id)`)
 	}()
 
-	_, err := pool.Exec(ctx, `INSERT INTO sessoes (id, filme_id, sala_id, data_hora_inicio, idioma, preco_base, status)
+	_, err := pool.ExecContext(ctx, `INSERT INTO sessoes (id, filme_id, sala_id, data_hora_inicio, idioma, preco_base, status)
 	  VALUES ('orfa','filme-que-nao-existe','d1b2c3d4-0000-4000-8000-000000000001','2026-09-05T10:00:00Z','DUBLADO',30.00,'AGENDADA')`)
 	if err != nil {
 		t.Fatal(err)
@@ -159,7 +159,7 @@ func TestSessaoOrfaEhOmitidaSemDerrubarAGrade(t *testing.T) {
 
 func TestBuscarSessaoPorID(t *testing.T) {
 	carregarFixtures(t)
-	repo := pgadapter.NovoSessaoRepository(pool)
+	repo := pgadapter.NovoSessaoRepository(banco)
 
 	s, err := repo.BuscarPorID(context.Background(), "e1b2c3d4-0000-4000-8000-000000000001")
 	if err != nil {

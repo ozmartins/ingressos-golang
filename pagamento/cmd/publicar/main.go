@@ -43,7 +43,7 @@ func main() {
 	if err != nil {
 		morrer(err)
 	}
-	defer conexao.Close()
+	defer func() { _ = conexao.Close() }()
 
 	canal, err := conexao.Channel()
 	if err != nil {

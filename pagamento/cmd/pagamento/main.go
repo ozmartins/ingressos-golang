@@ -32,7 +32,7 @@ func (ids) Novo() string { return uuid.NewString() }
 
 func main() {
 	if err := executar(); err != nil {
-		os.Stderr.WriteString("pagamento: " + err.Error() + "\n")
+		_, _ = os.Stderr.WriteString("pagamento: " + err.Error() + "\n")
 		os.Exit(1)
 	}
 }
@@ -60,7 +60,7 @@ func executar() error {
 	if err != nil {
 		return err
 	}
-	defer conexao.Close()
+	defer func() { _ = conexao.Close() }()
 
 	canalTopologia, err := conexao.Channel()
 	if err != nil {

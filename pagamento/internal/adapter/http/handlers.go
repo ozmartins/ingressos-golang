@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/oseias/ingressos-golang/pagamento/internal/adapter/http/openapi"
 	"github.com/oseias/ingressos-golang/pagamento/internal/domain/transacao"
@@ -55,16 +56,45 @@ type API struct {
 }
 
 func (a *API) Rotas() http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /api/v1/pagamentos/reserva/{reserva_id}", a.consultar)
-	mux.HandleFunc("POST /api/v1/pagamentos/reserva/{reserva_id}", a.escolherForma)
-	mux.HandleFunc("GET /api/v1/health/live", a.vivo)
-	mux.HandleFunc("GET /api/v1/health/ready", a.pronto)
+	r := chi.NewRouter()
+	// O ServeMux atendia HEAD em todo padrão GET; o chi não. Registrar os dois
+	// mantém a resposta de antes.
+	get := func(caminho string, h http.HandlerFunc) {
+		r.Get(caminho, h)
+		r.Head(caminho, h)
+	}
+	get("/api/v1/pagamentos/reserva/{reserva_id}", a.consultar)
+	r.Post("/api/v1/pagamentos/reserva/{reserva_id}", a.escolherForma)
+	get("/api/v1/health/live", a.vivo)
+	get("/api/v1/health/ready", a.pronto)
 
-	mux.Handle("GET /openapi.yaml", openapi.HandlerEspecificacao())
-	mux.Handle("GET /docs", openapi.HandlerUI("/openapi.yaml"))
-	mux.Handle("GET /docs/", openapi.HandlerUI("/openapi.yaml"))
-	return mux
+	ui := openapi.HandlerUI("/openapi.yaml")
+	get("/openapi.yaml", openapi.HandlerEspecificacao())
+	get("/docs", ui)
+	// No ServeMux, "/docs/" casava toda a subárvore.
+	get("/docs/*", ui)
+
+	r.NotFound(http.NotFound)
+	r.MethodNotAllowed(func(w http.ResponseWriter, req *http.Request) {
+		w.Header().Set("Allow", strings.Join(metodosPermitidos(r, req.URL.Path), ", "))
+		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
+	})
+	return r
+}
+
+// Os métodos que casam com o caminho, em ordem alfabética, como o ServeMux
+// informava no cabeçalho Allow do 405.
+func metodosPermitidos(r chi.Routes, caminho string) []string {
+	var ms []string
+	for _, m := range []string{
+		http.MethodConnect, http.MethodDelete, http.MethodGet, http.MethodHead, http.MethodOptions,
+		http.MethodPatch, http.MethodPost, http.MethodPut, http.MethodTrace,
+	} {
+		if r.Match(chi.NewRouteContext(), m, caminho) {
+			ms = append(ms, m)
+		}
+	}
+	return ms
 }
 
 func (a *API) consultar(w http.ResponseWriter, r *http.Request) {
@@ -74,7 +104,7 @@ func (a *API) consultar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	reservaID := r.PathValue("reserva_id")
+	reservaID := chi.URLParam(r, "reserva_id")
 	if _, err := uuid.Parse(reservaID); err != nil {
 		responderErro(w, http.StatusBadRequest, CodReservaIDInvalido, "reserva_id deve ser um UUID")
 		return
@@ -102,7 +132,7 @@ func (a *API) escolherForma(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	reservaID := r.PathValue("reserva_id")
+	reservaID := chi.URLParam(r, "reserva_id")
 	if _, err := uuid.Parse(reservaID); err != nil {
 		responderErro(w, http.StatusBadRequest, CodReservaIDInvalido, "reserva_id deve ser um UUID")
 		return

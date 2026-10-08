@@ -33,6 +33,8 @@ linters:
               desc: "o intermediário de mensagens é detalhe de adaptador"
             - pkg: "net/http"
               desc: "framework web é detalhe de adaptador"
+            - pkg: "github.com/go-chi/chi"
+              desc: "roteador HTTP é detalhe de adaptador"
             - pkg: "go.opentelemetry.io/otel"
               desc: "observabilidade é detalhe de adaptador"
 formatters:

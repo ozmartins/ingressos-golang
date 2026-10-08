@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/oseias/ingressos-golang/notificacao/internal/adapter/http/openapi"
 	"github.com/oseias/ingressos-golang/notificacao/internal/platform/health"
 	"github.com/oseias/ingressos-golang/notificacao/internal/usecase"
@@ -23,16 +25,41 @@ type API struct {
 }
 
 func (a *API) Rotas() http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /api/v1/ingressos/meus-ingressos", a.listar)
-	mux.HandleFunc("POST /api/v1/ingressos/validar", a.validar)
-	mux.HandleFunc("GET /health/live", a.vivo)
-	mux.HandleFunc("GET /health/ready", a.pronto)
+	r := chi.NewRouter()
+	r.Use(middleware.GetHead)
+	r.MethodNotAllowed(metodoNaoPermitido(r))
 
-	mux.Handle("GET /openapi.yaml", openapi.HandlerEspecificacao())
-	mux.Handle("GET /docs", openapi.HandlerUI("/openapi.yaml"))
-	mux.Handle("GET /docs/", openapi.HandlerUI("/openapi.yaml"))
-	return mux
+	r.Get("/api/v1/ingressos/meus-ingressos", a.listar)
+	r.Post("/api/v1/ingressos/validar", a.validar)
+	r.Get("/health/live", a.vivo)
+	r.Get("/health/ready", a.pronto)
+
+	r.Get("/openapi.yaml", openapi.HandlerEspecificacao())
+	ui := openapi.HandlerUI("/openapi.yaml")
+	r.Get("/docs", ui)
+	r.Get("/docs/*", ui)
+	return r
+}
+
+// metodoNaoPermitido reproduz o 405 do ServeMux, que o chi não emite por
+// completo: informa em Allow os métodos aceitos pelo caminho.
+func metodoNaoPermitido(r *chi.Mux) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		var permitidos []string
+		for _, m := range []string{http.MethodGet, http.MethodPost} {
+			if !r.Match(chi.NewRouteContext(), m, req.URL.Path) {
+				continue
+			}
+			permitidos = append(permitidos, m)
+			if m == http.MethodGet { // GetHead atende HEAD onde há GET
+				permitidos = append(permitidos, http.MethodHead)
+			}
+		}
+		if len(permitidos) > 0 {
+			w.Header().Set("Allow", strings.Join(permitidos, ", "))
+		}
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 type ingressoResposta struct {

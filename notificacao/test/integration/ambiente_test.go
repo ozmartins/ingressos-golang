@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 	amqp091 "github.com/rabbitmq/amqp091-go"
 	"github.com/testcontainers/testcontainers-go"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
@@ -37,7 +36,7 @@ const (
 )
 
 type ambiente struct {
-	Pool      *pgxpool.Pool
+	Banco     *postgres.Banco
 	Ingressos postgres.Ingressos
 	Avisos    postgres.Avisos
 	Conexao   *amqp091.Connection
@@ -67,12 +66,12 @@ func subirAmbiente(t *testing.T) *ambiente {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pool, err := postgres.Conectar(ctx, dsn)
+	banco, err := postgres.Conectar(ctx, dsn)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(pool.Close)
-	aplicarMigracao(t, pool)
+	t.Cleanup(banco.Fechar)
+	aplicarMigracao(t, banco)
 
 	rmq, err := tcrabbit.Run(ctx, "rabbitmq:3.13-management-alpine")
 	if err != nil {
@@ -110,19 +109,19 @@ func subirAmbiente(t *testing.T) *ambiente {
 	}
 
 	return &ambiente{
-		Pool: pool, Ingressos: postgres.Ingressos{Pool: pool}, Avisos: postgres.Avisos{Pool: pool},
+		Banco: banco, Ingressos: postgres.Ingressos{DB: banco.DB()}, Avisos: postgres.Avisos{DB: banco.DB()},
 		Conexao: conexao, Canal: canal, Assinador: assinador,
 		Log: slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError})),
 	}
 }
 
-func aplicarMigracao(t *testing.T, pool *pgxpool.Pool) {
+func aplicarMigracao(t *testing.T, banco *postgres.Banco) {
 	t.Helper()
 	b, err := os.ReadFile(filepath.Join("..", "..", "migrations", "000001_criar_ingressos.up.sql"))
 	if err != nil {
 		t.Fatalf("ler migração: %v", err)
 	}
-	if _, err := pool.Exec(context.Background(), string(b)); err != nil {
+	if _, err := banco.SQL().ExecContext(context.Background(), string(b)); err != nil {
 		t.Fatalf("aplicar migração: %v", err)
 	}
 }
@@ -206,7 +205,7 @@ func esperar(t *testing.T, prazo time.Duration, mensagem string, cond func() boo
 func (a *ambiente) contarIngressos(t *testing.T) int {
 	t.Helper()
 	var n int
-	if err := a.Pool.QueryRow(context.Background(),
+	if err := a.Banco.SQL().QueryRowContext(context.Background(),
 		`SELECT count(*) FROM ingressos_emitidos`).Scan(&n); err != nil {
 		t.Fatalf("contar ingressos: %v", err)
 	}
@@ -218,7 +217,7 @@ func TestSchemaProprio(t *testing.T) {
 	ctx := context.Background()
 
 	var searchPath string
-	if err := a.Pool.QueryRow(ctx, `SELECT current_setting('search_path')`).Scan(&searchPath); err != nil {
+	if err := a.Banco.SQL().QueryRowContext(ctx, `SELECT current_setting('search_path')`).Scan(&searchPath); err != nil {
 		t.Fatalf("consultando search_path: %v", err)
 	}
 	if searchPath != postgres.Schema {
@@ -227,7 +226,7 @@ func TestSchemaProprio(t *testing.T) {
 
 	for _, tabela := range []string{"ingressos_emitidos", "registros_notificacao"} {
 		var emPublic *string
-		if err := a.Pool.QueryRow(ctx, `SELECT to_regclass('public.'|| $1)::text`, tabela).Scan(&emPublic); err != nil {
+		if err := a.Banco.SQL().QueryRowContext(ctx, `SELECT to_regclass('public.'|| $1)::text`, tabela).Scan(&emPublic); err != nil {
 			t.Fatalf("consultando public.%s: %v", tabela, err)
 		}
 		if emPublic != nil {

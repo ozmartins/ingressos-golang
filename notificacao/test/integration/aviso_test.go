@@ -37,7 +37,7 @@ func TestFalhaDoAvisoNaoImpedeEntradaNemReprocessa(t *testing.T) {
 	}
 
 	var status, detalhes string
-	if err := a.Pool.QueryRow(context.Background(),
+	if err := a.Banco.SQL().QueryRowContext(context.Background(),
 		`SELECT status, coalesce(detalhes,'') FROM registros_notificacao WHERE ingresso_id = $1`,
 		lista[0].ID).Scan(&status, &detalhes); err != nil {
 		t.Fatalf("ler registro de aviso: %v", err)

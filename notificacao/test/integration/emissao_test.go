@@ -48,7 +48,7 @@ func TestEntregasSimultaneasEmitemUmIngresso(t *testing.T) {
 	}
 
 	var avisos int
-	if err := a.Pool.QueryRow(context.Background(),
+	if err := a.Banco.SQL().QueryRowContext(context.Background(),
 		`SELECT count(*) FROM registros_notificacao`).Scan(&avisos); err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +119,7 @@ func TestFalhaTransitoriaRetentaAteOLimiteEEntaoVaiParaAQuarentena(t *testing.T)
 	a := subirAmbiente(t)
 	c := a.consumidor(t, false)
 
-	a.Pool.Close()
+	a.Banco.Fechar()
 
 	ctx, parar := context.WithCancel(context.Background())
 	defer parar()

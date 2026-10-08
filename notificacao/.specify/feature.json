@@ -1,3 +1,3 @@
 {
-  "feature_directory": "specs/001-emissao-ingressos"
+  "feature_directory": "specs/002-persistencia-gorm"
 }

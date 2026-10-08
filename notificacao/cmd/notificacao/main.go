@@ -49,11 +49,11 @@ func executar() error {
 	partida, cancelar := context.WithTimeout(ctx, 30*time.Second)
 	defer cancelar()
 
-	pool, err := postgres.Conectar(partida, cfg.DatabaseURL)
+	banco, err := postgres.Conectar(partida, cfg.DatabaseURL)
 	if err != nil {
 		return err
 	}
-	defer pool.Close()
+	defer banco.Fechar()
 
 	conexao, err := amqp.Dial(cfg.AMQPURL)
 	if err != nil {
@@ -76,10 +76,10 @@ func executar() error {
 		return err
 	}
 
-	ingressos := postgres.Ingressos{Pool: pool}
+	ingressos := postgres.Ingressos{DB: banco.DB()}
 	emitir := usecase.EmitirIngresso{
 		Ingressos:   ingressos,
-		Avisos:      postgres.Avisos{Pool: pool},
+		Avisos:      postgres.Avisos{DB: banco.DB()},
 		Notificador: simulado.Notificador{Falhar: cfg.NotificadorModo == config.NotificarFalhar, Log: log},
 		Assinador:   assinador,
 		Relogio:     sistema.Relogio{},
@@ -97,7 +97,7 @@ func executar() error {
 	}
 
 	prontidao := health.NovaProntidao()
-	prontidao.Registrar("postgres", func(c context.Context) error { return pool.Ping(c) })
+	prontidao.Registrar("postgres", banco.Verificar)
 	prontidao.Registrar("rabbitmq", func(context.Context) error {
 		if conexao.IsClosed() {
 			return errors.New("conexão com o broker fechada")

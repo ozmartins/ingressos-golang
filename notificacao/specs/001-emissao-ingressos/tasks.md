@@ -57,7 +57,7 @@ e testável de forma independente.
 - [X] T009 [P] Implementar `internal/platform/observability/observability.go` com `slog` em JSON, OpenTelemetry e extração de `traceparent` de cabeçalhos AMQP, espelhando `../pagamento/internal/platform/observability/`
 - [X] T010 [P] Implementar as sondas de vivacidade e prontidão em `internal/platform/health/health.go`
 - [X] T011 Escrever a migração `migrations/000001_criar_ingressos.up.sql` com as duas tabelas, as restrições `CHECK` e o índice `ingressos_por_pessoa`, exatamente como em `data-model.md` §1 e §3, e a `.down.sql` correspondente
-- [X] T012 [P] Implementar a conexão e o pool PostgreSQL em `internal/adapter/postgres/postgres.go` (pgx v5)
+- [X] T012 [P] Implementar a conexão e o pool PostgreSQL em `internal/adapter/postgres/postgres.go` (pgx v5; hoje GORM sobre pgx, ver spec 002)
 - [X] T013 [P] Implementar a topologia AMQP em `internal/adapter/amqp/topologia.go`: fila quórum, DLX, e `x-delivery-limit = AMQP_LIMITE_ENTREGAS - 1` com o comentário explicando a tradução tentativas→reentregas (research D5, contracts/eventos.md §2)
 - [X] T014 Implementar o núcleo de domínio em `internal/domain/ingresso/ingresso.go`: tipo `Status` (`VALIDO`, `UTILIZADO`, `CANCELADO`), construtor `Nova`, transição `Utilizar`, e rejeição de qualquer saída de estado terminal (FR-019)
 - [X] T015 [P] **[Princípio II]** Escrever o teste de domínio em `internal/domain/ingresso/ingresso_test.go`, sem banco, sem rede e com relógio injetado: `VALIDO`→`UTILIZADO` grava o instante; `UTILIZADO`→qualquer coisa é rejeitado; `CANCELADO`→qualquer coisa é rejeitado; a invariante "tem instante se e somente se está utilizado" vale em cada transição; e **a transição não altera `ReservaID`, `UsuarioID`, `CodigoQR` nem `CriadoEm`** (FR-020)
@@ -88,7 +88,7 @@ e testável de forma independente.
 
 ### Implementation
 
-- [X] T025 [US1] Implementar `CriarSeAusente` em `internal/adapter/postgres/ingressos.go` com `INSERT ... ON CONFLICT (reserva_id) DO NOTHING RETURNING *` (research D2)
+- [X] T025 [US1] Implementar `CriarSeAusente` em `internal/adapter/postgres/ingressos.go` com `INSERT ... ON CONFLICT (reserva_id) DO NOTHING` (research D2; hoje via `clause.OnConflict` do GORM, ver spec 002)
 - [X] T026 [US1] Implementar o caso de uso em `internal/usecase/emitir_ingresso.go`: validar os quatro campos obrigatórios → gerar id → gerar código → gravar → classificar o desfecho (emitido / inerte / quarentena / nova tentativa)
 - [X] T027 [US1] Implementar o consumidor em `internal/adapter/amqp/consumidor.go`: `Qos` com prefetch, ack manual, JSON ilegível → `Nack(requeue=false)`, e o desfecho do caso de uso traduzido em gesto AMQP. Registrar em log estruturado, a cada entrega, o desfecho (emitido / inerte / quarentena / nova tentativa), o `reserva_id` e o `ingresso_id` quando houver (FR-021)
 - [X] T028 [US1] Fiar a composição em `cmd/notificacao/main.go`: config → observabilidade → banco → topologia → portas → consumidor → servidor, com desligamento gracioso

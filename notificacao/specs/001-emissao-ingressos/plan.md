@@ -16,8 +16,8 @@ Arquitetura hexagonal em Go, duas tabelas, **nenhum fato publicado**, sobre quat
 decisões que moldam o desenho:
 
 1. **A emissão única mora na restrição `UNIQUE (reserva_id)`** (research D2). Um
-   `INSERT ... ON CONFLICT DO NOTHING RETURNING *` decide, sob entregas simultâneas,
-   qual delas emite. A linha do ingresso **é** o registro de "já processei" — sem
+   `INSERT ... ON CONFLICT (reserva_id) DO NOTHING` decide, sob entregas simultâneas,
+   qual delas emite (uma linha afetada = emitiu; zero = outra entrega chegou primeiro). A linha do ingresso **é** o registro de "já processei" — sem
    tabela de mensagens processadas, sem trava distribuída.
 2. **A baixa na portaria é uma escrita condicionada, não uma leitura seguida de
    escrita** (D4). `UPDATE ... WHERE id = $1 AND status = 'VALIDO'`: uma linha afetada
@@ -41,8 +41,11 @@ precisou para fechar a janela entre gravar e publicar aqui não teria função.
 1.27.0 por ser o toolchain instalado e o do serviço mais recente.
 
 **Primary Dependencies** (todas já em uso no workspace, verificadas em `pagamento/go.mod`):
-- `github.com/jackc/pgx/v5` — driver e pool PostgreSQL; SQL à mão, para manter o
-  `ON CONFLICT` e o `UPDATE` condicionado visíveis no código
+- `gorm.io/gorm` + `gorm.io/driver/postgres` — acesso a dados, sobre o driver
+  `github.com/jackc/pgx/v5` (que abre a conexão e fixa o `search_path`). O `ON CONFLICT`
+  e o `UPDATE` condicionado continuam explícitos no adaptador, via `clause.OnConflict` e
+  `Where(...).Updates(...)`; sem `AutoMigrate`. _Atualizado pela spec 002: a versão
+  original usava `pgxpool` com SQL à mão_ (ver `../002-persistencia-gorm/`)
 - `github.com/rabbitmq/amqp091-go` — consumo AMQP com ack manual
 - `github.com/golang-migrate/migrate/v4` — migrações versionadas
 - `github.com/google/uuid` — identidade do ingresso e do registro de aviso

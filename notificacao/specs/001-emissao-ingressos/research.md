@@ -50,8 +50,11 @@ não se usa transformaria uma mudança inofensiva do produtor em quarentena em m
 
 **Decisão**: a garantia de um ingresso por reserva (FR-004) mora na restrição
 `UNIQUE (reserva_id)` da tabela. A emissão é um
-`INSERT ... ON CONFLICT (reserva_id) DO NOTHING RETURNING *`; devolver zero linhas
-significa "outra entrega chegou primeiro", e essa entrega não emite nem avisa.
+`INSERT ... ON CONFLICT (reserva_id) DO NOTHING`; zero linhas afetadas significa "outra
+entrega chegou primeiro" (o adaptador então lê o ingresso existente), e essa entrega não
+emite nem avisa. _Nota (spec 002): o adaptador passou a usar GORM
+(`clause.OnConflict{DoNothing: true}` + `RowsAffected`) em vez de `... RETURNING *` com
+`pgx`; a garantia continua sendo a restrição `UNIQUE` do banco._
 
 **Rationale**: a linha do ingresso **é** o registro de "esta reserva já foi
 processada". Não existe janela entre verificar e inserir, porque não há verificação

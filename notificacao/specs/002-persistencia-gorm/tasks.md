@@ -3,7 +3,7 @@
 **Input**: Design documents from `specs/002-persistencia-gorm/`
 **Prerequisites**: [plan.md](./plan.md), [spec.md](./spec.md), [research.md](./research.md), [data-model.md](./data-model.md), [quickstart.md](./quickstart.md)
 
-**Tests**: não há testes novos de comportamento — a equivalência é provada pelas suítes existentes, sem alterar asserções (SC-001). A única adição de teste é o de arquitetura (US3), exigido por SC-005.
+**Tests**: não há testes novos de comportamento — a equivalência é provada pelas suítes existentes, sem alterar asserções (SC-001). A fronteira do núcleo (US3, SC-005) é verificada por regra do linter `depguard`, sem teste novo.
 
 **Regras do repositório**: commitar direto na `master`, sem branch de feature. Todos os comandos Go rodam dentro de `ingressos-golang/notificacao/`. Mensagens de commit seguem Conventional Commits, em inglês.
 
@@ -54,7 +54,7 @@
 **Independent Test**: quickstart §4 (banco populado pela versão anterior) e `docker compose up` em banco vazio.
 
 - [X] T011 [US2] Verificar por inspeção que não há `AutoMigrate`/`Migrator()` no código (`grep -rn "AutoMigrate\|Migrator" --include=*.go .` vazio) e que `migrations/` e `Makefile` (`MIGRATE_URL` com `search_path=notificacao`) permanecem sem diff (`git status --short migrations Makefile` vazio)
-- [ ] T012 [US2] Validação manual do quickstart §3 e §4: com a versão anterior (imagem ou binário do commit anterior, p.ex. via `git worktree` temporário) emitir alguns ingressos, subir o serviço novo sobre o mesmo banco e confirmar listagem, consulta e validação dos registros antigos; `docker compose up --build` em banco vazio sobe saudável (`/health` do notificacao). Reportar o resultado; se Docker/compose não estiver disponível, dizer isso em vez de marcar como feito — §4 verificado com Postgres real semeado por SQL (lista, filtro, vazio≠nulo, inexistente, baixa 1x, reemissão devolve o original, `codigo_qr` repetido falha, CHECK de aviso recusa); `docker compose up` completo (§3) NÃO executado
+- [X] T012 [US2] Validação manual do quickstart §3 e §4: com a versão anterior (imagem ou binário do commit anterior, p.ex. via `git worktree` temporário) emitir alguns ingressos, subir o serviço novo sobre o mesmo banco e confirmar listagem, consulta e validação dos registros antigos; `docker compose up --build` em banco vazio sobe saudável (`/health` do notificacao). Reportar o resultado; se Docker/compose não estiver disponível, dizer isso em vez de marcar como feito — feito: (a) Postgres real semeado por SQL como o adaptador antigo gravava: lista, filtro, vazio≠nulo, inexistente, baixa 1x, reemissão devolve o original, `codigo_qr` repetido falha, CHECK de aviso recusa; (b) `docker compose up --build notificacao` (com postgres, rabbitmq, keycloak e `migrate-notificacao`): migração aplicada, `/health/ready` = pronto, serviço no ar. Limite: só o `notificacao` e suas dependências subiram, não a plataforma inteira
 
 ---
 
@@ -64,8 +64,8 @@
 
 **Independent Test**: `go test ./test/...` passa; introduzir temporariamente um import de `gorm.io/gorm` em `internal/usecase` faz o teste falhar.
 
-- [X] T013 [P] [US3] Criar `test/arquitetura_test.go` (pacote `test`) seguindo `../estoque/test/arquitetura_test.go`: `modulo = "github.com/oseias/ingressos-golang/notificacao"`; `go list -json` sobre `internal/domain/...` e `internal/usecase/...`; falhar se `Imports`/`TestImports` contiver `modulo+"/internal/adapter"`, `modulo+"/internal/platform"`, `gorm.io`, `github.com/jackc/pgx`, `github.com/rabbitmq/amqp091-go`, `go.opentelemetry.io/otel` ou `net/http`; contar pacotes verificados e falhar se zero
-- [X] T014 [US3] Provar que o teste morde: acrescentar temporariamente `_ "gorm.io/gorm"` a um arquivo de `internal/usecase`, ver `go test ./test/...` falhar, desfazer e ver passar. Não commitar a alteração temporária
+- [X] T013 [P] [US3] Acrescentar o linter `depguard` ao `.golangci.yml` com a regra `nucleo-sem-adaptadores`, no padrão de `../catalogo/.golangci.yml`: `files` = `**/internal/domain/**` e `**/internal/usecase/**`; `deny` = `github.com/oseias/ingressos-golang/notificacao/internal/adapter`, `.../internal/platform`, `gorm.io`, `github.com/jackc/pgx`, `github.com/rabbitmq/amqp091-go`, `net/http`, `go.opentelemetry.io/otel`, cada um com `desc`
+- [X] T014 [US3] Provar que a regra morde: acrescentar temporariamente `_ "gorm.io/gorm"` a um arquivo de `internal/usecase`, ver `golangci-lint run ./internal/usecase/...` reprovar com `depguard`, desfazer e ver passar. Não commitar a alteração temporária
 
 ---
 
@@ -73,8 +73,8 @@
 
 - [X] T015 [P] Rodar `make lint` (golangci-lint) e `gofmt -l .`; corrigir apenas o que a mudança introduziu — `gofmt`, `go vet` e `golangci-lint` rodados: 10 achados, todos em código anterior à troca (errcheck/bodyclose/staticcheck/unused em `cmd/`, `internal/adapter/http`, `codigo`, `usecase`); nenhum nos arquivos do adaptador `postgres`
 - [X] T016 [P] Atualizar `README.md` do serviço se citar `pgx`/`pgxpool` como mecanismo de persistência (`grep -n "pgx" README.md`); não editar os artefatos da spec 001 (decisão registrada no plan.md)
-- [ ] T017 Rodar o quickstart §1–§2 do início ao fim e confirmar SC-001..SC-006; medir informalmente a latência de emissão/listagem (SC-006) comparando com a versão anterior, ou declarar que não foi medida — §1–§2 rodados e verdes; §3–§4 pendentes (T012)
-- [ ] T018 Commitar na `master` (sem criar branch) com `git add` dos caminhos de `notificacao/` alterados e de `notificacao/specs/002-persistencia-gorm/`; mensagem sugerida: `refactor(notificacao): persist and read through GORM instead of raw pgx`. Sem `push`
+- [X] T017 Rodar o quickstart §1–§2 do início ao fim e confirmar SC-001..SC-006; medir informalmente a latência de emissão/listagem (SC-006) comparando com a versão anterior, ou declarar que não foi medida — §1–§2 verdes; §3 no compose: `pagamento.sucesso` publicado 2× para a mesma reserva → 1 ingresso e 1 aviso; validação 200 / 409 (já utilizado) / 404 (código forjado); listagem por JWT mais recente primeiro, com filtro `status`, 401 sem token. SC-006 sem medição própria (só os testes com prazo, que passaram)
+- [ ] T018 Commitar na `master` (sem criar branch) com `git add` dos caminhos de `notificacao/` alterados e de `notificacao/specs/002-persistencia-gorm/`; mensagem sugerida: `refactor(notificacao): persist and read through GORM instead of raw pgx`. Sem `push` — commit `f79b452` já feito fora desta sessão, com `arquitetura_test.go`; falta um commit de acompanhamento com a troca para `depguard` (`.golangci.yml`, remoção do teste e ajustes na spec)
 
 ---
 
@@ -92,7 +92,7 @@
 Após T002: T003 || (nada)         # modelos.go
 Após T003: T004 || T005           # ingressos.go || avisos.go
 Após T007: T008                   # emissao_test.go || aviso_test.go
-Qualquer momento: T013            # arquitetura_test.go
+Qualquer momento: T013            # .golangci.yml
 ```
 
 ## Implementation Strategy

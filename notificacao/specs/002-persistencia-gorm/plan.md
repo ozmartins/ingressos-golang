@@ -23,8 +23,9 @@ Decisões que moldam o desenho (detalhe em [research.md](./research.md)):
 3. **Modelos GORM vivem no adaptador, não no domínio.** Structs privadas com tags
    `gorm:"column:..."` e `TableName()` sem schema (D3).
 4. **Esquema só pela migração.** Sem `AutoMigrate` (D4).
-5. **Teste de arquitetura passa a existir** (`test/arquitetura_test.go`): o serviço não
-   tem um hoje, e o SC-005 pede verificação automática (D6).
+5. **A fronteira do núcleo passa a ser verificada pelo `depguard`** (regra
+   `nucleo-sem-adaptadores` no `.golangci.yml`, como no `catalogo`): o serviço não tem
+   verificação hoje, e o SC-005 pede que seja automática (D6).
 
 Nenhum contrato muda (REST, AMQP), então esta feature **não tem `contracts/`**.
 
@@ -56,8 +57,8 @@ ida-e-volta extra por escrita; sem `PrepareStmt` (o pgx já cacheia).
 atômica condicional; nenhum DDL emitido pelo serviço; logger do GORM descartado (não
 vaza SQL/parâmetros nem "record not found" como ruído).
 
-**Scale/Scope**: 3 arquivos de adaptador reescritos, 1 ajuste em `main.go`, 1 teste
-novo de arquitetura, ~8 chamadas ajustadas nos testes de integração.
+**Scale/Scope**: 3 arquivos de adaptador reescritos, 1 ajuste em `main.go`, 1 regra
+`depguard` nova no `.golangci.yml`, ~8 chamadas ajustadas nos testes de integração.
 
 ## Constitution Check
 
@@ -68,7 +69,7 @@ template não preenchido; vale a do workspace (`../.specify/memory/constitution.
 
 | Princípio | Veredito | Evidência |
 |---|---|---|
-| I. Complexidade só se necessária ou pedida | **PASS** | A troca foi pedida. Sem camada de repositório nova, sem generics, sem `AutoMigrate`, sem hooks, sem associações. O teste de arquitetura novo é o mínimo para cumprir SC-005 (≈40 linhas, mesmo padrão do `estoque`) |
+| I. Complexidade só se necessária ou pedida | **PASS** | A troca foi pedida. Sem camada de repositório nova, sem generics, sem `AutoMigrate`, sem hooks, sem associações. A regra `depguard` é o mínimo para cumprir SC-005: sem código novo, só configuração do linter que o serviço já usa |
 | II. Domínio e API têm teste automatizado | **PASS** | Nenhum comportamento muda; as suítes unitárias e de integração existentes são o critério de aceite (`emissao_test`, `validacao_test`, `aviso_test`, `vazao*_test`) |
 | III. O código é a fonte da verdade | **PASS** | Comportamentos a preservar lidos de `ingressos.go`, `avisos.go`, `postgres.go` e dos testes, não da spec 001 |
 | IV. Divergência código↔spec é pergunta | **ATENÇÃO** | Ver "Perguntas ao mantenedor" |
@@ -78,14 +79,10 @@ Complexity Tracking.
 
 ### Perguntas ao mantenedor (princípio IV)
 
-1. **Como verificar a fronteira do núcleo (FR-010/SC-005)**: hoje o `notificacao` não
-   tem nenhuma verificação automática (o `CLAUDE.md` já registra que `pagamento` e
-   `notificacao` não têm). O workspace usa duas formas: o `test/arquitetura_test.go` do
-   `estoque` (`go list -json`, roda em `make test`) e a regra `depguard`
-   `nucleo-sem-adaptadores` do `catalogo` (`.golangci.yml`, roda em `make lint`). Este
-   plano **escolhe o teste do `estoque`** (≈40 linhas, falha já em `make test`, que é o
-   que o SC-005 pede); o núcleo hoje está limpo, então passa de primeira. Se preferir a
-   regra `depguard`, a tarefa T013 troca de arquivo (`.golangci.yml`) sem afetar o resto.
+1. **Como verificar a fronteira do núcleo (FR-010/SC-005)** — _decidido pelo mantenedor_:
+   regra `depguard` `nucleo-sem-adaptadores` no `.golangci.yml` (mesmo mecanismo do
+   `catalogo`), em vez do `test/arquitetura_test.go` do `estoque`. Consequência: a
+   verificação roda em `make lint`, não em `make test`.
 2. **Spec 001**: `plan.md`/`research.md`/`data-model.md` da 001 citam `pgx` com SQL à
    mão. Após esta feature deixam de descrever o código. O plano assume que a 001 fica
    como registro histórico e **não a edita**; nada nas tarefas depende da resposta.
@@ -117,8 +114,8 @@ notificacao/
 │   ├── modelos.go                       # NOVO — ingressoRow, avisoRow (+ TableName) e conversões de/para o domínio
 │   ├── ingressos.go                     # Ingressos{DB *gorm.DB} sobre GORM; mesma porta usecase.Ingressos
 │   └── avisos.go                        # Avisos{DB *gorm.DB} sobre GORM; mesma porta usecase.Avisos
+├── .golangci.yml                        # + linter depguard, regra nucleo-sem-adaptadores
 ├── test/
-│   ├── arquitetura_test.go              # NOVO — núcleo não importa adapter/platform/gorm/pgx/amqp
 │   └── integration/*_test.go            # harness: Pool *pgxpool.Pool → Banco; QueryRow → SQL().QueryRowContext
 ├── go.mod / go.sum                      # + gorm, driver postgres; pgx deixa de ser indirect
 └── internal/domain, internal/usecase    # NÃO mudam

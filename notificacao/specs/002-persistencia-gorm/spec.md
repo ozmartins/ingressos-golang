@@ -109,6 +109,6 @@ Quem mantém o código continua encontrando o acesso a dados isolado em adaptado
 - Os contratos versionados (OpenAPI) e as mensagens AMQP não mudam, portanto não há nova versão de contrato.
 - RabbitMQ, a segurança (JWT e chave de API) e o envio efetivo do aviso (adaptador de notificador) não são afetados.
 - Se algum comportamento exigido (inserção que ignora conflito e devolve a linha criada, atualização condicional com contagem de linhas afetadas) não puder ser expresso por meios nativos do GORM, é aceitável usar o mecanismo de consulta bruta do próprio GORM dentro do adaptador, sem alterar o núcleo.
-- Hoje o serviço não possui um teste de arquitetura automatizado como os outros serviços; a verificação de SC-005 pode exigir criá-lo ou fazê-la por inspeção de imports — decisão a ser tomada no plano, respeitando o princípio de não adicionar complexidade sem necessidade.
+- Hoje o serviço não possui verificação automática da fronteira do núcleo; o plano a cria com uma regra do linter de dependências (`depguard`), como o `catalogo`, sem código novo de teste.
 - Divergências entre o código atual e a spec 001 são tratadas conforme o princípio de que o código é a fonte da verdade; qualquer divergência encontrada será levada ao mantenedor, não corrigida unilateralmente.
 - O trabalho é commitado direto na `master`, sem branch de feature.

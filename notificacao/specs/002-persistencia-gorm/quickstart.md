@@ -7,10 +7,12 @@ Pré-requisitos: Go 1.25+, Docker (Testcontainers e `docker compose`).
 ```
 cd ingressos-golang/notificacao
 make test
+make lint
 ```
 
-Esperado: tudo verde, inclusive `test/arquitetura_test.go` (o núcleo não importa
-`gorm.io` nem `pgx`) e as suítes de domínio/casos de uso sem tocar em banco (US3).
+Esperado: `make test` verde (domínio e casos de uso sem tocar em banco) e `make lint` sem
+nenhum achado do `depguard` — o núcleo não importa `gorm.io` nem `pgx` (US3). Os demais
+achados do linter são anteriores a esta feature.
 
 ## 2. Integração contra Postgres e RabbitMQ reais
 

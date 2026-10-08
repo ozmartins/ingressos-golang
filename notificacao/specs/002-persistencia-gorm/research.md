@@ -97,19 +97,19 @@ consulta mais simples.
 
 ## D6 — Verificação de arquitetura (SC-005)
 
-**Decisão**: criar `test/arquitetura_test.go`, copiando o padrão do `estoque`
-(`go list -json` sobre `internal/domain/...` e `internal/usecase/...`, falha se importar
+**Decisão**: regra `depguard` `nucleo-sem-adaptadores` no `.golangci.yml`, igual à do
+`catalogo` (`files`: `**/internal/domain/**` e `**/internal/usecase/**`; `deny`:
 `internal/adapter`, `internal/platform`, `gorm.io`, `github.com/jackc/pgx`,
-`github.com/rabbitmq/amqp091-go`, `net/http` ou `go.opentelemetry.io/otel`). Verificado: o
-núcleo atual importa só a stdlib e seus próprios pacotes, então o teste passa de primeira.
+`github.com/rabbitmq/amqp091-go`, `net/http`, `go.opentelemetry.io/otel`). Verificado: o
+núcleo atual importa só a stdlib e seus próprios pacotes, então a regra passa limpa.
 
-**Rationale**: SC-005 pede verificação automática. O teste roda em `make test`, sem
-depender do linter, e é o padrão do `estoque`. Custo ≈40 linhas. Registrado como pergunta
-ao mantenedor (plan.md), porque o workspace tem dois mecanismos.
+**Rationale**: decisão do mantenedor. Sem código novo de teste; reaproveita o linter que o
+serviço já roda. A regra morde: um `import _ "gorm.io/gorm"` em `internal/usecase` é
+reprovado pelo `golangci-lint`.
 
-**Alternativas**: (a) regra `depguard` em `.golangci.yml`, como no `catalogo` — válida e
-sem código novo de teste, mas só falha em `make lint`; (b) só inspeção manual de imports —
-rejeitada: não impede regressão.
+**Alternativas**: (a) `test/arquitetura_test.go` no padrão do `estoque` (`go list -json`) —
+foi a escolha inicial; falharia já em `make test`, mas custa ≈40 linhas de teste;
+(b) só inspeção manual de imports — rejeitada: não impede regressão.
 
 ## D7 — Tradução de erros
 

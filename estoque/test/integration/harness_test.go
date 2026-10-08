@@ -4,11 +4,11 @@ package integration
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/oseias/ingressos-golang/estoque/internal/adapter/postgres"
 	adaptadorredis "github.com/oseias/ingressos-golang/estoque/internal/adapter/redis"
@@ -31,7 +31,7 @@ func (r registrador) Error(msg string, args ...any) { r.t.Logf("ERROR %s %v", ms
 
 type Cenario struct {
 	Banco     *postgres.Banco
-	Pool      *pgxpool.Pool
+	Pool      *sql.DB
 	Reservas  *postgres.Reservas
 	Poltronas *postgres.Poltronas
 	Relogio   *shared.RelogioFixo
@@ -74,7 +74,7 @@ func montarCenario(t *testing.T, comPrazo bool) *Cenario {
 	log := registrador{t: t}
 
 	return &Cenario{
-		Banco: banco, Pool: banco.Pool(), Reservas: reservas, Poltronas: poltronas, Relogio: relogio,
+		Banco: banco, Pool: banco.SQL(), Reservas: reservas, Poltronas: poltronas, Relogio: relogio,
 		Bloquear: usecase.BloquearPoltronas{
 			Reservas: reservas, Prazo: prazo, Relogio: relogio, Log: log,
 			TTL: 10 * time.Minute, Limite: 10,
@@ -118,7 +118,7 @@ func (c *Cenario) novaSessao(t *testing.T, fileiras []string, assentos int) stri
 func (c *Cenario) statusPoltrona(t *testing.T, sessaoID, rotulo string) poltrona.Status {
 	t.Helper()
 	var status string
-	err := c.Pool.QueryRow(context.Background(),
+	err := c.Pool.QueryRowContext(context.Background(),
 		`SELECT status FROM poltronas WHERE sessao_id = $1 AND rotulo = $2`, sessaoID, rotulo).Scan(&status)
 	if err != nil {
 		t.Fatalf("ler poltrona %s: %v", rotulo, err)
@@ -129,7 +129,7 @@ func (c *Cenario) statusPoltrona(t *testing.T, sessaoID, rotulo string) poltrona
 func (c *Cenario) statusReserva(t *testing.T, reservaID string) string {
 	t.Helper()
 	var status string
-	err := c.Pool.QueryRow(context.Background(),
+	err := c.Pool.QueryRowContext(context.Background(),
 		`SELECT status FROM reservas WHERE id = $1`, reservaID).Scan(&status)
 	if err != nil {
 		t.Fatalf("ler reserva %s: %v", reservaID, err)
@@ -139,7 +139,7 @@ func (c *Cenario) statusReserva(t *testing.T, reservaID string) string {
 
 func (c *Cenario) contarPorStatus(t *testing.T, sessaoID string) map[string]int {
 	t.Helper()
-	linhas, err := c.Pool.Query(context.Background(),
+	linhas, err := c.Pool.QueryContext(context.Background(),
 		`SELECT status, count(*) FROM poltronas WHERE sessao_id = $1 GROUP BY status`, sessaoID)
 	if err != nil {
 		t.Fatalf("contar poltronas: %v", err)

@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/jackc/pgx/v5"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/oseias/ingressos-golang/estoque/internal/usecase"
 )
 
-func enfileirarFato(ctx context.Context, tx pgx.Tx, fato usecase.FatoPendente) error {
+func enfileirarFato(tx *gorm.DB, fato usecase.FatoPendente) error {
 	var traceJSON []byte
 	if len(fato.TraceContext) > 0 {
 		var err error
@@ -19,13 +20,15 @@ func enfileirarFato(ctx context.Context, tx pgx.Tx, fato usecase.FatoPendente) e
 		}
 	}
 
-	_, err := tx.Exec(ctx, `
-		INSERT INTO outbox_eventos (message_id, routing_key, payload, trace_context)
-		VALUES ($1, $2, $3, $4)
-		ON CONFLICT (message_id) DO NOTHING`,
-		fato.MessageID, fato.RoutingKey, fato.Payload, traceJSON)
-	if err != nil {
-		return indisponivel(err)
+	res := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "message_id"}}, DoNothing: true}).
+		Create(&outboxRow{
+			MessageID:    fato.MessageID,
+			RoutingKey:   fato.RoutingKey,
+			Payload:      fato.Payload,
+			TraceContext: traceJSON,
+		})
+	if res.Error != nil {
+		return indisponivel(res.Error)
 	}
 	return nil
 }
@@ -41,46 +44,31 @@ type FatoNaCaixa struct {
 func (b *Banco) PendentesParaPublicar(ctx context.Context, limite int, fn func(FatoNaCaixa) error) (int, error) {
 	publicados := 0
 
-	err := b.EmTransacao(ctx, func(tx pgx.Tx) error {
-		linhas, err := tx.Query(ctx, `
-			SELECT id, message_id, routing_key, payload, trace_context
-			  FROM outbox_eventos
-			 WHERE publicado_em IS NULL
-			 ORDER BY id
-			 LIMIT $1
-			   FOR UPDATE SKIP LOCKED`, limite)
-		if err != nil {
+	err := b.EmTransacao(ctx, func(tx *gorm.DB) error {
+		var linhas []outboxRow
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
+			Select("id", "message_id", "routing_key", "payload", "trace_context").
+			Where("publicado_em IS NULL").
+			Order("id").
+			Limit(limite).
+			Find(&linhas).Error; err != nil {
 			return indisponivel(err)
 		}
 
-		var lote []FatoNaCaixa
-		for linhas.Next() {
-			var f FatoNaCaixa
-			var traceJSON []byte
-			if err := linhas.Scan(&f.ID, &f.MessageID, &f.RoutingKey, &f.Payload, &traceJSON); err != nil {
-				linhas.Close()
-				return indisponivel(err)
+		for _, l := range linhas {
+			f := FatoNaCaixa{ID: l.ID, MessageID: l.MessageID, RoutingKey: l.RoutingKey, Payload: l.Payload}
+			if len(l.TraceContext) > 0 {
+				_ = json.Unmarshal(l.TraceContext, &f.TraceContext)
 			}
-			if len(traceJSON) > 0 {
-				_ = json.Unmarshal(traceJSON, &f.TraceContext)
-			}
-			lote = append(lote, f)
-		}
-		linhas.Close()
-		if err := linhas.Err(); err != nil {
-			return indisponivel(err)
-		}
 
-		for _, f := range lote {
+			caixa := tx.Model(&outboxRow{}).Where("id = ?", f.ID)
 			if err := fn(f); err != nil {
-				if _, errTent := tx.Exec(ctx,
-					`UPDATE outbox_eventos SET tentativas = tentativas + 1 WHERE id = $1`, f.ID); errTent != nil {
+				if errTent := caixa.Update("tentativas", gorm.Expr("tentativas + 1")).Error; errTent != nil {
 					return indisponivel(errTent)
 				}
 				continue
 			}
-			if _, err := tx.Exec(ctx,
-				`UPDATE outbox_eventos SET publicado_em = now() WHERE id = $1`, f.ID); err != nil {
+			if err := caixa.Update("publicado_em", gorm.Expr("now()")).Error; err != nil {
 				return indisponivel(err)
 			}
 			publicados++

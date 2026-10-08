@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jackc/pgx/v5"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/poltrona"
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/reserva"
@@ -18,32 +19,14 @@ type Reservas struct{ banco *Banco }
 func NovoRepositorioReservas(b *Banco) *Reservas { return &Reservas{banco: b} }
 
 func (r *Reservas) Conceder(ctx context.Context, sol reserva.Solicitacao, res reserva.Reserva, fato usecase.FatoPendente) error {
-	return r.banco.EmTransacao(ctx, func(tx pgx.Tx) error {
-		linhas, err := tx.Query(ctx, `
-			SELECT id, rotulo, status
-			  FROM poltronas
-			 WHERE sessao_id = $1 AND rotulo = ANY($2)
-			 ORDER BY rotulo
-			   FOR UPDATE NOWAIT`, sol.SessaoID, sol.Rotulos)
+	return r.banco.EmTransacao(ctx, func(tx *gorm.DB) error {
+		var encontradas []poltronaRow
+		err := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "NOWAIT"}).
+			Select("id", "rotulo", "status").
+			Where("sessao_id = ? AND rotulo IN ?", sol.SessaoID, sol.Rotulos).
+			Order("rotulo").
+			Find(&encontradas).Error
 		if err != nil {
-			if ehConflitoDeTravamento(err) {
-				return fmt.Errorf("%w: disputa simultânea", shared.ErrPoltronasIndisponiveis)
-			}
-			return indisponivel(err)
-		}
-
-		type travada struct{ id, rotulo, status string }
-		var encontradas []travada
-		for linhas.Next() {
-			var t travada
-			if err := linhas.Scan(&t.id, &t.rotulo, &t.status); err != nil {
-				linhas.Close()
-				return indisponivel(err)
-			}
-			encontradas = append(encontradas, t)
-		}
-		linhas.Close()
-		if err := linhas.Err(); err != nil {
 			if ehConflitoDeTravamento(err) {
 				return fmt.Errorf("%w: disputa simultânea", shared.ErrPoltronasIndisponiveis)
 			}
@@ -52,7 +35,7 @@ func (r *Reservas) Conceder(ctx context.Context, sol reserva.Solicitacao, res re
 
 		if len(encontradas) != len(sol.Rotulos) {
 			if len(encontradas) == 0 {
-				provisionada, err := sessaoProvisionada(ctx, tx, sol.SessaoID)
+				provisionada, err := sessaoProvisionada(tx, sol.SessaoID)
 				if err != nil {
 					return err
 				}
@@ -65,46 +48,65 @@ func (r *Reservas) Conceder(ctx context.Context, sol reserva.Solicitacao, res re
 
 		ids := make([]string, 0, len(encontradas))
 		for _, t := range encontradas {
-			if poltrona.Status(t.status) != poltrona.Livre {
-				return fmt.Errorf("%w: poltrona %s está %s", shared.ErrPoltronasIndisponiveis, t.rotulo, t.status)
+			if poltrona.Status(t.Status) != poltrona.Livre {
+				return fmt.Errorf("%w: poltrona %s está %s", shared.ErrPoltronasIndisponiveis, t.Rotulo, t.Status)
 			}
-			ids = append(ids, t.id)
+			ids = append(ids, t.ID)
 		}
 
-		if _, err := tx.Exec(ctx, `
-			INSERT INTO reservas (id, sessao_id, usuario_id, expira_em, status, criado_em, valor_total)
-			VALUES ($1, $2, $3, $4, 'PENDENTE', $5, $6)`,
-			res.ID, res.SessaoID, res.UsuarioID, res.ExpiraEm, res.CriadoEm, res.ValorTotal); err != nil {
+		if err := tx.Create(&reservaRow{
+			ID: res.ID, SessaoID: res.SessaoID, UsuarioID: res.UsuarioID,
+			ExpiraEm: res.ExpiraEm, Status: string(reserva.Pendente), CriadoEm: res.CriadoEm,
+			ValorTotal: &res.ValorTotal,
+		}).Error; err != nil {
 			return indisponivel(err)
 		}
 
+		vinculos := make([]reservaPoltronaRow, 0, len(ids))
 		for _, id := range ids {
-			if _, err := tx.Exec(ctx,
-				`INSERT INTO reserva_poltronas (reserva_id, poltrona_id) VALUES ($1, $2)`,
-				res.ID, id); err != nil {
-				return indisponivel(err)
-			}
+			vinculos = append(vinculos, reservaPoltronaRow{ReservaID: res.ID, PoltronaID: id})
 		}
-
-		if _, err := tx.Exec(ctx, `
-			UPDATE poltronas
-			   SET status = 'RESERVADA', atualizado_em = now()
-			 WHERE id = ANY($1)`, ids); err != nil {
+		if err := tx.Create(&vinculos).Error; err != nil {
 			return indisponivel(err)
 		}
 
-		return enfileirarFato(ctx, tx, fato)
+		if err := tx.Model(&poltronaRow{}).Where("id IN ?", ids).
+			Updates(map[string]any{"status": string(poltrona.Reservada), "atualizado_em": gorm.Expr("now()")}).Error; err != nil {
+			return indisponivel(err)
+		}
+
+		return enfileirarFato(tx, fato)
 	})
 }
 
-func sessaoProvisionada(ctx context.Context, tx pgx.Tx, sessaoID string) (bool, error) {
+func sessaoProvisionada(tx *gorm.DB, sessaoID string) (bool, error) {
 	var existe bool
-	err := tx.QueryRow(ctx,
-		`SELECT EXISTS (SELECT 1 FROM poltronas WHERE sessao_id = $1)`, sessaoID).Scan(&existe)
+	err := tx.Raw(`SELECT EXISTS (SELECT 1 FROM poltronas WHERE sessao_id = ?)`, sessaoID).Scan(&existe).Error
 	if err != nil {
 		return false, indisponivel(err)
 	}
 	return existe, nil
+}
+
+func reservaExiste(tx *gorm.DB, reservaID string) (bool, error) {
+	var existe bool
+	err := tx.Raw(`SELECT EXISTS (SELECT 1 FROM reservas WHERE id = ?)`, reservaID).Scan(&existe).Error
+	if err != nil {
+		return false, indisponivel(err)
+	}
+	return existe, nil
+}
+
+// mudarPoltronasDas leva ao `novo` status todas as poltronas presas às reservas
+// dadas. Quem chama já decidiu que a transição das reservas aconteceu.
+func mudarPoltronasDas(tx *gorm.DB, reservaIDs []string, novo poltrona.Status) error {
+	presas := tx.Model(&reservaPoltronaRow{}).Select("poltrona_id").Where("reserva_id IN ?", reservaIDs)
+	err := tx.Model(&poltronaRow{}).Where("id IN (?)", presas).
+		Updates(map[string]any{"status": string(novo), "atualizado_em": gorm.Expr("now()")}).Error
+	if err != nil {
+		return indisponivel(err)
+	}
+	return nil
 }
 
 func (r *Reservas) aplicarDesfecho(
@@ -116,9 +118,9 @@ func (r *Reservas) aplicarDesfecho(
 ) (usecase.ResultadoTransicao, error) {
 	resultado := usecase.TransicaoIgnoradaInexistente
 
-	err := r.banco.EmTransacao(ctx, func(tx pgx.Tx) error {
+	err := r.banco.EmTransacao(ctx, func(tx *gorm.DB) error {
 		if messageID != "" {
-			novo, err := registrarProcessada(ctx, tx, fila, messageID)
+			novo, err := registrarProcessada(tx, fila, messageID)
 			if err != nil {
 				return err
 			}
@@ -128,19 +130,17 @@ func (r *Reservas) aplicarDesfecho(
 			}
 		}
 
-		tag, err := tx.Exec(ctx, `
-			UPDATE reservas
-			   SET status = $2, finalizado_em = $3
-			 WHERE id = $1 AND status = 'PENDENTE'`, reservaID, string(novoStatusReserva), agora)
-		if err != nil {
-			return indisponivel(err)
+		res := tx.Model(&reservaRow{}).
+			Where("id = ? AND status = ?", reservaID, string(reserva.Pendente)).
+			Updates(map[string]any{"status": string(novoStatusReserva), "finalizado_em": agora})
+		if res.Error != nil {
+			return indisponivel(res.Error)
 		}
 
-		if tag.RowsAffected() == 0 {
-			var existe bool
-			if err := tx.QueryRow(ctx,
-				`SELECT EXISTS (SELECT 1 FROM reservas WHERE id = $1)`, reservaID).Scan(&existe); err != nil {
-				return indisponivel(err)
+		if res.RowsAffected == 0 {
+			existe, err := reservaExiste(tx, reservaID)
+			if err != nil {
+				return err
 			}
 			if existe {
 				resultado = usecase.TransicaoIgnoradaEstadoFinal
@@ -150,12 +150,8 @@ func (r *Reservas) aplicarDesfecho(
 			return nil
 		}
 
-		if _, err := tx.Exec(ctx, `
-			UPDATE poltronas
-			   SET status = $2, atualizado_em = now()
-			 WHERE id IN (SELECT poltrona_id FROM reserva_poltronas WHERE reserva_id = $1)`,
-			reservaID, string(novoStatusPoltrona)); err != nil {
-			return indisponivel(err)
+		if err := mudarPoltronasDas(tx, []string{reservaID}, novoStatusPoltrona); err != nil {
+			return err
 		}
 
 		resultado = usecase.TransicaoAplicada

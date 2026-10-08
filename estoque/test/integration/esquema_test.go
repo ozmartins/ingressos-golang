@@ -12,7 +12,7 @@ func TestSchemaProprio(t *testing.T) {
 	ctx := context.Background()
 
 	var searchPath string
-	if err := cenario.Pool.QueryRow(ctx, `SELECT current_setting('search_path')`).Scan(&searchPath); err != nil {
+	if err := cenario.Pool.QueryRowContext(ctx, `SELECT current_setting('search_path')`).Scan(&searchPath); err != nil {
 		t.Fatalf("consultando search_path: %v", err)
 	}
 	if searchPath != "estoque" {
@@ -25,7 +25,7 @@ func TestSchemaProprio(t *testing.T) {
 	}
 	for _, tabela := range tabelas {
 		var emPublic *string
-		if err := cenario.Pool.QueryRow(ctx, `SELECT to_regclass('public.'|| $1)::text`, tabela).Scan(&emPublic); err != nil {
+		if err := cenario.Pool.QueryRowContext(ctx, `SELECT to_regclass('public.'|| $1)::text`, tabela).Scan(&emPublic); err != nil {
 			t.Fatalf("consultando public.%s: %v", tabela, err)
 		}
 		if emPublic != nil {

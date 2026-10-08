@@ -37,7 +37,7 @@ func TestBloqueioGravaTudoNaMesmaTransacao(t *testing.T) {
 	}
 
 	var vinculos int
-	if err := c.Pool.QueryRow(ctx,
+	if err := c.Pool.QueryRowContext(ctx,
 		`SELECT count(*) FROM reserva_poltronas WHERE reserva_id = $1`, resultado.Reserva.ID).Scan(&vinculos); err != nil {
 		t.Fatal(err)
 	}
@@ -48,7 +48,7 @@ func TestBloqueioGravaTudoNaMesmaTransacao(t *testing.T) {
 	var payload []byte
 	var traceContext []byte
 	var publicadoEm *string
-	err = c.Pool.QueryRow(ctx,
+	err = c.Pool.QueryRowContext(ctx,
 		`SELECT payload, trace_context, publicado_em FROM outbox_eventos WHERE message_id = $1`,
 		resultado.Reserva.ID).Scan(&payload, &traceContext, &publicadoEm)
 	if err != nil {
@@ -95,7 +95,7 @@ func TestBloqueioRecusadoNaoAlteraEstado(t *testing.T) {
 	}
 
 	var reservas int
-	if err := c.Pool.QueryRow(ctx, `SELECT count(*) FROM reservas WHERE sessao_id = $1`, sessao).Scan(&reservas); err != nil {
+	if err := c.Pool.QueryRowContext(ctx, `SELECT count(*) FROM reservas WHERE sessao_id = $1`, sessao).Scan(&reservas); err != nil {
 		t.Fatal(err)
 	}
 	if reservas != 1 {
@@ -168,7 +168,7 @@ func TestConcorrenciaExatamenteUmVencedor(t *testing.T) {
 	}
 
 	var duplicadas int
-	err := c.Pool.QueryRow(ctx, `
+	err := c.Pool.QueryRowContext(ctx, `
 		SELECT count(*) FROM (
 			SELECT poltrona_id FROM reserva_poltronas rp
 			  JOIN reservas r ON r.id = rp.reserva_id

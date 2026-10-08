@@ -85,7 +85,7 @@ func TestFatoSobreviveABrokerIndisponivel(t *testing.T) {
 	}
 
 	var pendentes int
-	if err := c.Pool.QueryRow(ctx,
+	if err := c.Pool.QueryRowContext(ctx,
 		`SELECT count(*) FROM outbox_eventos WHERE message_id = $1 AND publicado_em IS NULL`,
 		reservaID).Scan(&pendentes); err != nil {
 		t.Fatal(err)
@@ -102,7 +102,7 @@ func TestFatoSobreviveABrokerIndisponivel(t *testing.T) {
 		t.Fatalf("drenar após retorno: %v", err)
 	}
 	var publicado bool
-	if err := c.Pool.QueryRow(ctx,
+	if err := c.Pool.QueryRowContext(ctx,
 		`SELECT publicado_em IS NOT NULL FROM outbox_eventos WHERE message_id = $1`,
 		reservaID).Scan(&publicado); err != nil {
 		t.Fatal(err)
@@ -136,7 +136,7 @@ func TestFatoSobreviveABrokerIndisponivel(t *testing.T) {
 entregue:
 
 	var pendenteDepois int
-	if err := c.Pool.QueryRow(ctx,
+	if err := c.Pool.QueryRowContext(ctx,
 		`SELECT count(*) FROM outbox_eventos WHERE message_id = $1 AND publicado_em IS NULL`,
 		reservaID).Scan(&pendenteDepois); err != nil {
 		t.Fatal(err)

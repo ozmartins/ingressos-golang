@@ -1,3 +1,3 @@
 {
-  "feature_directory": "specs/001-estoque-bloqueio-poltronas"
+  "feature_directory": "specs/002-persistencia-gorm"
 }

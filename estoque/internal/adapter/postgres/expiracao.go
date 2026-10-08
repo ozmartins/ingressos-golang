@@ -4,7 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/jackc/pgx/v5"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/poltrona"
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/reserva"
@@ -16,54 +17,36 @@ const chaveVarredura int64 = 8_201_477_301
 func (r *Reservas) ExpirarVencidas(ctx context.Context, agora time.Time, limite int) ([]string, error) {
 	var ids []string
 
-	err := r.banco.EmTransacao(ctx, func(tx pgx.Tx) error {
+	err := r.banco.EmTransacao(ctx, func(tx *gorm.DB) error {
 		var obtido bool
-		if err := tx.QueryRow(ctx, `SELECT pg_try_advisory_xact_lock($1)`, chaveVarredura).Scan(&obtido); err != nil {
+		if err := tx.Raw(`SELECT pg_try_advisory_xact_lock(?)`, chaveVarredura).Scan(&obtido).Error; err != nil {
 			return indisponivel(err)
 		}
 		if !obtido {
 			return nil
 		}
 
-		linhas, err := tx.Query(ctx, `
-			UPDATE reservas
-			   SET status = 'EXPIRADA', finalizado_em = $1
-			 WHERE id IN (
-			       SELECT id FROM reservas
-			        WHERE status = 'PENDENTE' AND expira_em <= $1
-			        ORDER BY expira_em
-			        LIMIT $2
-			        FOR UPDATE SKIP LOCKED
-			 )
-			RETURNING id`, agora, limite)
-		if err != nil {
+		vencidas := tx.Model(&reservaRow{}).Select("id").
+			Where("status = ? AND expira_em <= ?", string(reserva.Pendente), agora).
+			Order("expira_em").
+			Limit(limite).
+			Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"})
+
+		var expiradas []reservaRow
+		if err := tx.Model(&expiradas).
+			Clauses(clause.Returning{Columns: []clause.Column{{Name: "id"}}}).
+			Where("id IN (?)", vencidas).
+			Updates(map[string]any{"status": string(reserva.Expirada), "finalizado_em": agora}).Error; err != nil {
 			return indisponivel(err)
 		}
-		for linhas.Next() {
-			var id string
-			if err := linhas.Scan(&id); err != nil {
-				linhas.Close()
-				return indisponivel(err)
-			}
-			ids = append(ids, id)
-		}
-		linhas.Close()
-		if err := linhas.Err(); err != nil {
-			return indisponivel(err)
-		}
-		if len(ids) == 0 {
+		if len(expiradas) == 0 {
 			return nil
 		}
-
-		_, err = tx.Exec(ctx, `
-			UPDATE poltronas
-			   SET status = $2, atualizado_em = now()
-			 WHERE id IN (SELECT poltrona_id FROM reserva_poltronas WHERE reserva_id = ANY($1))`,
-			ids, string(poltrona.Livre))
-		if err != nil {
-			return indisponivel(err)
+		for _, e := range expiradas {
+			ids = append(ids, e.ID)
 		}
-		return nil
+
+		return mudarPoltronasDas(tx, ids, poltrona.Livre)
 	})
 
 	if err != nil {
@@ -75,20 +58,17 @@ func (r *Reservas) ExpirarVencidas(ctx context.Context, agora time.Time, limite 
 func (r *Reservas) ExpirarUma(ctx context.Context, reservaID string, agora time.Time) (usecase.ResultadoTransicao, error) {
 	resultado := usecase.TransicaoIgnoradaInexistente
 
-	err := r.banco.EmTransacao(ctx, func(tx pgx.Tx) error {
-		tag, err := tx.Exec(ctx, `
-			UPDATE reservas
-			   SET status = $3, finalizado_em = $2
-			 WHERE id = $1 AND status = 'PENDENTE' AND expira_em <= $2`,
-			reservaID, agora, string(reserva.Expirada))
-		if err != nil {
-			return indisponivel(err)
+	err := r.banco.EmTransacao(ctx, func(tx *gorm.DB) error {
+		res := tx.Model(&reservaRow{}).
+			Where("id = ? AND status = ? AND expira_em <= ?", reservaID, string(reserva.Pendente), agora).
+			Updates(map[string]any{"status": string(reserva.Expirada), "finalizado_em": agora})
+		if res.Error != nil {
+			return indisponivel(res.Error)
 		}
-		if tag.RowsAffected() == 0 {
-			var existe bool
-			if err := tx.QueryRow(ctx,
-				`SELECT EXISTS (SELECT 1 FROM reservas WHERE id = $1)`, reservaID).Scan(&existe); err != nil {
-				return indisponivel(err)
+		if res.RowsAffected == 0 {
+			existe, err := reservaExiste(tx, reservaID)
+			if err != nil {
+				return err
 			}
 			if existe {
 				resultado = usecase.TransicaoIgnoradaEstadoFinal
@@ -96,12 +76,8 @@ func (r *Reservas) ExpirarUma(ctx context.Context, reservaID string, agora time.
 			return nil
 		}
 
-		if _, err := tx.Exec(ctx, `
-			UPDATE poltronas
-			   SET status = $2, atualizado_em = now()
-			 WHERE id IN (SELECT poltrona_id FROM reserva_poltronas WHERE reserva_id = $1)`,
-			reservaID, string(poltrona.Livre)); err != nil {
-			return indisponivel(err)
+		if err := mudarPoltronasDas(tx, []string{reservaID}, poltrona.Livre); err != nil {
+			return err
 		}
 		resultado = usecase.TransicaoAplicada
 		return nil
@@ -124,9 +100,9 @@ func (r *Reservas) CancelarPendentesDaSessao(
 ) (usecase.DesfechoCancelamentoDeSessao, error) {
 	desfecho := usecase.DesfechoCancelamentoDeSessao{Resultado: usecase.TransicaoIgnoradaInexistente}
 
-	err := r.banco.EmTransacao(ctx, func(tx pgx.Tx) error {
+	err := r.banco.EmTransacao(ctx, func(tx *gorm.DB) error {
 		if messageID != "" {
-			novo, err := registrarProcessada(ctx, tx, fila, messageID)
+			novo, err := registrarProcessada(tx, fila, messageID)
 			if err != nil {
 				return err
 			}
@@ -139,50 +115,35 @@ func (r *Reservas) CancelarPendentesDaSessao(
 		// Contado antes do UPDATE: depois dele as pendentes viraram canceladas,
 		// e a contagem de confirmadas não mudaria — mas ler antes deixa claro
 		// que o número é o do instante do cancelamento.
-		if err := tx.QueryRow(ctx, `
-			SELECT COUNT(*) FROM reservas
-			 WHERE sessao_id = $1 AND status = 'CONFIRMADA'`, sessaoID).Scan(&desfecho.Confirmadas); err != nil {
+		var confirmadas int64
+		if err := tx.Model(&reservaRow{}).
+			Where("sessao_id = ? AND status = ?", sessaoID, string(reserva.Confirmada)).
+			Count(&confirmadas).Error; err != nil {
 			return indisponivel(err)
 		}
+		desfecho.Confirmadas = int(confirmadas)
 
-		linhas, err := tx.Query(ctx, `
-			UPDATE reservas
-			   SET status = $2, finalizado_em = $3
-			 WHERE id IN (
-			       SELECT id FROM reservas
-			        WHERE sessao_id = $1 AND status = 'PENDENTE'
-			        ORDER BY criado_em
-			        FOR UPDATE SKIP LOCKED
-			 )
-			RETURNING id`, sessaoID, string(reserva.Cancelada), agora)
-		if err != nil {
-			return indisponivel(err)
-		}
-		for linhas.Next() {
-			var id string
-			if err := linhas.Scan(&id); err != nil {
-				linhas.Close()
-				return indisponivel(err)
-			}
-			desfecho.Canceladas = append(desfecho.Canceladas, id)
-		}
-		linhas.Close()
-		if err := linhas.Err(); err != nil {
-			return indisponivel(err)
-		}
+		pendentes := tx.Model(&reservaRow{}).Select("id").
+			Where("sessao_id = ? AND status = ?", sessaoID, string(reserva.Pendente)).
+			Order("criado_em").
+			Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"})
 
-		if len(desfecho.Canceladas) == 0 {
+		var canceladas []reservaRow
+		if err := tx.Model(&canceladas).
+			Clauses(clause.Returning{Columns: []clause.Column{{Name: "id"}}}).
+			Where("id IN (?)", pendentes).
+			Updates(map[string]any{"status": string(reserva.Cancelada), "finalizado_em": agora}).Error; err != nil {
+			return indisponivel(err)
+		}
+		if len(canceladas) == 0 {
 			return nil
 		}
+		for _, c := range canceladas {
+			desfecho.Canceladas = append(desfecho.Canceladas, c.ID)
+		}
 
-		if _, err := tx.Exec(ctx, `
-			UPDATE poltronas
-			   SET status = $2, atualizado_em = now()
-			 WHERE id IN (
-			       SELECT poltrona_id FROM reserva_poltronas
-			        WHERE reserva_id = ANY($1))`,
-			desfecho.Canceladas, string(poltrona.Livre)); err != nil {
-			return indisponivel(err)
+		if err := mudarPoltronasDas(tx, desfecho.Canceladas, poltrona.Livre); err != nil {
+			return err
 		}
 
 		desfecho.Resultado = usecase.TransicaoAplicada

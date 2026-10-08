@@ -67,7 +67,7 @@ func TestInvarianteApos1000Ciclos(t *testing.T) {
 	}
 
 	var pendentes int
-	if err := c.Pool.QueryRow(ctx,
+	if err := c.Pool.QueryRowContext(ctx,
 		`SELECT count(*) FROM reservas WHERE sessao_id = $1 AND status = 'PENDENTE'`, sessao).Scan(&pendentes); err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +76,7 @@ func TestInvarianteApos1000Ciclos(t *testing.T) {
 	}
 
 	var incoerentes int
-	err := c.Pool.QueryRow(ctx, `
+	err := c.Pool.QueryRowContext(ctx, `
 		SELECT count(*) FROM poltronas p
 		 WHERE p.sessao_id = $1 AND p.status = 'OCUPADA'
 		   AND (SELECT count(*) FROM reserva_poltronas rp
@@ -90,7 +90,7 @@ func TestInvarianteApos1000Ciclos(t *testing.T) {
 	}
 
 	var vazando int
-	err = c.Pool.QueryRow(ctx, `
+	err = c.Pool.QueryRowContext(ctx, `
 		SELECT count(*) FROM poltronas p
 		  JOIN reserva_poltronas rp ON rp.poltrona_id = p.id
 		  JOIN reservas r ON r.id = rp.reserva_id

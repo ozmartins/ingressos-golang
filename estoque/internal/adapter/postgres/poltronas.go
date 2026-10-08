@@ -3,22 +3,27 @@ package postgres
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/poltrona"
 	"github.com/oseias/ingressos-golang/estoque/internal/usecase"
 )
+
+// Maior lote de poltronas por INSERT: 1000 linhas x 7 colunas fica muito abaixo
+// do limite de 65535 parâmetros do protocolo.
+const loteProvisionamento = 1000
 
 type Poltronas struct{ banco *Banco }
 
 func NovoRepositorioPoltronas(b *Banco) *Poltronas { return &Poltronas{banco: b} }
 
 func (p *Poltronas) MapaDaSessao(ctx context.Context, sessaoID string) ([]poltrona.Poltrona, error) {
-	linhas, err := p.banco.pool.Query(ctx, `
-		SELECT id, sessao_id, fileira, numero, rotulo, tipo, status
-		  FROM poltronas
-		 WHERE sessao_id = $1
-		 ORDER BY fileira, numero`, sessaoID)
+	linhas, err := p.banco.db.WithContext(ctx).Model(&poltronaRow{}).
+		Select("id", "sessao_id", "fileira", "numero", "rotulo", "tipo", "status").
+		Where("sessao_id = ?", sessaoID).
+		Order("fileira, numero").
+		Rows()
 	if err != nil {
 		return nil, indisponivel(err)
 	}
@@ -27,10 +32,12 @@ func (p *Poltronas) MapaDaSessao(ctx context.Context, sessaoID string) ([]poltro
 	var mapa []poltrona.Poltrona
 	for linhas.Next() {
 		var item poltrona.Poltrona
+		var tipo, status string
 		if err := linhas.Scan(&item.ID, &item.SessaoID, &item.Fileira, &item.Numero,
-			&item.Rotulo, &item.Tipo, &item.Status); err != nil {
+			&item.Rotulo, &tipo, &status); err != nil {
 			return nil, indisponivel(err)
 		}
+		item.Tipo, item.Status = poltrona.Tipo(tipo), poltrona.Status(status)
 		mapa = append(mapa, item)
 	}
 	if err := linhas.Err(); err != nil {
@@ -42,9 +49,9 @@ func (p *Poltronas) MapaDaSessao(ctx context.Context, sessaoID string) ([]poltro
 func (p *Poltronas) ProvisionarMatriz(ctx context.Context, fila, messageID, sessaoID string, matriz []poltrona.Poltrona) (usecase.ResultadoTransicao, error) {
 	resultado := usecase.TransicaoAplicada
 
-	err := p.banco.EmTransacao(ctx, func(tx pgx.Tx) error {
+	err := p.banco.EmTransacao(ctx, func(tx *gorm.DB) error {
 		if messageID != "" {
-			novo, err := registrarProcessada(ctx, tx, fila, messageID)
+			novo, err := registrarProcessada(tx, fila, messageID)
 			if err != nil {
 				return err
 			}
@@ -55,16 +62,22 @@ func (p *Poltronas) ProvisionarMatriz(ctx context.Context, fila, messageID, sess
 		}
 
 		var criadas int64
-		for _, item := range matriz {
-			tag, err := tx.Exec(ctx, `
-				INSERT INTO poltronas (id, sessao_id, fileira, numero, rotulo, tipo, status)
-				VALUES ($1, $2, $3, $4, $5, $6, 'LIVRE')
-				ON CONFLICT (sessao_id, fileira, numero) DO NOTHING`,
-				item.ID, item.SessaoID, item.Fileira, item.Numero, item.Rotulo, string(item.Tipo))
-			if err != nil {
-				return indisponivel(err)
+		if len(matriz) > 0 {
+			linhas := make([]poltronaRow, 0, len(matriz))
+			for _, item := range matriz {
+				linhas = append(linhas, poltronaRow{
+					ID: item.ID, SessaoID: item.SessaoID, Fileira: item.Fileira, Numero: item.Numero,
+					Rotulo: item.Rotulo, Tipo: string(item.Tipo), Status: string(poltrona.Livre),
+				})
 			}
-			criadas += tag.RowsAffected()
+			res := tx.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "sessao_id"}, {Name: "fileira"}, {Name: "numero"}},
+				DoNothing: true,
+			}).CreateInBatches(&linhas, loteProvisionamento)
+			if res.Error != nil {
+				return indisponivel(res.Error)
+			}
+			criadas = res.RowsAffected
 		}
 
 		if criadas == 0 {

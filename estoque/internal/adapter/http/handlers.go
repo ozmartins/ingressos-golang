@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/oseias/ingressos-golang/estoque/internal/adapter/http/openapi"
@@ -57,14 +58,24 @@ type respostaMapa struct {
 }
 
 func (a *API) Rotas() http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("POST /api/v1/sessoes/{sessao_id}/bloqueios", a.bloquear)
-	mux.HandleFunc("GET /api/v1/sessoes/{sessao_id}/poltronas", a.consultarMapa)
+	r := NovoRoteador()
+	r.Post("/api/v1/sessoes/{sessao_id}/bloqueios", a.bloquear)
+	r.Get("/api/v1/sessoes/{sessao_id}/poltronas", a.consultarMapa)
 
-	mux.Handle("GET /openapi.yaml", openapi.HandlerEspecificacao())
-	mux.Handle("GET /docs", openapi.HandlerUI("/openapi.yaml"))
-	mux.Handle("GET /docs/", openapi.HandlerUI("/openapi.yaml"))
-	return mux
+	r.Get("/openapi.yaml", openapi.HandlerEspecificacao())
+	r.Get("/docs", openapi.HandlerUI("/openapi.yaml"))
+	r.Get("/docs/*", openapi.HandlerUI("/openapi.yaml"))
+	return r
+}
+
+// sessaoID devolve o parâmetro de caminho já decodificado. O chi roteia pelo
+// caminho codificado e entrega o valor cru (x%2Fy); o ServeMux entregava x/y.
+func sessaoID(r *http.Request) string {
+	cru := r.PathValue("sessao_id")
+	if decodificado, err := url.PathUnescape(cru); err == nil {
+		return decodificado
+	}
+	return cru
 }
 
 func (a *API) bloquear(w http.ResponseWriter, r *http.Request) {
@@ -82,7 +93,7 @@ func (a *API) bloquear(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resultado, err := a.Bloqueio.Executar(r.Context(), r.PathValue("sessao_id"), usuarioID,
+	resultado, err := a.Bloqueio.Executar(r.Context(), sessaoID(r), usuarioID,
 		corpo.PoltronasIDs, corpo.ValorTotal.String())
 	if err != nil {
 		responderErroDeDominio(w, r, err, a.Limite)
@@ -109,14 +120,14 @@ func (a *API) consultarMapa(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessaoID := r.PathValue("sessao_id")
-	mapa, err := a.Mapa.Executar(r.Context(), sessaoID)
+	sessao := sessaoID(r)
+	mapa, err := a.Mapa.Executar(r.Context(), sessao)
 	if err != nil {
 		responderErroDeDominio(w, r, err, a.Limite)
 		return
 	}
 
-	resposta := respostaMapa{SessaoID: sessaoID, Poltronas: make([]poltronaResposta, 0, len(mapa))}
+	resposta := respostaMapa{SessaoID: sessao, Poltronas: make([]poltronaResposta, 0, len(mapa))}
 	for _, p := range mapa {
 		resposta.Poltronas = append(resposta.Poltronas, poltronaResposta{
 			Rotulo:  p.Rotulo,

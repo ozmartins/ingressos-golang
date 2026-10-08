@@ -29,6 +29,8 @@ linters:
               desc: "cliente Redis pertence aos adaptadores"
             - pkg: google.golang.org/grpc
               desc: "gRPC pertence aos adaptadores"
+            - pkg: github.com/go-chi
+              desc: "roteador HTTP pertence aos adaptadores"
   exclusions:
     rules:
       - path: _test\.go$

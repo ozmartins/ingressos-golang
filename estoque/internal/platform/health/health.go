@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"time"
+
+	adaptadorhttp "github.com/oseias/ingressos-golang/estoque/internal/adapter/http"
 )
 
 type Verificacao struct {
@@ -25,14 +27,14 @@ type resposta struct {
 }
 
 func (s *Servico) Handler() http.Handler {
-	mux := http.NewServeMux()
+	mux := adaptadorhttp.NovoRoteador()
 
-	mux.HandleFunc("GET /health/live", func(w http.ResponseWriter, _ *http.Request) {
+	mux.Get("/health/live", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"status":"vivo"}`))
 	})
 
-	mux.HandleFunc("GET /health/ready", func(w http.ResponseWriter, r *http.Request) {
+	mux.Get("/health/ready", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancelar := context.WithTimeout(r.Context(), 2*time.Second)
 		defer cancelar()
 

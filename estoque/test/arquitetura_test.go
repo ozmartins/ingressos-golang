@@ -27,6 +27,7 @@ func TestNucleoNaoImportaInfraestrutura(t *testing.T) {
 		modulo + "/gen/pb",
 		"github.com/jackc/pgx",
 		"gorm.io",
+		"github.com/go-chi",
 		"github.com/rabbitmq/amqp091-go",
 		"github.com/redis/go-redis",
 		"google.golang.org/grpc",

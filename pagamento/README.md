@@ -66,11 +66,11 @@ malformada impede o processo de subir.
 | Variável | Obrigatória | Padrão | O que é |
 |---|---|---|---|
 | `DATABASE_URL` | sim | — | conexão PostgreSQL (o `search_path` é fixado no código, no schema `pagamento`) |
-| `AMQP_URL` | sim | — | conexão RabbitMQ |
+| `RABBITMQ_URL` | sim | — | conexão RabbitMQ |
 | `JWKS_URL` | sim | — | conjunto de chaves do Keycloak |
 | `JWT_ISSUER` | sim | — | emissor aceito |
 | `JWT_AUDIENCE` | sim | — | público aceito |
-| `PORTA_HTTP` | não | `8080` | porta da API |
+| `HTTP_PORT` | não | `8080` | porta da API |
 | `AMQP_EXCHANGE` | não | `cinema.eventos` | exchange do barramento |
 | `AMQP_FILA_RESERVA_CRIADA` | não | `pagamento.reserva-criada` | fila consumida |
 | `AMQP_PREFETCH` | não | `10` | teto de cobranças simultâneas (FR-019) |
@@ -79,7 +79,7 @@ malformada impede o processo de subir.
 | `VARREDURA_INTERVALO` | não | `2s` | intervalo da varredura; é o atraso entre a escolha da forma e o início da cobrança |
 | `VARREDURA_LOTE` | não | `50` | transações examinadas por varredura |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | não | — | destino de métricas e rastros |
-| `NIVEL_LOG` | não | `info` | `debug`, `info`, `warn` ou `error` |
+| `LOG_LEVEL` | não | `info` | `debug`, `info`, `warn` ou `error` |
 
 ## Desenho
 

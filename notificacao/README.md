@@ -47,7 +47,7 @@ erro de largada — não cai silenciosamente no padrão.
 | Variável | Para quê |
 |---|---|
 | `DATABASE_URL` | PostgreSQL (o `search_path` é fixado no código, no schema `notificacao`) |
-| `AMQP_URL` | RabbitMQ |
+| `RABBITMQ_URL` | RabbitMQ |
 | `JWKS_URL`, `JWT_ISSUER`, `JWT_AUDIENCE` | validação do token do Keycloak |
 | `INGRESSO_QR_SEGREDO` | assinatura do código de acesso |
 | `PORTARIA_API_KEY` | credencial dos dispositivos de portaria |
@@ -61,7 +61,7 @@ erro de largada — não cai silenciosamente no padrão.
 
 | Variável | Padrão |
 |---|---|
-| `PORTA_HTTP` | `8080` |
+| `HTTP_PORT` | `8080` |
 | `AMQP_EXCHANGE` | `cinema.eventos` |
 | `AMQP_EXCHANGE_DLX` | `cinema.eventos.dlx` |
 | `AMQP_FILA_PAGAMENTO_SUCESSO` | `notificacao.pagamento-sucesso` |
@@ -69,7 +69,7 @@ erro de largada — não cai silenciosamente no padrão.
 | `AMQP_LIMITE_ENTREGAS` | `3` (tentativas, não reentregas) |
 | `NOTIFICADOR_MODO` | `enviar` (`falhar` exercita o caminho de erro) |
 | `NOTIFICADOR_TIMEOUT` | prazo para o canal de aviso responder (padrão `10s`) |
-| `NIVEL_LOG` | `info` |
+| `LOG_LEVEL` | `info` |
 
 ## Rodar
 

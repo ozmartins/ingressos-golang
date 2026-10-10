@@ -6,13 +6,11 @@ import (
 )
 
 var obrigatorias = map[string]string{
-	"DATABASE_URL":        "postgres://u:p@localhost:5432/n?sslmode=disable",
-	"RABBITMQ_URL":        "amqp://guest:guest@localhost:5672/",
-	"JWKS_URL":            "http://localhost:8081/certs",
-	"JWT_ISSUER":          "http://localhost:8081/realms/cinema",
-	"JWT_AUDIENCE":        "conta-cinema",
-	"INGRESSO_QR_SEGREDO": "segredo",
-	"PORTARIA_API_KEY":    "chave",
+	"DATABASE_URL": "postgres://u:p@localhost:5432/n?sslmode=disable",
+	"RABBITMQ_URL": "amqp://guest:guest@localhost:5672/",
+	"JWKS_URL":     "http://localhost:8081/certs",
+	"JWT_ISSUER":   "http://localhost:8081/realms/cinema",
+	"JWT_AUDIENCE": "cinema-app",
 }
 
 func ambienteCompleto(t *testing.T) {
@@ -29,26 +27,9 @@ func TestCarregarComAmbienteCompleto(t *testing.T) {
 		t.Fatalf("Carregar devolveu erro: %v", err)
 	}
 	if c.PortaHTTP != "8080" || c.AMQPExchange != "cinema.eventos" ||
-		c.AMQPFila != "notificacao.pagamento-sucesso" ||
-		c.AMQPPrefetch != 10 || c.AMQPLimiteEntregas != 3 ||
-		c.NotificadorModo != NotificarEnviar {
+		c.AMQPFilaReserva != "pagamento.reserva-criada" ||
+		c.AMQPPrefetch != 10 || c.AMQPLimiteEntregas != 3 || c.VarreduraLote != 50 {
 		t.Errorf("padrões inesperados: %+v", c)
-	}
-	if c.AMQPFilaDLQ != "notificacao.pagamento-sucesso.dlq" {
-		t.Errorf("fila morta = %q", c.AMQPFilaDLQ)
-	}
-}
-
-func TestSegredoDoQRAusenteImpedeSubir(t *testing.T) {
-	ambienteCompleto(t)
-	t.Setenv("INGRESSO_QR_SEGREDO", "")
-
-	_, err := Carregar()
-	if err == nil {
-		t.Fatal("Carregar aceitou ambiente sem INGRESSO_QR_SEGREDO")
-	}
-	if !strings.Contains(err.Error(), "INGRESSO_QR_SEGREDO") {
-		t.Errorf("o erro não nomeia a chave faltante: %v", err)
 	}
 }
 
@@ -69,9 +50,10 @@ func TestErroListaTodasAsChavesFaltantes(t *testing.T) {
 
 func TestValorMalformadoNaoCaiNoPadrao(t *testing.T) {
 	casos := map[string]string{
-		"AMQP_PREFETCH":        "abc",
-		"AMQP_LIMITE_ENTREGAS": "3.5",
-		"NOTIFICADOR_MODO":     "talvez",
+		"AMQP_PREFETCH":       "abc",
+		"VARREDURA_LOTE":      "3.5",
+		"ADQUIRENTE_TIMEOUT":  "rápido",
+		"VARREDURA_INTERVALO": "2",
 	}
 	for chave, valor := range casos {
 		t.Run(chave, func(t *testing.T) {
@@ -79,7 +61,7 @@ func TestValorMalformadoNaoCaiNoPadrao(t *testing.T) {
 			t.Setenv(chave, valor)
 			_, err := Carregar()
 			if err == nil {
-				t.Fatalf("Carregar aceitou %s=%q em vez de falhar na largada", chave, valor)
+				t.Fatalf("Carregar aceitou %s=%q", chave, valor)
 			}
 			if !strings.Contains(err.Error(), chave) {
 				t.Errorf("o erro não nomeia %s: %v", chave, err)
@@ -89,12 +71,17 @@ func TestValorMalformadoNaoCaiNoPadrao(t *testing.T) {
 }
 
 func TestValorNaoPositivoRecusado(t *testing.T) {
-	for _, chave := range []string{"AMQP_PREFETCH", "AMQP_LIMITE_ENTREGAS"} {
+	casos := map[string]string{
+		"AMQP_PREFETCH":        "0",
+		"AMQP_LIMITE_ENTREGAS": "0",
+		"ADQUIRENTE_TIMEOUT":   "0s",
+	}
+	for chave, valor := range casos {
 		t.Run(chave, func(t *testing.T) {
 			ambienteCompleto(t)
-			t.Setenv(chave, "0")
+			t.Setenv(chave, valor)
 			if _, err := Carregar(); err == nil {
-				t.Errorf("Carregar aceitou %s=0", chave)
+				t.Errorf("Carregar aceitou %s=%s", chave, valor)
 			}
 		})
 	}

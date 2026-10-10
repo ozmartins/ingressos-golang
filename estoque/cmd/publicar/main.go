@@ -73,7 +73,11 @@ func publicarSessao(args []string) {
 		}
 	}
 
-	corpo, _ := json.Marshal(evento)
+	corpo, err := json.Marshal(evento)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "serializar evento: %v\n", err)
+		os.Exit(1)
+	}
 	enviar("sessao.criada", *sessao, corpo)
 	fmt.Printf("sessao.criada publicada: %s (%d poltronas)\n", *sessao, len(evento.Poltronas))
 }
@@ -98,11 +102,15 @@ func publicarPagamento(args []string) {
 		nome = "PAGAMENTO_FALHOU"
 	}
 
-	corpo, _ := json.Marshal(usecase.DesfechoPagamento{
+	corpo, err := json.Marshal(usecase.DesfechoPagamento{
 		Evento: nome, Versao: 1,
 		OcorridoEm: time.Now().UTC().Format(time.RFC3339),
 		ReservaID:  *reserva,
 	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "serializar evento: %v\n", err)
+		os.Exit(1)
+	}
 	enviar(routingKey, *reserva, corpo)
 	fmt.Printf("%s publicado para a reserva %s\n", routingKey, *reserva)
 }

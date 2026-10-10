@@ -27,7 +27,7 @@ type eventoReservaCriada struct {
 
 func main() {
 	var (
-		url      = flag.String("amqp", env("AMQP_URL", "amqp://guest:guest@localhost:5672/"), "URL do broker")
+		url      = flag.String("amqp", env("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/"), "URL do broker")
 		exchange = flag.String("exchange", env("AMQP_EXCHANGE", "cinema.eventos"), "exchange")
 		reserva  = flag.String("reserva", "", "UUID da reserva (padrão: gerado)")
 		usuario  = flag.String("usuario", "", "UUID da pessoa (padrão: gerado)")

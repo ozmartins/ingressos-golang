@@ -13,7 +13,7 @@ import (
 
 func main() {
 	var (
-		url       = flag.String("url", env("AMQP_URL", "amqp://guest:guest@localhost:5672/"), "URL do broker")
+		url       = flag.String("url", env("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/"), "URL do broker")
 		exchange  = flag.String("exchange", env("AMQP_EXCHANGE", "cinema.eventos"), "exchange de publicação")
 		reserva   = flag.String("reserva", "", "identificador da reserva")
 		usuario   = flag.String("usuario", "", "identificador da pessoa")

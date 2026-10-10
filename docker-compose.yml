@@ -183,11 +183,11 @@ services:
       context: ./pagamento
     environment:
       DATABASE_URL: postgres://pagamento:pagamento@postgres:5432/cinema?sslmode=disable
-      AMQP_URL: amqp://guest:guest@rabbitmq:5672/
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       JWKS_URL: http://keycloak:8081/realms/cinema/protocol/openid-connect/certs
       JWT_ISSUER: http://keycloak:8081/realms/cinema
       JWT_AUDIENCE: cinema-app
-      NIVEL_LOG: info
+      LOG_LEVEL: info
     ports: ["${PORTA_PAGAMENTO:-8083}:8080"]
     depends_on:
       migrate-pagamento:
@@ -202,14 +202,14 @@ services:
       context: ./notificacao
     environment:
       DATABASE_URL: postgres://notificacao:notificacao@postgres:5432/cinema?sslmode=disable
-      AMQP_URL: amqp://guest:guest@rabbitmq:5672/
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       JWKS_URL: http://keycloak:8081/realms/cinema/protocol/openid-connect/certs
       JWT_ISSUER: http://keycloak:8081/realms/cinema
       JWT_AUDIENCE: cinema-app      
       INGRESSO_QR_SEGREDO: ${INGRESSO_QR_SEGREDO:-segredo-de-desenvolvimento-nao-usar-em-producao}
       PORTARIA_API_KEY: ${PORTARIA_API_KEY:-chave-de-portaria-de-teste}
       NOTIFICADOR_MODO: enviar
-      NIVEL_LOG: info
+      LOG_LEVEL: info
     ports: ["${PORTA_NOTIFICACAO:-8084}:8080"]
     depends_on:
       migrate-notificacao:

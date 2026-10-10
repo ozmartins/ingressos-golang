@@ -38,17 +38,17 @@ type faltando []string
 func Carregar() (Config, error) {
 	var f faltando
 	c := Config{
-		PortaHTTP:          comPadrao("PORTA_HTTP", "8080"),
+		PortaHTTP:          comPadrao("HTTP_PORT", "8080"),
 		AMQPExchange:       comPadrao("AMQP_EXCHANGE", "cinema.eventos"),
 		AMQPExchangeDLX:    comPadrao("AMQP_EXCHANGE_DLX", "cinema.eventos.dlx"),
 		AMQPFilaReserva:    comPadrao("AMQP_FILA_RESERVA_CRIADA", "pagamento.reserva-criada"),
 		AMQPFilaReservaDLQ: comPadrao("AMQP_FILA_RESERVA_CRIADA_DLQ", "pagamento.reserva-criada.dlq"),
 		OTLPEndpoint:       os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
-		NivelLog:           comPadrao("NIVEL_LOG", "info"),
+		NivelLog:           comPadrao("LOG_LEVEL", "info"),
 	}
 
 	c.DatabaseURL = obrigatoria("DATABASE_URL", &f)
-	c.AMQPURL = obrigatoria("AMQP_URL", &f)
+	c.AMQPURL = obrigatoria("RABBITMQ_URL", &f)
 	c.JWKSURL = obrigatoria("JWKS_URL", &f)
 	c.JWTIssuer = obrigatoria("JWT_ISSUER", &f)
 	c.JWTAud = obrigatoria("JWT_AUDIENCE", &f)

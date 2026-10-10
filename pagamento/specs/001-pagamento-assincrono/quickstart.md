@@ -61,9 +61,9 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 | Verificação | Comando | Esperado |
 |---|---|---|
 | Dona da reserva | token com `sub` = `usuario_id` | 200 com `status: PAGO` |
-| Terceiro | token com outro `sub` | **404** `PAGAMENTO_NAO_ENCONTRADO` — idêntico ao de reserva inexistente (FR-017) |
+| Terceiro | token com outro `sub` | **404** `pagamento-nao-encontrado` — idêntico ao de reserva inexistente (FR-017) |
 | Reserva sem transação | UUID aleatório | 404, mesmo corpo do caso acima |
-| Sem token | sem cabeçalho | 401 `CREDENCIAL_INVALIDA` |
+| Sem token | sem cabeçalho | 401 `credencial-invalida` |
 | UUID malformado | `.../reserva/abc` | 400 `RESERVA_ID_INVALIDO` |
 
 Compare os corpos dos dois 404 byte a byte: precisam ser iguais.

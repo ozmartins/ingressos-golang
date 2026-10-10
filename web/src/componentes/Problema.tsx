@@ -14,8 +14,8 @@ const porCategoria: Record<string, string> = {
   'resposta-invalida-do-parceiro': 'O estoque respondeu de forma inesperada. Repetir não resolve.',
   'nao-autenticado': 'Sua sessão expirou. Entre novamente.',
   'sem-conexao': 'Sem conexão com o serviço.',
-  RESERVA_EXPIRADA: 'O prazo da reserva venceu e as poltronas foram liberadas.',
-  FORMA_JA_ESCOLHIDA: 'A forma de pagamento já havia sido escolhida para esta reserva.',
+  'reserva-expirada': 'O prazo da reserva venceu e as poltronas foram liberadas.',
+  'forma-pagamento-ja-escolhida': 'A forma de pagamento já havia sido escolhida para esta reserva.',
 }
 
 export function mensagemDe(erro: unknown): string {

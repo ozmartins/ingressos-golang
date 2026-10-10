@@ -15,20 +15,36 @@ import (
 	"github.com/oseias/ingressos-golang/pagamento/internal/usecase"
 )
 
+const prefixoTipo = "https://cinema.example/errors/"
+
 const (
-	CodReservaIDInvalido  = "RESERVA_ID_INVALIDO"
-	CodCredencialInvalida = "CREDENCIAL_INVALIDA"
-	CodNaoEncontrado      = "PAGAMENTO_NAO_ENCONTRADO"
-	CodIndisponivel       = "SERVICO_INDISPONIVEL"
-	CodCorpoInvalido      = "CORPO_INVALIDO"
-	CodFormaDesconhecida  = "FORMA_PAGAMENTO_DESCONHECIDA"
-	CodFormaJaEscolhida   = "FORMA_PAGAMENTO_JA_ESCOLHIDA"
-	CodReservaExpirada    = "RESERVA_EXPIRADA"
+	CodReservaIDInvalido  = "reserva-id-invalido"
+	CodCredencialInvalida = "credencial-invalida"
+	CodNaoEncontrado      = "pagamento-nao-encontrado"
+	CodIndisponivel       = "servico-indisponivel"
+	CodCorpoInvalido      = "corpo-invalido"
+	CodFormaDesconhecida  = "forma-pagamento-desconhecida"
+	CodFormaJaEscolhida   = "forma-pagamento-ja-escolhida"
+	CodReservaExpirada    = "reserva-expirada"
 )
 
-type erroResposta struct {
-	Codigo   string `json:"codigo"`
-	Mensagem string `json:"mensagem"`
+var titulos = map[string]string{
+	CodReservaIDInvalido:  "Identificador de reserva inválido",
+	CodCredencialInvalida: "Credencial ausente ou inválida",
+	CodNaoEncontrado:      "Pagamento não encontrado",
+	CodIndisponivel:       "Serviço temporariamente indisponível",
+	CodCorpoInvalido:      "Corpo da requisição inválido",
+	CodFormaDesconhecida:  "Forma de pagamento desconhecida",
+	CodFormaJaEscolhida:   "Forma de pagamento já escolhida",
+	CodReservaExpirada:    "Reserva expirada",
+}
+
+// problema é o formato de erro RFC 9457, o mesmo dos demais serviços.
+type problema struct {
+	Type   string `json:"type"`
+	Title  string `json:"title"`
+	Status int    `json:"status"`
+	Detail string `json:"detail,omitempty"`
 }
 
 type pagamentoResposta struct {
@@ -194,13 +210,24 @@ func (a *API) pronto(w http.ResponseWriter, r *http.Request) {
 }
 
 func responderJSON(w http.ResponseWriter, status int, corpo any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(corpo)
+	escrever(w, "application/json", status, corpo)
 }
 
-func responderErro(w http.ResponseWriter, status int, codigo, mensagem string) {
-	responderJSON(w, status, erroResposta{Codigo: codigo, Mensagem: mensagem})
+func responderErro(w http.ResponseWriter, status int, codigo, detalhe string) {
+	escrever(w, "application/problem+json", status, problema{
+		Type:   prefixoTipo + codigo,
+		Title:  titulos[codigo],
+		Status: status,
+		Detail: detalhe,
+	})
+}
+
+func escrever(w http.ResponseWriter, tipo string, status int, corpo any) {
+	w.Header().Set("Content-Type", tipo)
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(corpo); err != nil {
+		slog.Debug("falha ao escrever a resposta", slog.Any("erro", err))
+	}
 }
 
 var errSemCredencial = errors.New("http: credencial ausente")

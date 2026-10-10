@@ -149,7 +149,7 @@ paths:
         "409":
           description: |
             A forma já havia sido escolhida, ou o prazo da reserva venceu e ela
-            foi cancelada. O `codigo` do corpo distingue os dois.
+            foi cancelada. O `type` do corpo distingue os dois.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Erro" }
@@ -231,8 +231,11 @@ components:
         recusa já chega ao aplicativo pela notificação, e não expor referência de
         adquirente evita vazar detalhe da integração pela API pública.
     Erro:
+      description: Erro de protocolo, no formato RFC 9457 (`application/problem+json`).
       type: object
-      required: [codigo, mensagem]
+      required: [type, title, status]
       properties:
-        codigo:   { type: string, description: "categoria estável do erro" }
-        mensagem: { type: string, description: "texto humano, livre para mudar de redação" }
+        type:   { type: string, format: uri, description: "categoria estável do erro; o último segmento é o código (ver erros.md)" }
+        title:  { type: string }
+        status: { type: integer }
+        detail: { type: string, description: "texto humano, livre para mudar de redação" }

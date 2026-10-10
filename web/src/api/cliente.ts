@@ -1,7 +1,6 @@
-// Os quatro serviços erram em dois dialetos: catálogo, estoque e notificação
-// falam RFC 9457 (`application/problem+json`), e o pagamento tem forma própria
-// (`{ codigo, mensagem }`). Aqui os dois viram o mesmo `ErroDaApi`, para que
-// nenhuma tela precise saber com quem está falando.
+// Os quatro serviços falam RFC 9457 (`application/problem+json`). Aqui a
+// resposta vira um `ErroDaApi`, para que nenhuma tela precise saber com quem
+// está falando.
 
 export interface CampoInvalido {
   campo: string
@@ -10,8 +9,8 @@ export interface CampoInvalido {
 
 export class ErroDaApi extends Error {
   readonly status: number
-  /** Categoria estável do erro — o último segmento do `type` da RFC 9457, ou
-   *  o `codigo` do pagamento. É por ela que as telas decidem o que dizer. */
+  /** Categoria estável do erro — o último segmento do `type` da RFC 9457.
+   *  É por ela que as telas decidem o que dizer. */
   readonly categoria: string
   readonly detalhe?: string
   readonly campos?: CampoInvalido[]
@@ -61,11 +60,6 @@ async function erroDaResposta(resposta: Response): Promise<ErroDaApi> {
     corpo = (await resposta.json()) as Record<string, unknown>
   } catch {
     return new ErroDaApi(resposta.status, 'desconhecido', `Falha ${resposta.status} sem corpo legível.`)
-  }
-
-  // Dialeto do pagamento.
-  if (typeof corpo.codigo === 'string') {
-    return new ErroDaApi(resposta.status, corpo.codigo, String(corpo.mensagem ?? 'Falha no pagamento.'))
   }
 
   const campos = Array.isArray(corpo.errors) ? (corpo.errors as CampoInvalido[]) : undefined

@@ -196,7 +196,7 @@ func problema(w http.ResponseWriter, status int, tipo, titulo, detalhe string) {
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(problemaResposta{
-		Type:   "https://ingressos.example/problemas/" + tipo,
+		Type:   "https://cinema.example/errors/" + tipo,
 		Title:  titulo,
 		Status: status,
 		Detail: detalhe,

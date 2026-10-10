@@ -1,17 +1,18 @@
 # Contrato de Erros — Servico-Pagamento
 
-O que é contrato é o par **status HTTP + `codigo`**. A `mensagem` é texto humano e
-pode mudar de redação sem versão nova. Nenhum erro expõe detalhe interno: mensagem
+Os erros seguem a RFC 9457 (`application/problem+json`). O que é contrato é o par
+**status HTTP + `type`** (`https://cinema.example/errors/<codigo>`; a coluna `codigo`
+abaixo é o último segmento). `title` e `detail` são texto humano e podem mudar de redação sem versão nova. Nenhum erro expõe detalhe interno: mensagem
 de driver, SQL, rastro de pilha ou identificador de linha nunca chegam à resposta.
 
 ## Categorias da API de consulta
 
 | Status | `codigo` | Quando | Requisito |
 |---|---|---|---|
-| 400 | `RESERVA_ID_INVALIDO` | `reserva_id` não é UUID válido | FR-018 |
-| 401 | `CREDENCIAL_INVALIDA` | token ausente, malformado, expirado, assinatura ou emissor inválidos | FR-016 |
-| 404 | `PAGAMENTO_NAO_ENCONTRADO` | não há transação para a reserva **ou** a transação é de outra pessoa | FR-017, FR-018 |
-| 503 | `SERVICO_INDISPONIVEL` | armazenamento inacessível | FR-018 |
+| 400 | `reserva-id-invalido` | `reserva_id` não é UUID válido | FR-018 |
+| 401 | `credencial-invalida` | token ausente, malformado, expirado, assinatura ou emissor inválidos | FR-016 |
+| 404 | `pagamento-nao-encontrado` | não há transação para a reserva **ou** a transação é de outra pessoa | FR-017, FR-018 |
+| 503 | `servico-indisponivel` | armazenamento inacessível | FR-018 |
 
 **A colisão de 404 é deliberada e é requisito, não simplificação.** Responder 403
 para reserva de terceiro confirmaria que ela existe, o que a FR-017 proíbe. As duas

@@ -230,12 +230,12 @@ func TestEscolhaDaFormaRecusaCadaCategoriaDeErro(t *testing.T) {
 			if w.Code != c.status {
 				t.Fatalf("esperava %d, veio %d: %s", c.status, w.Code, w.Body)
 			}
-			var e erroResposta
+			var e problema
 			if err := json.Unmarshal(w.Body.Bytes(), &e); err != nil {
 				t.Fatal(err)
 			}
-			if e.Codigo != c.codigo {
-				t.Fatalf("codigo = %q, esperado %q", e.Codigo, c.codigo)
+			if categoria(e.Type) != c.codigo {
+				t.Fatalf("codigo = %q, esperado %q", categoria(e.Type), c.codigo)
 			}
 		})
 	}
@@ -342,10 +342,10 @@ func TestCredencialInvalida(t *testing.T) {
 			if w.Code != http.StatusUnauthorized {
 				t.Fatalf("esperava 401, veio %d: %s", w.Code, w.Body)
 			}
-			var e erroResposta
+			var e problema
 			_ = json.Unmarshal(w.Body.Bytes(), &e)
-			if e.Codigo != CodCredencialInvalida {
-				t.Fatalf("código errado: %q", e.Codigo)
+			if categoria(e.Type) != CodCredencialInvalida {
+				t.Fatalf("código errado: %q", categoria(e.Type))
 			}
 		})
 	}
@@ -366,10 +366,10 @@ func TestReservaIDMalformado(t *testing.T) {
 		if w.Code != http.StatusBadRequest {
 			t.Fatalf("%q devia dar 400, veio %d", id, w.Code)
 		}
-		var e erroResposta
+		var e problema
 		_ = json.Unmarshal(w.Body.Bytes(), &e)
-		if e.Codigo != CodReservaIDInvalido {
-			t.Fatalf("código errado: %q", e.Codigo)
+		if categoria(e.Type) != CodReservaIDInvalido {
+			t.Fatalf("código errado: %q", categoria(e.Type))
 		}
 	}
 }
@@ -381,10 +381,10 @@ func TestFalhaDeArmazenamentoDa503(t *testing.T) {
 	if w.Code != http.StatusServiceUnavailable {
 		t.Fatalf("esperava 503, veio %d", w.Code)
 	}
-	var e erroResposta
+	var e problema
 	_ = json.Unmarshal(w.Body.Bytes(), &e)
-	if e.Codigo != CodIndisponivel {
-		t.Fatalf("código errado: %q", e.Codigo)
+	if categoria(e.Type) != CodIndisponivel {
+		t.Fatalf("código errado: %q", categoria(e.Type))
 	}
 }
 
@@ -421,3 +421,5 @@ func chamarURL(t *testing.T, api *API, url, bearer string) *httptest.ResponseRec
 	api.Rotas().ServeHTTP(w, r)
 	return w
 }
+
+func categoria(tipo string) string { return strings.TrimPrefix(tipo, prefixoTipo) }

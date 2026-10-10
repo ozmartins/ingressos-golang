@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -60,7 +61,11 @@ func (c *CaixaDeSaida) Drenar(ctx context.Context, limite int, publicar func(Fat
 		for _, p := range pendentes {
 			f := FatoNaCaixa{ID: p.ID, MessageID: p.MessageID, RoutingKey: p.RoutingKey, Payload: p.Payload}
 			if len(p.TraceContext) > 0 {
-				_ = json.Unmarshal(p.TraceContext, &f.TraceContext)
+				if err := json.Unmarshal(p.TraceContext, &f.TraceContext); err != nil {
+					slog.WarnContext(ctx, "contexto de rastreamento ilegível na caixa de saída; publicando sem ele",
+						slog.String("message_id", p.MessageID), slog.Any("erro", err))
+					f.TraceContext = nil
+				}
 			}
 
 			fato := tx.Model(&outboxRow{}).Where("id = ?", f.ID)

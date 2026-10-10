@@ -22,6 +22,7 @@ Prefixo dos URIs: `https://cinema.example/errors/`
 | `poltrona-inexistente` | 422 | Uma ou mais poltronas informadas não existem na sessão | Contrato de erros do estoque, `POLTRONA_INEXISTENTE` |
 | `sessao-sem-poltronas` | 422 | A sessão existe no catálogo, mas o estoque ainda não provisionou a matriz de poltronas dela | Contrato de erros do estoque, `SESSAO_NAO_PROVISIONADA` |
 | `estoque-indisponivel` | 503 | Timeout de 2s, `Unavailable` do gRPC, ou recusa rápida com o disjuntor aberto | FR-028, FR-030 |
+| `banco-indisponivel` | 503 | O PostgreSQL do próprio serviço está fora do ar: conexão recusada ou interrompida, tempo excedido, conexões esgotadas, ou servidor desligando. Vale para qualquer rota que toque o banco; repetir faz sentido | Infraestrutura própria |
 | `resposta-invalida-do-parceiro` | 502 | Estoque respondeu `sucesso=true` sem `reserva_id` ou sem `expira_em`; ou o estoque respondeu `INTERNAL` — defeito dele, que repetir não resolve | Edge case da spec, e o contrato de erros do estoque |
 | `erro-interno` | 500 | Falha não prevista; `detail` genérico, sem vazar interno | FR-028 |
 

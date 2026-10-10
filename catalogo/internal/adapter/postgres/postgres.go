@@ -62,6 +62,11 @@ func Abrir(ctx context.Context, databaseURL string, opcoes ...Opcao) (*Banco, er
 		return nil, fmt.Errorf("criando conexão: %w", err)
 	}
 
+	if err := registrarClassificacao(db); err != nil {
+		_ = sqlDB.Close()
+		return nil, err
+	}
+
 	ctxPing, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if err := sqlDB.PingContext(ctxPing); err != nil {
@@ -80,7 +85,7 @@ func (b *Banco) SQL() *sql.DB { return b.sql }
 func (b *Banco) conn(ctx context.Context) *gorm.DB { return b.db.WithContext(ctx) }
 
 func (b *Banco) EmTransacao(ctx context.Context, fn func(tx *gorm.DB) error) error {
-	return b.conn(ctx).Transaction(fn)
+	return marcarIndisponibilidade(b.conn(ctx).Transaction(fn))
 }
 
 var gormAgora = gorm.Expr("CURRENT_TIMESTAMP")

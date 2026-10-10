@@ -43,6 +43,7 @@ func TestTodasAsCategoriasDoContrato(t *testing.T) {
 		{catPoltronaInexistente, http.StatusUnprocessableEntity},
 		{catSessaoSemPoltronas, http.StatusUnprocessableEntity},
 		{catEstoqueIndisponivel, http.StatusServiceUnavailable},
+		{catBancoIndisponivel, http.StatusServiceUnavailable},
 		{catRespostaInvalida, http.StatusBadGateway},
 		{catErroInterno, http.StatusInternalServerError},
 	}
@@ -99,6 +100,7 @@ func TestErroDeDominioMapeiaParaCategoria(t *testing.T) {
 		{fmt.Errorf("%w: no máximo 10 poltronas por reserva", shared.ErrSolicitacaoRecusadaPeloEstoque), "", catReservaRecusada, 400},
 		{shared.ErrEstoqueComDefeito, "", catRespostaInvalida, 502},
 		{shared.ErrEstoqueIndisponivel, "", catEstoqueIndisponivel, 503},
+		{fmt.Errorf("lendo filme: %w", fmt.Errorf("%w: dial tcp 10.0.0.5:5432: connection refused", shared.ErrBancoIndisponivel)), "filme", catBancoIndisponivel, 503},
 		{shared.ErrRespostaInvalidaDoParceiro, "", catRespostaInvalida, 502},
 		{errors.New("qualquer coisa inesperada"), "", catErroInterno, 500},
 	}
@@ -119,6 +121,19 @@ func TestNaoVazaDetalheInterno(t *testing.T) {
 	})
 	corpo := p.Detail + p.Title
 	for _, vazamento := range []string{"pq:", "relation", "10.0.0.5", "5432"} {
+		if strings.Contains(corpo, vazamento) {
+			t.Errorf("resposta vazou %q: %s", vazamento, corpo)
+		}
+	}
+}
+
+func TestBancoIndisponivelNaoVazaEnderecoDoBanco(t *testing.T) {
+	err := fmt.Errorf("%w: dial tcp 10.0.0.5:5432: connection refused", shared.ErrBancoIndisponivel)
+	_, p := executar(t, func(w http.ResponseWriter, r *http.Request) {
+		EscreverErroDeDominio(w, r, err, "filme")
+	})
+	corpo := p.Detail + p.Title
+	for _, vazamento := range []string{"10.0.0.5", "5432", "dial tcp", "connection refused"} {
 		if strings.Contains(corpo, vazamento) {
 			t.Errorf("resposta vazou %q: %s", vazamento, corpo)
 		}

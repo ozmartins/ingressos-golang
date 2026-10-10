@@ -41,6 +41,7 @@ const (
 	catPoltronaInexistente = "poltrona-inexistente"
 	catSessaoSemPoltronas  = "sessao-sem-poltronas"
 	catEstoqueIndisponivel = "estoque-indisponivel"
+	catBancoIndisponivel   = "banco-indisponivel"
 	catRespostaInvalida    = "resposta-invalida-do-parceiro"
 	catErroInterno         = "erro-interno"
 )
@@ -65,6 +66,7 @@ var categorias = map[string]descricaoCategoria{
 	catPoltronaInexistente: {"Poltrona inexistente na sessão", http.StatusUnprocessableEntity},
 	catSessaoSemPoltronas:  {"Sessão ainda sem poltronas", http.StatusUnprocessableEntity},
 	catEstoqueIndisponivel: {"Serviço temporariamente indisponível", http.StatusServiceUnavailable},
+	catBancoIndisponivel:   {"Serviço temporariamente indisponível", http.StatusServiceUnavailable},
 	catRespostaInvalida:    {"Resposta inválida do serviço parceiro", http.StatusBadGateway},
 	catErroInterno:         {"Erro interno", http.StatusInternalServerError},
 }
@@ -118,6 +120,9 @@ func EscreverErroDeDominio(w http.ResponseWriter, r *http.Request, err error, co
 
 	case errors.Is(err, shared.ErrEstoqueIndisponivel):
 		EscreverProblem(w, r, catEstoqueIndisponivel, "Serviço temporariamente indisponível. Tente novamente em instantes.")
+	case errors.Is(err, shared.ErrBancoIndisponivel):
+		slog.ErrorContext(r.Context(), "banco de dados indisponível", slog.Any("erro", err), slog.String("contexto", contexto))
+		EscreverProblem(w, r, catBancoIndisponivel, "Serviço temporariamente indisponível. Tente novamente em instantes.")
 	case errors.Is(err, shared.ErrRespostaInvalidaDoParceiro):
 		EscreverProblem(w, r, catRespostaInvalida, "Não foi possível confirmar a reserva junto ao serviço responsável.")
 	default:

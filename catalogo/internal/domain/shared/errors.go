@@ -18,6 +18,8 @@ var (
 
 	ErrEstoqueIndisponivel = errors.New("serviço de estoque indisponível")
 
+	ErrBancoIndisponivel = errors.New("banco de dados indisponível")
+
 	ErrSolicitacaoRecusadaPeloEstoque = errors.New("solicitação de bloqueio recusada pelo estoque")
 
 	ErrPoltronaInexistente = errors.New("poltrona inexistente na sessão")

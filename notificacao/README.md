@@ -68,6 +68,7 @@ erro de largada — não cai silenciosamente no padrão.
 | `AMQP_PREFETCH` | `10` |
 | `AMQP_LIMITE_ENTREGAS` | `3` (tentativas, não reentregas) |
 | `NOTIFICADOR_MODO` | `enviar` (`falhar` exercita o caminho de erro) |
+| `NOTIFICADOR_TIMEOUT` | prazo para o canal de aviso responder (padrão `10s`) |
 | `NIVEL_LOG` | `info` |
 
 ## Rodar

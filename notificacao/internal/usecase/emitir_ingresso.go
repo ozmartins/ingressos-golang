@@ -44,6 +44,7 @@ type EmitirIngresso struct {
 	Ingressos   Ingressos
 	Avisos      Avisos
 	Notificador Notificador
+	PrazoAviso  time.Duration
 	Assinador   Assinador
 	Relogio     Relogio
 	IDs         GeradorID
@@ -85,7 +86,14 @@ func (u EmitirIngresso) avisar(ctx context.Context, ing ingresso.Ingresso) {
 	canal := u.Notificador.Canal()
 
 	var reg aviso.Registro
-	if err := u.Notificador.Avisar(ctx, ing); err != nil {
+	ctxAviso := ctx
+	if u.PrazoAviso > 0 {
+		var cancelar context.CancelFunc
+		ctxAviso, cancelar = context.WithTimeout(ctx, u.PrazoAviso)
+		defer cancelar()
+	}
+
+	if err := u.Notificador.Avisar(ctxAviso, ing); err != nil {
 		var errReg error
 		reg, errReg = aviso.NovoFalho(u.IDs.Novo(), ing.ID, ing.UsuarioID, canal, err.Error(), agora)
 		if errReg != nil {

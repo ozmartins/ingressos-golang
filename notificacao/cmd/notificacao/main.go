@@ -81,6 +81,7 @@ func executar() error {
 		Ingressos:   ingressos,
 		Avisos:      postgres.Avisos{DB: banco.DB()},
 		Notificador: simulado.Notificador{Falhar: cfg.NotificadorModo == config.NotificarFalhar, Log: log},
+		PrazoAviso:  cfg.NotificadorTimeout,
 		Assinador:   assinador,
 		Relogio:     sistema.Relogio{},
 		IDs:         sistema.GeradorID{},

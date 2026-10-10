@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Config struct {
@@ -27,7 +28,8 @@ type Config struct {
 	JWTIssuer string
 	JWTAud    string
 
-	NotificadorModo string
+	NotificadorModo    string
+	NotificadorTimeout time.Duration
 
 	OTLPEndpoint string
 	NivelLog     string
@@ -64,12 +66,17 @@ func Carregar() (Config, error) {
 	c.AMQPLimiteEntregas = inteiro("AMQP_LIMITE_ENTREGAS", 3, &f)
 	c.NotificadorModo = enumerada("NOTIFICADOR_MODO", NotificarEnviar,
 		[]string{NotificarEnviar, NotificarFalhar}, &f)
+	c.NotificadorTimeout = duracao("NOTIFICADOR_TIMEOUT", 10*time.Second, &f)
 
 	if c.AMQPPrefetch <= 0 {
 		f = append(f, "AMQP_PREFETCH deve ser maior que zero")
 	}
 	if c.AMQPLimiteEntregas <= 0 {
 		f = append(f, "AMQP_LIMITE_ENTREGAS deve ser maior que zero")
+	}
+
+	if c.NotificadorTimeout <= 0 {
+		f = append(f, "NOTIFICADOR_TIMEOUT deve ser maior que zero")
 	}
 
 	if len(f) > 0 {
@@ -118,4 +125,17 @@ func enumerada(chave, padrao string, aceitos []string, f *faltando) string {
 	}
 	*f = append(*f, chave+" deve ser um de ["+strings.Join(aceitos, ", ")+"], e veio "+strconv.Quote(v))
 	return padrao
+}
+
+func duracao(chave string, padrao time.Duration, f *faltando) time.Duration {
+	v := os.Getenv(chave)
+	if v == "" {
+		return padrao
+	}
+	d, err := time.ParseDuration(v)
+	if err != nil {
+		*f = append(*f, chave+" deve ser uma duração (ex.: 10s), veio "+strconv.Quote(v))
+		return padrao
+	}
+	return d
 }

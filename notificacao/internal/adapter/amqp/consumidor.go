@@ -81,13 +81,17 @@ func (c *Consumidor) tratar(ctx context.Context, d amqp.Delivery) {
 			c.log().Error("falha ao confirmar entrega", "erro", err)
 		}
 	case Quarentena:
-		_ = d.Nack(false, false)
+		if err := d.Nack(false, false); err != nil {
+			c.log().Error("falha ao enviar para a quarentena", "erro", err)
+		}
 	default:
 		select {
 		case <-time.After(c.espera()):
 		case <-ctx.Done():
 		}
-		_ = d.Nack(false, true)
+		if err := d.Nack(false, true); err != nil {
+			c.log().Error("falha ao devolver para nova tentativa", "erro", err)
+		}
 	}
 }
 

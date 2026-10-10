@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Cinema ticketing platform made of four Go microservices (`catalogo`, `estoque`, `pagamento`, `notificacao`) plus a Vite frontend (`web/`). Each service is a **separate Go module** (own `go.mod`, `Dockerfile`, `Makefile`; no `go.work`), so `cd` into the service before running Go tooling. Docs, specs and comments are in Portuguese.
+Cinema ticketing platform made of four Go microservices (`catalogo`, `estoque`, `pagamento`, `notificacao`) plus a Vite + React 19 + Tailwind 4 frontend (`web/`, served by nginx in Docker). Each service is a **separate Go module** (own `go.mod`, `Dockerfile`, `Makefile`; no `go.work`), so `cd` into the service before running Go tooling. Docs, specs and comments are in Portuguese.
 
 All services share one PostgreSQL database (`cinema`) with one schema per service, plus Redis, RabbitMQ and Keycloak (realm `cinema`, imported from `catalogo/keycloak`). A single root `docker-compose.yml` runs everything, including one-shot `migrate-<svc>` containers:
 
@@ -12,7 +12,9 @@ All services share one PostgreSQL database (`cinema`) with one schema per servic
 docker compose up --build
 ```
 
-Host ports and URLs (Swagger at `/docs`, health checks, RabbitMQ panel, Keycloak console) are listed in `URLS.txt`; ports are overridable via `PORTA_*` variables.
+Host ports and URLs (Swagger at `/docs`, health checks, RabbitMQ panel, Keycloak console) are listed in `urls.txt` (renamed from `URLS.txt`; `README.md` still links the old name); ports are overridable via `PORTA_*` variables.
+
+Frontend (`web/`, not Go) — run inside `web/`: `npm run dev`, `npm run build` (`tsc -b && vite build`), `npm run typecheck`. No test or lint scripts. Infra seed SQL (roles/schemas) lives in `infra/postgres/`.
 
 ## Async flow
 

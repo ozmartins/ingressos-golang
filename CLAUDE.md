@@ -39,7 +39,7 @@ make openapi-sync       # copy contract into internal/adapter/http/openapi/
 
 ## Architecture (hexagonal, same in every service)
 
-`internal/domain` and `internal/usecase` are the core; `internal/adapter/*` (http, grpc, amqp, postgres, redis) and `internal/platform` (config/wiring) are infrastructure; `cmd/<svc>` is the entrypoint. The core must not import adapters, platform, generated protobuf, pgx, amqp or redis. `estoque` enforces this in `test/arquitetura_test.go` (via `go list -json`, so a violation fails `make test`); `catalogo` enforces it with the `depguard` rule `nucleo-sem-adaptadores` in `.golangci.yml` (`make lint`); `pagamento` and `notificacao` have neither.
+`internal/domain` and `internal/usecase` are the core; `internal/adapter/*` (http, grpc, amqp, postgres, redis) and `internal/platform` (config/wiring) are infrastructure; `cmd/<svc>` is the entrypoint. The core must not import adapters, platform, generated protobuf, pgx, amqp or redis. `estoque`, `pagamento` and `notificacao` enforce this in `test/arquitetura_test.go` (via `go list -json`, so a violation fails `make test`); `catalogo` enforces it with the `depguard` rule `nucleo-sem-adaptadores` in `.golangci.yml` (`make lint`).
 
 Non-obvious rules:
 - **Contracts are copied, not shared.** The versioned `specs/<feature>/contracts/{openapi.yaml,*.proto}` is the source of truth; `go:embed` can't reach it, so `make openapi-sync` / `make proto` copy it into `internal/...` or `proto/`. A parity test fails if copies diverge — edit the spec file and sync, never the copy.

@@ -4,6 +4,8 @@ package integration
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -74,9 +76,12 @@ func TestRajadaRespeitaTetoEMantemConsultasRapidas(t *testing.T) {
 func medirConsultasDuranteOPico(t *testing.T, a *ambiente, reservas []string) []time.Duration {
 	t.Helper()
 
-	segredo := []byte("chave-de-teste")
+	segredo, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
 	const iss, aud = "https://keycloak.teste/realms/cinema", "servico-pagamento"
-	kf := func(*jwt.Token) (any, error) { return segredo, nil }
+	kf := func(*jwt.Token) (any, error) { return &segredo.PublicKey, nil }
 
 	prontidao := health.NovaProntidao()
 	prontidao.Registrar("banco", a.Banco.Verificar)
@@ -108,7 +113,7 @@ func medirConsultasDuranteOPico(t *testing.T, a *ambiente, reservas []string) []
 				if tr, err := a.Repo.BuscarPorReserva(context.Background(), reserva); err == nil {
 					sub = tr.UsuarioID
 				}
-				tok, err := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+				tok, err := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
 					"sub": sub, "iss": iss, "aud": aud,
 					"exp": time.Now().Add(time.Hour).Unix(),
 				}).SignedString(segredo)

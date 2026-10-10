@@ -40,7 +40,7 @@ func (a *Autenticador) Identificar(r *http.Request) (string, error) {
 		jwt.WithIssuer(a.issuer),
 		jwt.WithAudience(a.audience),
 		jwt.WithExpirationRequired(),
-		jwt.WithValidMethods([]string{"RS256", "ES256", "HS256"}),
+		jwt.WithValidMethods([]string{"RS256"}),
 		jwt.WithLeeway(30*time.Second),
 	)
 	if err != nil || !t.Valid {

@@ -2,6 +2,8 @@ package http
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -21,9 +23,18 @@ import (
 const (
 	emissorTeste  = "http://keycloak.test/realms/cinema"
 	audienciaTest = "cinema-app"
-	segredoTeste  = "segredo-de-teste-apenas"
 	subTeste      = "11111111-1111-4111-8111-111111111111"
 )
+
+var chaveTeste = gerarChaveDeTeste()
+
+func gerarChaveDeTeste() *rsa.PrivateKey {
+	k, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		panic(err)
+	}
+	return k
+}
 
 type bloqueioFalso struct {
 	valorVisto   string
@@ -50,7 +61,7 @@ func (m *mapaFalso) Executar(context.Context, string) ([]poltrona.Poltrona, erro
 }
 
 func apiDeTeste(b CasoDeUsoBloqueio, m CasoDeUsoMapa) *API {
-	chave := func(*jwt.Token) (any, error) { return []byte(segredoTeste), nil }
+	chave := func(*jwt.Token) (any, error) { return &chaveTeste.PublicKey, nil }
 	return &API{
 		Bloqueio: b,
 		Mapa:     m,
@@ -61,13 +72,13 @@ func apiDeTeste(b CasoDeUsoBloqueio, m CasoDeUsoMapa) *API {
 
 func tokenValido(t *testing.T) string {
 	t.Helper()
-	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+	tok := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
 		"iss": emissorTeste,
 		"aud": audienciaTest,
 		"sub": subTeste,
 		"exp": time.Now().Add(time.Hour).Unix(),
 	})
-	assinado, err := tok.SignedString([]byte(segredoTeste))
+	assinado, err := tok.SignedString(chaveTeste)
 	if err != nil {
 		t.Fatalf("assinando o token de teste: %v", err)
 	}

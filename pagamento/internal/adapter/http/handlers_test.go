@@ -2,6 +2,8 @@ package http
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -26,7 +28,15 @@ const (
 	terceiro = "22222222-2222-4222-8222-222222222222"
 )
 
-var segredo = []byte("chave-de-teste")
+var chaveTeste = gerarChaveDeTeste()
+
+func gerarChaveDeTeste() *rsa.PrivateKey {
+	k, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		panic(err)
+	}
+	return k
+}
 
 type repoStub struct {
 	t   transacao.Transacao
@@ -87,7 +97,7 @@ func token(t *testing.T, sub string, ajustar func(jwt.MapClaims)) string {
 	if ajustar != nil {
 		ajustar(c)
 	}
-	s, err := jwt.NewWithClaims(jwt.SigningMethodHS256, c).SignedString(segredo)
+	s, err := jwt.NewWithClaims(jwt.SigningMethodRS256, c).SignedString(chaveTeste)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +105,7 @@ func token(t *testing.T, sub string, ajustar func(jwt.MapClaims)) string {
 }
 
 func apiCom(repo usecase.Repositorio) *API {
-	kf := func(*jwt.Token) (any, error) { return segredo, nil }
+	kf := func(*jwt.Token) (any, error) { return &chaveTeste.PublicKey, nil }
 	p := health.NovaProntidao()
 	p.Registrar("banco", func(context.Context) error { return nil })
 	return &API{
@@ -322,10 +332,10 @@ func TestCredencialInvalida(t *testing.T) {
 		"sem token":  "",
 		"token lixo": "nao-e-um-jwt",
 		"assinatura errada": func() string {
-			s, _ := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+			s, _ := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
 				"sub": dona, "iss": issuer, "aud": audience,
 				"exp": time.Now().Add(time.Hour).Unix(),
-			}).SignedString([]byte("outra-chave"))
+			}).SignedString(gerarChaveDeTeste())
 			return s
 		}(),
 		"expirado": token(t, dona, func(c jwt.MapClaims) {

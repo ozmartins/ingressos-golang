@@ -24,7 +24,7 @@ Esperado: as mesmas suítes de antes, asserções inalteradas — `catalogo_test
 ## 3. Banco já populado pela versão anterior (SC-004)
 
 1. No commit anterior à troca: `docker compose up --build`, cadastrar sala e sessão
-   (REST, `URLS.txt`) e listar.
+   (REST, `urls.txt`) e listar.
 2. Na versão nova: `docker compose up --build catalogo` **sem** recriar o volume do Postgres.
 3. Esperado: os mesmos filmes/salas/sessões aparecem, fatos pendentes são publicados, e nenhuma
    migração de dados rodou.

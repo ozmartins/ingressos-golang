@@ -62,7 +62,7 @@
 
 - [X] T017 [P] [US2] Verificar por inspeção que nada no código de produção emite DDL nem `AutoMigrate`: `grep -rniE "AutoMigrate|CREATE TABLE|ALTER TABLE|Migrator\(" internal cmd` deve retornar vazio; registrar o resultado na seção de verificação ao fim de `quickstart.md`
 - [X] T018 [US2] Executar o cenário de banco populado (quickstart §3): subir a versão anterior (`git worktree add --detach /tmp/estoque-antes HEAD`, sem criar branch; remover o worktree ao final) com `docker compose up --build`, criar sessão e reserva pendente, trocar para a versão nova **sem recriar o volume** e confirmar a reserva via `make publicar-pagamento`; anotar o resultado em `quickstart.md`
-- [X] T019 [US2] Executar do zero `docker compose up --build` (banco vazio) e confirmar que `migrate-estoque` cria o esquema e `estoque` fica saudável (`/health` conforme `ingressos-golang/URLS.txt`)
+- [X] T019 [US2] Executar do zero `docker compose up --build` (banco vazio) e confirmar que `migrate-estoque` cria o esquema e `estoque` fica saudável (`/health` conforme `ingressos-golang/urls.txt`)
 
 **Checkpoint**: US2 verificada.
 

@@ -27,7 +27,7 @@ curl -i          localhost:<porta>/nada              # 404 page not found
 curl -i          localhost:<porta>/docs/             # 200
 ```
 
-(`<porta>` em `URLS.txt`.)
+(`<porta>` em `urls.txt`.)
 
 ## 4. Rótulo de métrica/log (achado D3)
 

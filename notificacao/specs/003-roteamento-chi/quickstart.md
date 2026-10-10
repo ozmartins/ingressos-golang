@@ -27,4 +27,4 @@ curl -i localhost:<porta>/docs/                # 200 HTML
 curl -i localhost:<porta>/api/v1/ingressos/meus-ingressos   # 401 problema+json
 ```
 
-Portas em `../URLS.txt`.
+Portas em `../urls.txt`.

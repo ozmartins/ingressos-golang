@@ -4,15 +4,17 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
-	"github.com/coreos/go-oidc/v3/oidc"
-	jose "github.com/go-jose/go-jose/v4"
+	"github.com/MicahParks/keyfunc/v3"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type emissorDeTeste struct {
@@ -31,10 +33,12 @@ func novoEmissor(t *testing.T) *emissorDeTeste {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/jwks", func(w http.ResponseWriter, _ *http.Request) {
-		jwks := jose.JSONWebKeySet{Keys: []jose.JSONWebKey{{
-			Key: chave.Public(), KeyID: "chave-1", Algorithm: "RS256", Use: "sig",
-		}}}
-		_ = json.NewEncoder(w).Encode(jwks)
+		pub := chave.PublicKey
+		_ = json.NewEncoder(w).Encode(map[string]any{"keys": []map[string]string{{
+			"kty": "RSA", "kid": "chave-1", "alg": "RS256", "use": "sig",
+			"n": base64.RawURLEncoding.EncodeToString(pub.N.Bytes()),
+			"e": base64.RawURLEncoding.EncodeToString(big.NewInt(int64(pub.E)).Bytes()),
+		}}})
 	})
 	e.server = httptest.NewServer(mux)
 	e.issuer = e.server.URL
@@ -47,30 +51,22 @@ func (e *emissorDeTeste) token(t *testing.T, claims map[string]any, chave *rsa.P
 	if chave == nil {
 		chave = e.chave
 	}
-	assinador, err := jose.NewSigner(
-		jose.SigningKey{Algorithm: jose.RS256, Key: chave},
-		(&jose.SignerOptions{}).WithType("JWT").WithHeader("kid", "chave-1"),
-	)
+	tk := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims(claims))
+	tk.Header["kid"] = "chave-1"
+	assinado, err := tk.SignedString(chave)
 	if err != nil {
 		t.Fatal(err)
 	}
-	corpo, err := json.Marshal(claims)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assinado, err := assinador.Sign(corpo)
-	if err != nil {
-		t.Fatal(err)
-	}
-	compacto, err := assinado.CompactSerialize()
-	if err != nil {
-		t.Fatal(err)
-	}
-	return compacto
+	return assinado
 }
 
-func (e *emissorDeTeste) verificador() *Verificador {
-	return NovoVerificadorComKeySet(oidc.NewRemoteKeySet(context.Background(), e.server.URL+"/jwks"), e.issuer, "cinema-app")
+func (e *emissorDeTeste) verificador(t *testing.T) *Verificador {
+	t.Helper()
+	k, err := keyfunc.NewDefault([]string{e.server.URL + "/jwks"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return NovoVerificadorComChave(k.Keyfunc, e.issuer, "cinema-app")
 }
 
 func claimsValidas(issuer string) map[string]any {
@@ -85,7 +81,7 @@ func claimsValidas(issuer string) map[string]any {
 
 func TestVerificarAceitaTokenValido(t *testing.T) {
 	e := novoEmissor(t)
-	id, err := e.verificador().Verificar(context.Background(), e.token(t, claimsValidas(e.issuer), nil))
+	id, err := e.verificador(t).Verificar(context.Background(), e.token(t, claimsValidas(e.issuer), nil))
 	if err != nil {
 		t.Fatalf("erro inesperado: %v", err)
 	}
@@ -98,7 +94,7 @@ func TestVerificarRecusaTokenExpirado(t *testing.T) {
 	e := novoEmissor(t)
 	c := claimsValidas(e.issuer)
 	c["exp"] = time.Now().Add(-time.Hour).Unix()
-	if _, err := e.verificador().Verificar(context.Background(), e.token(t, c, nil)); !errors.Is(err, ErrCredencialInvalida) {
+	if _, err := e.verificador(t).Verificar(context.Background(), e.token(t, c, nil)); !errors.Is(err, ErrCredencialInvalida) {
 		t.Fatalf("esperava recusa de token expirado, obteve %v", err)
 	}
 }
@@ -109,7 +105,7 @@ func TestVerificarRecusaAssinaturaDeOutraChave(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.verificador().Verificar(context.Background(), e.token(t, claimsValidas(e.issuer), outra)); !errors.Is(err, ErrCredencialInvalida) {
+	if _, err := e.verificador(t).Verificar(context.Background(), e.token(t, claimsValidas(e.issuer), outra)); !errors.Is(err, ErrCredencialInvalida) {
 		t.Fatalf("esperava recusa de assinatura inválida, obteve %v", err)
 	}
 }
@@ -117,7 +113,7 @@ func TestVerificarRecusaAssinaturaDeOutraChave(t *testing.T) {
 func TestVerificarRecusaEmissorDesconhecido(t *testing.T) {
 	e := novoEmissor(t)
 	c := claimsValidas("https://emissor-que-nao-confiamos.example")
-	if _, err := e.verificador().Verificar(context.Background(), e.token(t, c, nil)); !errors.Is(err, ErrCredencialInvalida) {
+	if _, err := e.verificador(t).Verificar(context.Background(), e.token(t, c, nil)); !errors.Is(err, ErrCredencialInvalida) {
 		t.Fatalf("esperava recusa de emissor desconhecido, obteve %v", err)
 	}
 }
@@ -126,7 +122,7 @@ func TestVerificarRecusaAudienciaErrada(t *testing.T) {
 	e := novoEmissor(t)
 	c := claimsValidas(e.issuer)
 	c["aud"] = "outro-aplicativo"
-	if _, err := e.verificador().Verificar(context.Background(), e.token(t, c, nil)); !errors.Is(err, ErrCredencialInvalida) {
+	if _, err := e.verificador(t).Verificar(context.Background(), e.token(t, c, nil)); !errors.Is(err, ErrCredencialInvalida) {
 		t.Fatalf("esperava recusa de audiência errada, obteve %v", err)
 	}
 }
@@ -135,7 +131,7 @@ func TestVerificarRecusaTokenSemSub(t *testing.T) {
 	e := novoEmissor(t)
 	c := claimsValidas(e.issuer)
 	delete(c, "sub")
-	_, err := e.verificador().Verificar(context.Background(), e.token(t, c, nil))
+	_, err := e.verificador(t).Verificar(context.Background(), e.token(t, c, nil))
 	if !errors.Is(err, ErrCredencialInvalida) {
 		t.Fatalf("esperava recusa de token sem sub, obteve %v", err)
 	}
@@ -143,7 +139,7 @@ func TestVerificarRecusaTokenSemSub(t *testing.T) {
 
 func TestVerificarRecusaTokenMalformado(t *testing.T) {
 	e := novoEmissor(t)
-	if _, err := e.verificador().Verificar(context.Background(), "isto.nao.e-um-jwt"); !errors.Is(err, ErrCredencialInvalida) {
+	if _, err := e.verificador(t).Verificar(context.Background(), "isto.nao.e-um-jwt"); !errors.Is(err, ErrCredencialInvalida) {
 		t.Fatalf("esperava recusa de token malformado, obteve %v", err)
 	}
 }
@@ -162,7 +158,7 @@ func TestVerificarAceitaTokenDeServiceAccount(t *testing.T) {
 		"iat": time.Now().Unix(),
 	}
 
-	id, err := e.verificador().Verificar(context.Background(), e.token(t, c, nil))
+	id, err := e.verificador(t).Verificar(context.Background(), e.token(t, c, nil))
 	if err != nil {
 		t.Fatalf("token de service account deveria ser aceito: %v", err)
 	}
@@ -177,7 +173,7 @@ func TestVerificarRecusaTokenM2MSemMapperDeAudiencia(t *testing.T) {
 	c["aud"] = "account"
 	c["azp"] = "cinema-m2m"
 
-	if _, err := e.verificador().Verificar(context.Background(), e.token(t, c, nil)); !errors.Is(err, ErrCredencialInvalida) {
+	if _, err := e.verificador(t).Verificar(context.Background(), e.token(t, c, nil)); !errors.Is(err, ErrCredencialInvalida) {
 		t.Fatalf("esperava recusa de token com audiência 'account', obteve %v", err)
 	}
 }

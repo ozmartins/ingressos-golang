@@ -67,7 +67,7 @@ func executar() error {
 
 	defer banco.Fechar()
 
-	verificador, err := identidade.NovoVerificador(ctx, cfg.KeycloakIssuerURL, cfg.KeycloakAudience)
+	verificador, err := identidade.NovoVerificador(cfg.KeycloakIssuerURL, cfg.KeycloakAudience)
 
 	if err != nil {
 		return err

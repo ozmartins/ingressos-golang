@@ -4,49 +4,57 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+	"time"
 
-	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/MicahParks/keyfunc/v3"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 var ErrCredencialInvalida = errors.New("credencial inválida")
 
+// caminhoJWKS é o endpoint de chaves públicas de um realm do Keycloak, relativo
+// ao emissor.
+const caminhoJWKS = "/protocol/openid-connect/certs"
+
 type Verificador struct {
-	verificador *oidc.IDTokenVerifier
+	chaves    jwt.Keyfunc
+	emissor   string
+	audiencia string
 }
 
-func NovoVerificador(ctx context.Context, issuerURL, audiencia string) (*Verificador, error) {
-	provider, err := oidc.NewProvider(ctx, issuerURL)
+// NovoVerificador carrega as chaves públicas do realm (emissor + caminhoJWKS).
+func NovoVerificador(emissor, audiencia string) (*Verificador, error) {
+	jwksURL := strings.TrimRight(emissor, "/") + caminhoJWKS
+	k, err := keyfunc.NewDefault([]string{jwksURL})
 	if err != nil {
-		return nil, fmt.Errorf("descobrindo emissor de credenciais em %s: %w", issuerURL, err)
+		return nil, fmt.Errorf("carregar JWKS de %s: %w", jwksURL, err)
 	}
-	return &Verificador{
-		verificador: provider.Verifier(&oidc.Config{
-			ClientID:             audiencia,
-			SupportedSigningAlgs: []string{oidc.RS256},
-		}),
-	}, nil
+	return NovoVerificadorComChave(k.Keyfunc, emissor, audiencia), nil
 }
 
-func NovoVerificadorComKeySet(ks oidc.KeySet, issuerURL, audiencia string) *Verificador {
-	return &Verificador{
-		verificador: oidc.NewVerifier(issuerURL, ks, &oidc.Config{
-			ClientID:             audiencia,
-			SupportedSigningAlgs: []string{oidc.RS256},
-		}),
-	}
+func NovoVerificadorComChave(chaves jwt.Keyfunc, emissor, audiencia string) *Verificador {
+	return &Verificador{chaves: chaves, emissor: emissor, audiencia: audiencia}
 }
 
 type Identidade struct {
 	UsuarioID string
 }
 
-func (v *Verificador) Verificar(ctx context.Context, tokenBruto string) (Identidade, error) {
-	token, err := v.verificador.Verify(ctx, tokenBruto)
-	if err != nil {
+func (v *Verificador) Verificar(_ context.Context, tokenBruto string) (Identidade, error) {
+	token, err := jwt.Parse(tokenBruto, v.chaves,
+		jwt.WithIssuer(v.emissor),
+		jwt.WithAudience(v.audiencia),
+		jwt.WithExpirationRequired(),
+		jwt.WithValidMethods([]string{"RS256"}),
+		jwt.WithLeeway(30*time.Second),
+	)
+	if err != nil || !token.Valid {
 		return Identidade{}, fmt.Errorf("%w: %v", ErrCredencialInvalida, err)
 	}
-	if token.Subject == "" {
+	sub, err := token.Claims.GetSubject()
+	if err != nil || sub == "" {
 		return Identidade{}, fmt.Errorf("%w: credencial sem identificação da pessoa usuária", ErrCredencialInvalida)
 	}
-	return Identidade{UsuarioID: token.Subject}, nil
+	return Identidade{UsuarioID: sub}, nil
 }

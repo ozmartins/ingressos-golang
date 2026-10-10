@@ -12,10 +12,6 @@ import (
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/shared"
 )
 
-// Cada linha do contrato de erros do estoque
-// (specs/001-estoque-bloqueio-poltronas/contracts/erros.md) precisa chegar ao
-// cliente com a culpa no lugar certo. Antes desta tradução, todas viravam
-// "estoque indisponível" — inclusive as que são erro de quem chamou.
 func TestTraduzirCadaCategoriaDoContratoDoEstoque(t *testing.T) {
 	casos := map[string]struct {
 		erro     error
@@ -55,8 +51,6 @@ func TestTraduzirCadaCategoriaDoContratoDoEstoque(t *testing.T) {
 			status.Error(codes.Unauthenticated, "sem identidade de serviço"),
 			shared.ErrEstoqueIndisponivel, false,
 		},
-		// Um código que o contrato não prevê cai no desfecho conservador, e não
-		// em pânico nem em erro de cliente.
 		"código não previsto": {
 			status.Error(codes.ResourceExhausted, "algo novo"),
 			shared.ErrEstoqueIndisponivel, false,
@@ -79,8 +73,6 @@ func TestTraduzirCadaCategoriaDoContratoDoEstoque(t *testing.T) {
 	}
 }
 
-// O limite vigente vem em `ErrorInfo.metadata` justamente para o chamador poder
-// informar a pessoa usuária sem consultar documentação (FR-004 do estoque).
 func TestLimiteExcedidoRepassaOLimiteVigente(t *testing.T) {
 	err := traduzirErroDeChamada(comRazao(codes.InvalidArgument, "acima do limite",
 		razaoLimiteExcedido, map[string]string{"limite": "10"}))
@@ -90,8 +82,6 @@ func TestLimiteExcedidoRepassaOLimiteVigente(t *testing.T) {
 	}
 }
 
-// Sem o limite nos metadados a tradução não invents número nenhum — repassa a
-// mensagem do parceiro.
 func TestLimiteExcedidoSemMetadadoNaoInventaNumero(t *testing.T) {
 	err := traduzirErroDeChamada(comRazao(codes.InvalidArgument, "acima do limite",
 		razaoLimiteExcedido, nil))

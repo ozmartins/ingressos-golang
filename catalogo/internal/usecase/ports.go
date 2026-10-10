@@ -31,14 +31,10 @@ type CinemaRepository interface {
 	Criar(ctx context.Context, c catalogo.Cinema) error
 	Atualizar(ctx context.Context, c catalogo.Cinema) error
 	Desativar(ctx context.Context, cinemaID string) error
-	// Existe responde pela linha, não pela situação: as salas de um cinema
-	// desativado seguem consultáveis, como as sessões de um filme fora de cartaz.
 	Existe(ctx context.Context, cinemaID string) (bool, error)
 }
 
 type FiltroSalas struct {
-	// Vazio significa "a rede toda": a sala é endereçada por si, e o cinema é
-	// um recorte opcional da listagem, como na grade de sessões.
 	CinemaID string
 	Ativo    *bool
 }
@@ -49,8 +45,6 @@ type SalaRepository interface {
 	Criar(ctx context.Context, s catalogo.Sala) error
 	Atualizar(ctx context.Context, s catalogo.Sala) error
 	Desativar(ctx context.Context, salaID string) error
-	// O número identifica a sala na grade: dois "3" ativos no mesmo cinema a
-	// tornariam ambígua. `excetoID` deixa a sala se manter no próprio número.
 	NumeroEmUso(ctx context.Context, cinemaID string, numero int, excetoID string) (bool, error)
 }
 
@@ -66,9 +60,6 @@ type DataDoDia struct {
 	Dia int
 }
 
-// Um fato pronto para sair, do jeito que ele será publicado. O núcleo o produz;
-// o adaptador o grava na mesma transação do efeito que o produziu e, depois,
-// entrega ao intermediário — a resposta ao cliente não espera por isso.
 type FatoPendente struct {
 	MessageID    string
 	RoutingKey   string
@@ -79,13 +70,9 @@ type FatoPendente struct {
 type SessaoRepository interface {
 	Consultar(ctx context.Context, filtro FiltroSessoes, req shared.PageRequest) (shared.Page[catalogo.SessaoDetalhada], error)
 	BuscarPorID(ctx context.Context, sessaoID string) (catalogo.Sessao, error)
-	// A sessão e o anúncio dela são gravados juntos ou não são gravados. Vale
-	// para os três momentos do ciclo de vida: criar, alterar e cancelar.
 	Criar(ctx context.Context, s catalogo.Sessao, fato FatoPendente) error
 	Atualizar(ctx context.Context, s catalogo.Sessao, fato FatoPendente) error
 	Cancelar(ctx context.Context, sessaoID string, fato FatoPendente) error
-	// Uma sala projeta um filme de cada vez: a janela é `[inicio, fim)`, e o fim
-	// de cada sessão concorrente sai da duração do filme dela.
 	SalaOcupada(ctx context.Context, salaID string, inicio, fim time.Time, excetoID string) (bool, error)
 }
 

@@ -35,8 +35,6 @@ type repoStub struct {
 
 func (r repoStub) RegistrarEscolha(context.Context, transacao.Transacao) error { return nil }
 
-// Guarda a transação para que a escolha seja observável, e devolve o mesmo erro
-// em qualquer operação — é o que os casos de indisponibilidade precisam.
 type repoEscolha struct {
 	repoStub
 	t   transacao.Transacao
@@ -113,10 +111,6 @@ type relogioReal struct{}
 
 func (relogioReal) Agora() time.Time { return time.Now().UTC() }
 
-// Uma transação em qualquer estado posterior à escolha da forma — que é a
-// maioria dos casos que a API responde, e o único em que todos os campos do
-// contrato estão preenchidos. Para o estado que ainda espera a escolha, use
-// `transacao.Nova` direto.
 func transacaoDe(status transacao.Status, reservaID string) transacao.Transacao {
 	agora := time.Now().UTC()
 	tr := transacao.Nova("t-1", reservaID, dona, "84.00", agora.Add(10*time.Minute), agora)
@@ -137,15 +131,11 @@ func escolher(t *testing.T, api *API, reservaID, bearer, corpo string) *httptest
 	return w
 }
 
-// Uma transação que ainda espera a escolha da forma — o único estado em que a
-// escolha é aceita.
 func aguardandoForma(reservaID string) transacao.Transacao {
 	agora := time.Now().UTC()
 	return transacao.Nova("t-1", reservaID, dona, "84.00", agora.Add(10*time.Minute), agora)
 }
 
-// O 202 é deliberado: a escolha foi aceita e a cobrança acontece fora da
-// requisição, então quem paga não fica esperando o adquirente.
 func TestEscolhaDaFormaAceita(t *testing.T) {
 	reserva := uuid.NewString()
 	api := apiCom(&repoEscolha{t: aguardandoForma(reserva)})

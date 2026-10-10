@@ -14,9 +14,6 @@ type SalaRepository struct{ banco *Banco }
 
 func NovoSalaRepository(b *Banco) *SalaRepository { return &SalaRepository{banco: b} }
 
-// A forma do layout na coluna JSONB. Os nomes são os mesmos do corpo da API e os
-// mesmos que o estoque lê no anúncio de sessão criada — uma tradução a menos
-// para quem um dia ligar as duas pontas.
 type fileiraJSON struct {
 	Fileira  string `json:"fileira"`
 	Assentos int    `json:"assentos"`
@@ -40,7 +37,6 @@ func (r salaRow) paraDominio() (catalogo.Sala, error) {
 	}, nil
 }
 
-// O domínio já validou e ordenou as fileiras; aqui só se troca a forma.
 func layoutParaJSON(l catalogo.LayoutSala) ([]byte, error) {
 	fileiras := make([]fileiraJSON, 0, len(l.Fileiras))
 	for _, f := range l.Fileiras {
@@ -56,15 +52,12 @@ func (r *SalaRepository) Listar(
 	req shared.PageRequest,
 ) (shared.Page[catalogo.Sala], error) {
 	base := r.banco.conn(ctx).Model(&salaRow{})
-	// Filtro nulo significa "qualquer situação".
 	if filtro.Ativo != nil {
 		base = base.Where("ativo = ?", *filtro.Ativo)
 	}
 	if filtro.CinemaID != "" {
 		base = base.Where("cinema_id = ?", filtro.CinemaID)
 	}
-	// A ordem por cinema mantém as salas de cada um juntas quando a listagem é
-	// da rede inteira; dentro do cinema, o número segue mandando.
 	return consultarPaginado(base, "", "cinema_id, numero, id", req, salaRow.paraDominio)
 }
 

@@ -45,13 +45,6 @@ func TestAnuncioInvalidoVaiParaFilaMortaSemCriarTransacao(t *testing.T) {
 	}
 }
 
-// O desfecho indeterminado não anuncia nada e para em PENDENTE_VERIFICACAO,
-// para inspeção humana.
-//
-// A mensagem NÃO vai mais para a fila morta: a cobrança deixou de acontecer no
-// consumo do anúncio, então não há entrega a descartar. O anúncio da reserva foi
-// processado com sucesso — o que ficou indeterminado é a cobrança, e ela é
-// sinalizada pelo estado da transação, não pelo destino da mensagem.
 func TestDesfechoIndeterminadoParaEmVerificacaoSemAnunciar(t *testing.T) {
 	a := subirAmbiente(t)
 	adq := novoAdquirente(usecase.ResultadoCobranca{Desfecho: usecase.Indeterminada})
@@ -77,14 +70,6 @@ func TestDesfechoIndeterminadoParaEmVerificacaoSemAnunciar(t *testing.T) {
 	}
 }
 
-// Adquirente sempre fora: a cobrança é retentada indefinidamente pela varredura,
-// e a transação fica em PROCESSANDO sem anunciar nada. Não há desfecho a
-// inventar, e não há mensagem a descartar — o anúncio da reserva já foi
-// processado.
-//
-// Antes desta mudança este caso terminava na fila morta, porque a cobrança
-// acontecia no consumo e o limite de entregas a descartava. Com a cobrança fora
-// do consumo, o que persiste é a linha no banco, e é ela que a varredura retoma.
 func TestAdquirenteSempreForaMantemProcessandoSemAnunciar(t *testing.T) {
 	a := subirAmbiente(t)
 	adq := novoAdquirente(usecase.ResultadoCobranca{})
@@ -100,8 +85,6 @@ func TestAdquirenteSempreForaMantemProcessandoSemAnunciar(t *testing.T) {
 		t.Fatalf("sem desfecho, a transação segue PROCESSANDO; veio %s", tr.Status)
 	}
 
-	// A retomada precisa acontecer de verdade: uma só tentativa significaria que
-	// a varredura desistiu.
 	esperarTentativas(t, adq, 2, 30*time.Second)
 
 	if fatos := a.fatosEspiados(t); len(fatos) != 0 {
@@ -131,9 +114,6 @@ func TestMensagemNaQuarentenaPreservaOCorpo(t *testing.T) {
 	defer parar()
 
 	reserva := uuid.NewString()
-	// Valor inválido, e não forma inválida: a forma deixou de viajar no fato, e
-	// quem a recusa agora é o endpoint de escolha. Ver os testes de
-	// `internal/adapter/http`.
 	a.publicarIntencao(t, intencao(reserva, "-1.00", 10*time.Minute))
 	esperarFila(t, a, filaDLQ, 1, 30*time.Second)
 
@@ -159,8 +139,6 @@ func TestMensagemNaQuarentenaPreservaOCorpo(t *testing.T) {
 	_ = amqp091.Persistent
 }
 
-// O prazo do adquirente estourado deixa a cobrança indeterminada: o direito de
-// cobrar não é liberado (FR-008) e nada é anunciado.
 func TestPrazoDoAdquirenteRealParaEmVerificacao(t *testing.T) {
 	a := subirAmbiente(t)
 	_, parar := a.consumidorDe(t, simulado.Adquirente{Demora: 30 * time.Second}, 4)

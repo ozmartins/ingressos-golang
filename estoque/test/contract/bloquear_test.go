@@ -83,8 +83,6 @@ func TestBloquearMapeiaCadaCategoriaDeErro(t *testing.T) {
 			codes.InvalidArgument, "SOLICITACAO_INVALIDA",
 		},
 		{
-			// Sem valor não há cobrança: quem consome o fato da reserva precisa
-			// dele, e uma reserva sem valor seria incobrável por construção.
 			"valor ausente",
 			&pb.SolicitacaoBloqueio{SessaoId: sessaoProvisionada, PoltronasIds: []string{"A1"}, UsuarioId: usuario},
 			codes.InvalidArgument, "SOLICITACAO_INVALIDA",

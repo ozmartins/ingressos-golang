@@ -174,8 +174,6 @@ func (a *ambiente) token(t *testing.T, sub string, ajustes ...func(jwt.MapClaims
 	return s
 }
 
-// resposta guarda só o que os testes leem de uma resposta HTTP. O corpo já foi
-// consumido e fechado por enviar, então quem recebe isto não tem nada a fechar.
 type resposta struct {
 	StatusCode int
 	Header     http.Header

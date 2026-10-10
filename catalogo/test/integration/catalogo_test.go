@@ -192,7 +192,6 @@ func TestEscritaDeFilmeRoundTrip(t *testing.T) {
 		t.Fatalf("sem status explícito, o filme deveria nascer EM_CARTAZ, veio %q", lido.Status)
 	}
 
-	// A substituição é total: a sinopse omitida some da linha.
 	atualizado, err := catalogo.NovoFilme(id, catalogo.DadosFilme{
 		Titulo: "Filme de Integração II", DuracaoMinutos: 99,
 		ClassificacaoEtaria: "Livre", Genero: "Documentário", Status: "BREVE",
@@ -306,7 +305,6 @@ func TestCicloDeVidaDoCinema(t *testing.T) {
 		t.Fatalf("o cinema desativado deveria sair da listagem pública, total = %d", depois.Total)
 	}
 
-	// A remoção é lógica: a linha permanece e as salas seguem apontando para ela.
 	inativo, err := repo.BuscarPorID(ctx, id)
 	if err != nil {
 		t.Fatalf("o cinema desativado deveria seguir legível: %v", err)

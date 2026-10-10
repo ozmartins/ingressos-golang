@@ -8,9 +8,6 @@ import (
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/shared"
 )
 
-// `base` carrega a origem, as junções e os filtros; a contagem e a página saem
-// dela, então os dois enxergam o mesmo conjunto. `selecionar` só vale para a
-// página: o COUNT não pode herdar a lista de colunas.
 func consultarPaginado[L, T any](
 	base *gorm.DB,
 	selecionar string,

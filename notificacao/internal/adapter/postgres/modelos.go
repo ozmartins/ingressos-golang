@@ -7,9 +7,6 @@ import (
 	"github.com/oseias/ingressos-golang/notificacao/internal/domain/ingresso"
 )
 
-// Os modelos abaixo existem só para o GORM mapear as tabelas. Não carregam
-// regra de negócio nem saem do pacote; o domínio continua sem tags.
-
 type ingressoRow struct {
 	ID          string     `gorm:"column:id;primaryKey"`
 	ReservaID   string     `gorm:"column:reserva_id"`

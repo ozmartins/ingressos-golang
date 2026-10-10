@@ -45,7 +45,6 @@ func NovoCinema(id string, d DadosCinema) (Cinema, error) {
 		return Cinema{}, fmt.Errorf("%w: endereco é obrigatório", shared.ErrValidacao)
 	}
 
-	// Sem `ativo` no corpo, o cinema nasce ativo — mesmo padrão da coluna.
 	ativo := true
 	if d.Ativo != nil {
 		ativo = *d.Ativo

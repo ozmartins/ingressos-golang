@@ -46,8 +46,6 @@ func (r *repoFalso) RegistrarEscolha(_ context.Context, t transacao.Transacao) e
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	atual, ok := r.porReserva[t.ReservaID]
-	// A escolha só pega quando a linha ainda espera por ela: é o mesmo `WHERE
-	// status = 'AGUARDANDO_FORMA'` do adaptador real.
 	if !ok || atual.Status != transacao.AguardandoForma {
 		return ErrJaFinalizada
 	}
@@ -243,13 +241,6 @@ func cenario(res ResultadoCobranca) (ProcessarPagamento, *repoFalso, *adquirente
 	return uc, repo, adq, pub
 }
 
-// O fluxo inteiro, do anúncio da reserva até o desfecho da cobrança, como ele
-// acontece em produção: o consumo registra a intenção, quem paga escolhe a
-// forma, e o varredor cobra. Os testes de cobrança exercitam os três de uma vez
-// porque o que eles verificam é o desfecho, não o caminho.
-//
-// Devolve o desfecho da cobrança — é o que os testes inspecionavam quando isso
-// era uma chamada só.
 func fluxoCompleto(t *testing.T, uc ProcessarPagamento, repo *repoFalso, i Intencao) (Desfecho, error) {
 	t.Helper()
 	ctx := context.Background()
@@ -262,8 +253,6 @@ func fluxoCompleto(t *testing.T, uc ProcessarPagamento, repo *repoFalso, i Inten
 	escolher := EscolherForma{Repo: repo, Relogio: uc.Relogio}
 	tr, err := escolher.Executar(ctx, i.ReservaID, i.UsuarioID, transacao.PIX)
 
-	// A reserva já vencida recusa a escolha. Quem cancela e anuncia é a
-	// varredura, e é ela que o teste precisa exercitar para chegar ao desfecho.
 	if errors.Is(err, transacao.ErrReservaExpirada) {
 		varrer := VarrerCobrancas{Repo: repo, Cobranca: uc, Relogio: uc.Relogio, Log: logDescartado()}
 		if err := varrer.Executar(ctx); err != nil {

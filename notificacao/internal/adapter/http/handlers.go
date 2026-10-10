@@ -41,8 +41,6 @@ func (a *API) Rotas() http.Handler {
 	return r
 }
 
-// metodoNaoPermitido reproduz o 405 do ServeMux, que o chi não emite por
-// completo: informa em Allow os métodos aceitos pelo caminho.
 func metodoNaoPermitido(r *chi.Mux) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		var permitidos []string
@@ -51,7 +49,7 @@ func metodoNaoPermitido(r *chi.Mux) http.HandlerFunc {
 				continue
 			}
 			permitidos = append(permitidos, m)
-			if m == http.MethodGet { // GetHead atende HEAD onde há GET
+			if m == http.MethodGet {
 				permitidos = append(permitidos, http.MethodHead)
 			}
 		}

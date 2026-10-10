@@ -97,8 +97,6 @@ func reservaExiste(tx *gorm.DB, reservaID string) (bool, error) {
 	return existe, nil
 }
 
-// mudarPoltronasDas leva ao `novo` status todas as poltronas presas às reservas
-// dadas. Quem chama já decidiu que a transição das reservas aconteceu.
 func mudarPoltronasDas(tx *gorm.DB, reservaIDs []string, novo poltrona.Status) error {
 	presas := tx.Model(&reservaPoltronaRow{}).Select("poltrona_id").Where("reserva_id IN ?", reservaIDs)
 	err := tx.Model(&poltronaRow{}).Where("id IN (?)", presas).

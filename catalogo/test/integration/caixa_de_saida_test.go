@@ -14,9 +14,6 @@ import (
 	"github.com/oseias/ingressos-golang/catalogo/internal/usecase"
 )
 
-// O fato e a sessão vão na mesma transação. Se a inserção da sessão falha, o
-// anúncio dela não pode sobrar na caixa: é a indivisibilidade que o princípio VI
-// exige.
 func TestSessaoRecusadaNaoDeixaFatoNaCaixa(t *testing.T) {
 	carregarFixtures(t)
 	repo := pgadapter.NovoSessaoRepository(banco)
@@ -27,7 +24,6 @@ func TestSessaoRecusadaNaoDeixaFatoNaCaixa(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Uma sala que não existe: a chave estrangeira derruba a transação inteira.
 	sessao.SalaID = "d0000000-0000-4000-8000-00000000ffff"
 
 	if err := repo.Criar(ctx, sessao, fatoDeTeste(id)); err == nil {
@@ -75,7 +71,6 @@ func TestCaixaDeSaidaDrenaEMarcaOFatoPublicado(t *testing.T) {
 	if f.MessageID != id || f.RoutingKey != usecase.RoutingKeySessaoCriada {
 		t.Errorf("fato inesperado: %+v", f)
 	}
-	// O contexto de rastreamento atravessa o JSONB e volta inteiro.
 	if f.TraceContext["traceparent"] == "" {
 		t.Errorf("o contexto de rastreamento não sobreviveu à ida e volta: %+v", f.TraceContext)
 	}
@@ -84,7 +79,6 @@ func TestCaixaDeSaidaDrenaEMarcaOFatoPublicado(t *testing.T) {
 		t.Errorf("o payload não voltou como JSON: %v", err)
 	}
 
-	// Drenado uma vez, não sai de novo.
 	if n, err := caixa.Drenar(ctx, 10, func(pgadapter.FatoNaCaixa) error {
 		t.Error("um fato já publicado não deveria ser reenviado")
 		return nil
@@ -93,8 +87,6 @@ func TestCaixaDeSaidaDrenaEMarcaOFatoPublicado(t *testing.T) {
 	}
 }
 
-// Publicação que falha não marca o fato: ele volta no próximo tique, com a
-// tentativa contada. É daí que vem o "ao menos uma vez".
 func TestCaixaDeSaidaMantemOFatoQuandoAPublicacaoFalha(t *testing.T) {
 	carregarFixtures(t)
 	repo := pgadapter.NovoSessaoRepository(banco)
@@ -125,7 +117,6 @@ func TestCaixaDeSaidaMantemOFatoQuandoAPublicacaoFalha(t *testing.T) {
 		t.Fatalf("tentativas = %d, esperava 1", tentativas)
 	}
 
-	// Com o broker de volta, o mesmo fato sai.
 	if n, err := caixa.Drenar(ctx, 10, func(pgadapter.FatoNaCaixa) error { return nil }); err != nil || n != 1 {
 		t.Fatalf("drenagem seguinte devolveu %d (%v), esperava 1", n, err)
 	}

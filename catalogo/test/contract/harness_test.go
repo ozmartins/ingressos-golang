@@ -213,8 +213,6 @@ func (s *sessoesFalsas) BuscarPorID(_ context.Context, id string) (catalogo.Sess
 			return sessao, nil
 		}
 	}
-	// Sem grade montada, o dublê responde a sessão única configurada: é o que os
-	// testes de reserva esperam.
 	if len(s.itens) == 0 && s.sessao.ID != "" {
 		return s.sessao, nil
 	}
@@ -359,8 +357,6 @@ func montarComFilmes(t *testing.T, itens []catalogo.Filme) *httptest.Server {
 	return montar(t, func(a *ambiente) { a.filmes.itens = itens }).servidor
 }
 
-// Identificadores previsíveis: os testes de contrato conferem o `Location` e
-// releem o filme criado.
 func gerarID() func() string {
 	n := 0
 	return func() string {
@@ -369,7 +365,6 @@ func gerarID() func() string {
 	}
 }
 
-// requisitar cobre o que `obter` não alcança: verbo, corpo e credencial.
 func requisitar(t *testing.T, s *httptest.Server, metodo, caminho, token, corpo string) (*http.Response, []byte) {
 	t.Helper()
 	var leitor io.Reader

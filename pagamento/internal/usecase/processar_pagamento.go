@@ -14,8 +14,6 @@ import (
 
 var ErrIntencaoInvalida = errors.New("usecase: anúncio de reserva inválido")
 
-// O anúncio da reserva, como o Servico-Estoque o publica. A forma de pagamento
-// não está aqui de propósito: ela é escolhida depois, por quem paga.
 type Intencao struct {
 	Evento     string      `json:"evento"`
 	ReservaID  string      `json:"reserva_id"`
@@ -62,9 +60,6 @@ const (
 	Quarentena
 )
 
-// RegistrarIntencao é o que o consumo de `reserva.criada` faz: grava a
-// transação sabendo quanto cobrar e até quando, e para aí. A cobrança não sai
-// daqui — ela depende de uma escolha que ainda não foi feita.
 type RegistrarIntencao struct {
 	Repo    Repositorio
 	Relogio Relogio
@@ -80,8 +75,6 @@ func (uc RegistrarIntencao) Executar(ctx context.Context, i Intencao) (Desfecho,
 	agora := uc.Relogio.Agora()
 	nova := transacao.Nova(uc.IDs.Novo(), i.ReservaID, i.UsuarioID, valor, expiraEm, agora)
 
-	// A idempotência é por `reserva_id`: o fato chega ao menos uma vez, e a
-	// repetição não pode criar uma segunda transação nem reabrir a primeira.
 	criada, _, err := uc.Repo.CriarSeAusente(ctx, nova)
 	if err != nil {
 		return Requeue, err
@@ -90,8 +83,6 @@ func (uc RegistrarIntencao) Executar(ctx context.Context, i Intencao) (Desfecho,
 	return Confirmar, nil
 }
 
-// EscolherForma atende a escolha de quem paga. Não cobra: transiciona para
-// PROCESSANDO e devolve, para a cobrança acontecer fora da requisição.
 type EscolherForma struct {
 	Repo    Repositorio
 	Relogio Relogio
@@ -102,8 +93,6 @@ func (uc EscolherForma) Executar(ctx context.Context, reservaID, usuarioID strin
 	if err != nil {
 		return transacao.Transacao{}, err
 	}
-	// Mesmo recorte da consulta: quem não é dono da reserva não a enxerga, e
-	// não distinguimos "não existe" de "não é sua".
 	if t.UsuarioID != usuarioID {
 		return transacao.Transacao{}, ErrNaoEncontrada
 	}
@@ -127,13 +116,9 @@ type ProcessarPagamento struct {
 	PrazoAdquirente time.Duration
 }
 
-// Cobrar leva uma transação que já tem forma escolhida até o desfecho. É o
-// varredor que a chama, fora do caminho da requisição: o cliente escolheu a
-// forma e não espera o adquirente responder.
 func (uc ProcessarPagamento) Cobrar(ctx context.Context, t transacao.Transacao) (Desfecho, error) {
 	agora := uc.Relogio.Agora()
 
-	// A reserva pode ter vencido entre a escolha e a cobrança.
 	if transacao.Expirada(t.ExpiraEm, agora) && !t.CobrancaEmitida {
 		if err := t.Cancelar(transacao.MotivoReservaExpirada, agora); err != nil {
 			return Requeue, err

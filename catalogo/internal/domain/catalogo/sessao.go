@@ -69,8 +69,6 @@ func (s Sessao) AceitaReserva(agora time.Time) bool {
 	return s.Status == SessaoAgendada && s.DataHoraInicio.After(agora)
 }
 
-// A sessão não guarda a própria duração: ela é a do filme em cartaz naquela
-// sala. Quem sabe a duração é quem chama.
 func (s Sessao) FimPrevisto(duracaoMinutos int) time.Time {
 	return s.DataHoraInicio.Add(time.Duration(duracaoMinutos) * time.Minute)
 }
@@ -106,7 +104,6 @@ func NovaSessao(id string, d DadosSessao) (Sessao, error) {
 		return Sessao{}, err
 	}
 
-	// Sem `status` no corpo, a sessão nasce agendada — mesmo padrão da coluna.
 	status := SessaoAgendada
 	if d.Status != "" {
 		s, err := ParseStatusSessao(d.Status)
@@ -127,9 +124,6 @@ func NovaSessao(id string, d DadosSessao) (Sessao, error) {
 	}, nil
 }
 
-// O preço chega como texto — é assim que ele sai em `paraSessaoDTO`, e é o único
-// formato que atravessa o JSON sem o arredondamento binário do float. O formato
-// é conferido à mão porque `big.Rat` também aceitaria "1/3" e "1e2".
 func parsePreco(v string) (Dinheiro, error) {
 	invalido := fmt.Errorf("%w: preco_base deve ser um valor como \"32.00\", com até duas casas decimais", shared.ErrValidacao)
 

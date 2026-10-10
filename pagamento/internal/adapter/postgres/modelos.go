@@ -6,12 +6,6 @@ import (
 	"github.com/oseias/ingressos-golang/pagamento/internal/domain/transacao"
 )
 
-// O modelo abaixo existe só para o GORM mapear a tabela. Não carrega regra de
-// negócio nem sai do pacote; o domínio continua sem tags.
-//
-// Forma, código do gateway e motivo da falha são ponteiros porque o banco
-// distingue NULL de vazio (as invariantes forma_coerente_com_estado e
-// forma_valida), enquanto o domínio usa string vazia para "ausente".
 type transacaoRow struct {
 	ID                     string     `gorm:"column:id;primaryKey"`
 	ReservaID              string     `gorm:"column:reserva_id"`

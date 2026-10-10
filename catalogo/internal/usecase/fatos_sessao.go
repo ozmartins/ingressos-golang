@@ -14,12 +14,6 @@ const (
 	RoutingKeySessaoCancelada = "sessao.cancelada"
 )
 
-// A sessão mudou em algo que não é a sala — horário, idioma ou preço. A sala não
-// pode mudar, e é por isso que este fato nunca invalida a matriz de poltronas de
-// quem a provisionou.
-//
-// `sala_id` viaja de todo modo: quem consome não deveria precisar guardar de qual
-// sala era para concluir que não mudou.
 type EventoSessaoAlterada struct {
 	Evento         string `json:"evento"`
 	Versao         int    `json:"versao"`
@@ -31,8 +25,6 @@ type EventoSessaoAlterada struct {
 	PrecoBase      string `json:"preco_base"`
 }
 
-// A sessão saiu da grade. Quem tem estado preso a ela precisa soltá-lo: no
-// estoque, as reservas pendentes das poltronas dela.
 type EventoSessaoCancelada struct {
 	Evento     string `json:"evento"`
 	Versao     int    `json:"versao"`
@@ -55,10 +47,6 @@ func (uc AtualizarSessao) anunciarAlteracao(ctx context.Context, sessao catalogo
 		return FatoPendente{}, fmt.Errorf("montando o anúncio da alteração: %w", err)
 	}
 
-	// Identificador próprio por ocorrência, e não o da sessão: a mesma sessão
-	// pode ser alterada muitas vezes, e a caixa de saída tem `message_id` único
-	// — a segunda alteração colidiria com a primeira e seria descartada em
-	// silêncio.
 	return FatoPendente{
 		MessageID:    uc.GerarID(),
 		RoutingKey:   RoutingKeySessaoAlterada,
@@ -78,9 +66,6 @@ func (uc RemoverSessao) anunciarCancelamento(ctx context.Context, sessaoID strin
 		return FatoPendente{}, fmt.Errorf("montando o anúncio do cancelamento: %w", err)
 	}
 
-	// O cancelamento é terminal e acontece uma vez, então o identificador da
-	// sessão com o sufixo do fato é estável — e a idempotência de quem consome
-	// vem de graça.
 	return FatoPendente{
 		MessageID:    sessaoID + ":cancelada",
 		RoutingKey:   RoutingKeySessaoCancelada,

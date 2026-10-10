@@ -9,12 +9,9 @@ import (
 )
 
 type Solicitacao struct {
-	SessaoID  string
-	UsuarioID string
-	Rotulos   []string
-	// Texto decimal, informado por quem tem autoridade sobre o preço. Este
-	// serviço confere apenas o formato: quanto vale a reserva é decisão do
-	// catálogo, e recalcular aqui duplicaria a regra de preço.
+	SessaoID   string
+	UsuarioID  string
+	Rotulos    []string
 	ValorTotal string
 }
 
@@ -63,9 +60,6 @@ func NovaSolicitacao(sessaoID, usuarioID string, rotulos []string, valorTotal st
 	}, nil
 }
 
-// O valor é conferido à mão, e não por `ParseFloat`, porque ele vira cobrança:
-// o formato aceito é o mesmo que o catálogo produz — inteiro com até duas casas
-// decimais, sem sinal, sem expoente. `ParseFloat` aceitaria "1e2" e "-0.01".
 func valorValido(v string) error {
 	invalido := fmt.Errorf("%w: valor_total deve ser um decimal como \"84.00\", com até duas casas", shared.ErrSolicitacaoInvalida)
 	if v == "" {

@@ -37,8 +37,6 @@ type Sala struct {
 	Ativo    bool
 }
 
-// A capacidade não é um campo da sala: é a soma das fileiras. Guardá-la ao lado
-// do layout criaria dois números para a mesma coisa, livres para divergir.
 func (s Sala) CapacidadeTotal() int { return s.Layout.CapacidadeTotal() }
 
 type DadosSala struct {
@@ -69,7 +67,6 @@ func NovaSala(id string, d DadosSala) (Sala, error) {
 		return Sala{}, err
 	}
 
-	// Sem `ativo` no corpo, a sala nasce ativa — mesmo padrão da coluna.
 	ativo := true
 	if d.Ativo != nil {
 		ativo = *d.Ativo

@@ -11,7 +11,6 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/shared"
 )
 
-// O valor é decidido pelo catálogo; aqui só precisa ser um decimal válido.
 const valorDeTeste = "84.00"
 
 const sessao = "f781a9b2-11e2-4f81-a901-8890bc123456"

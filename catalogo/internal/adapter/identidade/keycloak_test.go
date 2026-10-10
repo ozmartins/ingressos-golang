@@ -148,10 +148,6 @@ func TestVerificarRecusaTokenMalformado(t *testing.T) {
 	}
 }
 
-// O fluxo máquina-a-máquina (client_credentials) não tem usuário humano: o
-// token traz o `sub` da service account e nenhuma claim de pessoa. O
-// verificador não precisa distinguir os dois casos — só exige emissor,
-// audiência, assinatura, validade e `sub`.
 func TestVerificarAceitaTokenDeServiceAccount(t *testing.T) {
 	e := novoEmissor(t)
 	const subDaServiceAccount = "service-account-cinema-m2m-0000-000000000001"
@@ -175,8 +171,6 @@ func TestVerificarAceitaTokenDeServiceAccount(t *testing.T) {
 	}
 }
 
-// O erro clássico do client_credentials: sem o mapper de audiência no client, o
-// Keycloak emite `aud: account` e a API precisa recusar.
 func TestVerificarRecusaTokenM2MSemMapperDeAudiencia(t *testing.T) {
 	e := novoEmissor(t)
 	c := claimsValidas(e.issuer)

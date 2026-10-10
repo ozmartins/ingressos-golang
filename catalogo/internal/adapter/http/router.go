@@ -91,20 +91,13 @@ func Rotas() []Rota { return append([]Rota(nil), rotas...) }
 
 func NovoRouter(d Dependencias) http.Handler { return novoRouter(rotas, d) }
 
-// novoRouter recebe a tabela para que os testes registrem handlers falsos sob
-// os mesmos métodos e caminhos de produção.
-//
-// Os middlewares globais entram por r.Use, e não por fora do roteador: o chi
-// grava r.Pattern numa cópia da requisição, e um middleware externo leria o
-// padrão vazio — o rótulo "rota" de log e métrica viraria o caminho com o
-// identificador.
 func novoRouter(tabela []Rota, d Dependencias) http.Handler {
 	r := chi.NewRouter()
 	r.Use(
 		middleware.Telemetria,
 		middleware.Recuperacao,
 		middleware.Log(d.Metricas),
-		chimw.GetHead, // o ServeMux atende HEAD pela rota GET; o chi responderia 405
+		chimw.GetHead,
 	)
 	r.MethodNotAllowed(metodoNaoPermitido)
 
@@ -123,8 +116,6 @@ func novoRouter(tabela []Rota, d Dependencias) http.Handler {
 	return r
 }
 
-// comPadrao devolve ao r.Pattern o formato "MÉTODO /caminho" do ServeMux; o
-// chi o preenche só com o caminho.
 func comPadrao(rota Rota, h http.Handler) http.Handler {
 	padrao := rota.Metodo + " " + rota.Caminho
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -133,9 +124,6 @@ func comPadrao(rota Rota, h http.Handler) http.Handler {
 	})
 }
 
-// metodoNaoPermitido reproduz o 405 do ServeMux: Allow completo (o chi o
-// preenche de forma incompleta) e corpo em texto simples. Os métodos são
-// sondados no próprio roteador para não haver uma segunda fonte de verdade.
 func metodoNaoPermitido(w http.ResponseWriter, r *http.Request) {
 	var permitidos []string
 	for _, m := range []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete} {

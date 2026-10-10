@@ -18,8 +18,6 @@ func TestReentregaPublicaResultadoPendenteSemRecobrar(t *testing.T) {
 
 	reserva := uuid.NewString()
 	usuario := uuid.NewString()
-	// A retomada parte de uma transação que já passou pelos três momentos:
-	// registrada pelo anúncio, escolhida por quem paga e cobrada.
 	agora := time.Now().UTC()
 	tr := transacao.Nova(uuid.NewString(), reserva, usuario, "84.00", agora.Add(10*time.Minute), agora)
 	criada, _, err := a.Repo.CriarSeAusente(ctx, tr)

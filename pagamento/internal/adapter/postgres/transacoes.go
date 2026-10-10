@@ -15,16 +15,11 @@ type Repositorio struct{ db *gorm.DB }
 
 func NovoRepositorio(db *gorm.DB) *Repositorio { return &Repositorio{db: db} }
 
-// Estados em que o desfecho já é durável e pode ser anunciado.
-// PENDENTE_VERIFICACAO fica de fora de propósito: ela não é anunciável, e
-// justamente por isso nunca sai das consultas de anúncio para ser republicada.
 var estadosAnunciaveis = []string{
 	string(transacao.Pago), string(transacao.Recusado), string(transacao.Cancelado),
 }
 
 func (r *Repositorio) CriarSeAusente(ctx context.Context, t transacao.Transacao) (bool, transacao.Transacao, error) {
-	// A forma fica nula: a transação nasce sem ela, e a invariante
-	// `forma_coerente_com_estado` no banco recusaria qualquer valor aqui.
 	linha := paraLinha(t)
 	res := r.db.WithContext(ctx).
 		Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "reserva_id"}}, DoNothing: true}, clause.Returning{}).
@@ -96,11 +91,6 @@ func (r *Repositorio) LiberarCobranca(ctx context.Context, id string, agora time
 		Updates(map[string]any{"cobranca_emitida": false, "atualizado_em": agora}).Error
 }
 
-// A escolha é condicionada ao estado de origem: duas requisições simultâneas
-// disputam a mesma linha, e só a que encontrar AGUARDANDO_FORMA vence.
-//
-// Um cancelamento por prazo vencido não escolhe forma nenhuma: a coluna fica
-// nula, e a invariante do banco admite isso só para o cancelamento.
 func (r *Repositorio) RegistrarEscolha(ctx context.Context, t transacao.Transacao) error {
 	res := r.db.WithContext(ctx).Model(&transacaoRow{}).
 		Where("id = ? AND status = ?", t.ID, string(transacao.AguardandoForma)).
@@ -129,8 +119,6 @@ func (r *Repositorio) AguardandoCobranca(ctx context.Context, limite int) ([]tra
 }
 
 func (r *Repositorio) CancelarEsperasVencidas(ctx context.Context, agora time.Time, limite int) ([]transacao.Transacao, error) {
-	// O UPDATE ... RETURNING resolve num só passo: as linhas voltam já
-	// canceladas, e é sobre elas que o anúncio é montado.
 	vencidas := r.db.WithContext(ctx).Model(&transacaoRow{}).Select("id").
 		Where("status = ? AND expira_em <= ?", string(transacao.AguardandoForma), agora).
 		Order("expira_em").Limit(limite).

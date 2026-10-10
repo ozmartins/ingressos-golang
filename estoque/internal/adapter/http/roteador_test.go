@@ -9,10 +9,6 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/poltrona"
 )
 
-// Teste de caracterização do roteamento (specs/003-roteamento-chi, D8): fixa o
-// que um cliente observa em 404, 405, HEAD e subcaminhos de /docs, para que a
-// troca do roteador não mude nada sem que um teste avise.
-
 const (
 	textoPlano   = "text/plain; charset=utf-8"
 	corpo405     = "Method Not Allowed\n"
@@ -123,9 +119,6 @@ func TestRoteamentoParametroDeCaminhoChegaDecodificado(t *testing.T) {
 	}
 }
 
-// Diferença aceita pelo mantenedor (specs/003-roteamento-chi, research D7): o
-// ServeMux redirecionava (307) caminhos não canônicos ao caminho limpo; o chi
-// responde 404. Nenhum cliente do repositório gera esses caminhos.
 func TestRoteamentoCaminhoNaoCanonicoNaoRedireciona(t *testing.T) {
 	api := apiDeTeste(&bloqueioFalso{}, &mapaFalso{})
 

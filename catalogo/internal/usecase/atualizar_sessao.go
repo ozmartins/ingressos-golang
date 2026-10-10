@@ -8,25 +8,14 @@ import (
 )
 
 type AtualizarSessao struct {
-	Sessoes SessaoRepository
-	Filmes  FilmeRepository
-	Salas   SalaRepository
-	GerarID func() string
-	Agora   func() time.Time
-	// Ver `CriarSessao`: o fato viaja com o contexto de rastreamento da
-	// requisição, porque quem o publica roda fora dela.
+	Sessoes        SessaoRepository
+	Filmes         FilmeRepository
+	Salas          SalaRepository
+	GerarID        func() string
+	Agora          func() time.Time
 	TraceContextDe func(context.Context) map[string]string
 }
 
-// A atualização substitui a sessão inteira: o corpo descreve o estado final, e
-// campo omitido volta a ser ausente. A sala é a exceção — ela faz parte do
-// cadastro da sessão, não do estado que o PUT redesenha: omitida, permanece a
-// atual; informada, precisa repetir a atual.
-//
-// Trocar a sala apagaria o chão sob quem já reservou: os assentos vendidos
-// deixariam de existir, e reembolso não é coisa que este sistema faça. Quem
-// precisa de outra sala cancela a sessão e cria outra. É a mesma regra que o
-// `cinema_id` da sala já segue, pelo mesmo motivo.
 func (uc AtualizarSessao) Executar(ctx context.Context, sessaoID string, dados catalogo.DadosSessao) (catalogo.Sessao, error) {
 	atual, err := uc.Sessoes.BuscarPorID(ctx, sessaoID)
 	if err != nil {

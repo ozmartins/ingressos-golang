@@ -11,15 +11,10 @@ import (
 	"github.com/oseias/ingressos-golang/catalogo/internal/usecase"
 )
 
-// A caixa de saída. Ela é escrita por quem grava o fato — dentro da transação
-// daquele fato — e lida pelo publicador, que roda fora da requisição.
 type CaixaDeSaida struct{ banco *Banco }
 
 func NovaCaixaDeSaida(b *Banco) *CaixaDeSaida { return &CaixaDeSaida{banco: b} }
 
-// Enfileirar recebe a transação de quem está gravando: é isso que torna o fato e
-// o efeito que o produziu indivisíveis. O `DO NOTHING` cobre a retentativa de uma
-// escrita que já tinha enfileirado o mesmo fato.
 func enfileirarFato(tx *gorm.DB, fato usecase.FatoPendente) error {
 	linha := outboxRow{MessageID: fato.MessageID, RoutingKey: fato.RoutingKey, Payload: fato.Payload}
 	if len(fato.TraceContext) > 0 {
@@ -48,14 +43,6 @@ type FatoNaCaixa struct {
 	TraceContext map[string]string
 }
 
-// Drenar lê um lote de pendentes e entrega cada um a `publicar`. O que sai é
-// marcado; o que falha só tem a tentativa contada e volta no próximo tique — é
-// daí que vem o "ao menos uma vez": a mesma mensagem pode ser reenviada se o
-// broker a aceitou mas a marcação não chegou a ser gravada.
-//
-// `FOR UPDATE SKIP LOCKED` deixa duas réplicas drenarem a mesma caixa sem
-// disputar as mesmas linhas. Por isso a publicação acontece com a transação — e
-// os locks — ainda abertos: soltá-los antes devolveria o lote à outra réplica.
 func (c *CaixaDeSaida) Drenar(ctx context.Context, limite int, publicar func(FatoNaCaixa) error) (int, error) {
 	publicados := 0
 

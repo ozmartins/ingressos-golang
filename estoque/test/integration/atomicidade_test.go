@@ -15,10 +15,6 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/usecase"
 )
 
-// Falha na última etapa da concessão — a gravação do fato de saída — depois de
-// as poltronas terem sido travadas e marcadas, e de a reserva e os vínculos
-// terem sido gravados. Nada disso pode sobrar: o fato inválido tem de desfazer
-// a transação inteira.
 func TestFalhaNoFatoDesfazTodaAConcessao(t *testing.T) {
 	c := montarCenario(t, false)
 	sessao := c.novaSessao(t, []string{"A"}, 3)
@@ -30,7 +26,6 @@ func TestFalhaNoFatoDesfazTodaAConcessao(t *testing.T) {
 	}
 	res := reserva.Nova(sol, c.Relogio.Agora(), 10*time.Minute)
 
-	// message_id é VARCHAR(64): estoura só ao gravar o fato, depois de tudo o mais.
 	fato := usecase.FatoPendente{
 		MessageID:  strings.Repeat("x", 65),
 		RoutingKey: "reserva.criada",
@@ -65,7 +60,6 @@ func TestFalhaNoFatoDesfazTodaAConcessao(t *testing.T) {
 		t.Errorf("sobraram reservas=%d vínculos=%d fatos=%d, esperado tudo 0", reservas, vinculos, fatos)
 	}
 
-	// E a concessão válida seguinte tem de funcionar normalmente: nada ficou travado.
 	out, err := c.Bloquear.Executar(ctx, sessao, usuario, []string{"A1", "A2"}, valorDeTeste)
 	if err != nil || !out.Concedido {
 		t.Fatalf("bloqueio posterior: concedido=%v err=%v", out.Concedido, err)

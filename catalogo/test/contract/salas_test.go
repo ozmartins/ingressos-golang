@@ -13,16 +13,12 @@ const (
 	salaID          = "c1c2c3c4-0000-4000-8000-000000000001"
 	outroCinemaID   = "b1b2c3d4-0000-4000-8000-000000000999"
 	caminhoDasSalas = "/api/v1/salas"
-	// Três fileiras somando 26 lugares: é essa soma que a resposta precisa
-	// devolver em `capacidade_total`, já que o corpo não a informa.
 	fileirasValidas = `"fileiras":[{"fileira":"A","assentos":12},` +
 		`{"fileira":"F","assentos":8,"tipo":"PCD"},` +
 		`{"fileira":"J","assentos":6,"tipo":"NAMORADEIRA"}]`
 	corpoSalaValido = `{"cinema_id":"` + cinemaID + `","numero":7,"tipo_tela":"IMAX",` + fileirasValidas + `}`
 )
 
-// A planta é a mesma que `fileirasValidas` descreve, e não outra qualquer: ela é
-// imutável, então todo PUT que espera 200 precisa repeti-la.
 func salaDeTeste() catalogo.Sala {
 	return catalogo.Sala{ID: salaID, CinemaID: cinemaID, Numero: 3,
 		TipoTela: catalogo.TelaIMAX, Ativo: true,
@@ -65,8 +61,6 @@ func TestGetSalasFiltraPorCinema(t *testing.T) {
 	}
 }
 
-// Sem `cinema_id` a listagem é da rede inteira: a sala deixou de viver dentro
-// do caminho do cinema, e o filtro passou a ser opcional como o das sessões.
 func TestGetSalasSemCinemaIDListaTodaARede(t *testing.T) {
 	deOutroCinema := salaDeTeste()
 	deOutroCinema.ID, deOutroCinema.CinemaID = "c1c2c3c4-0000-4000-8000-000000000002", outroCinemaID
@@ -195,8 +189,6 @@ func TestPostSalaCriaEDevolveLocation(t *testing.T) {
 	}
 }
 
-// A capacidade não é digitada: ela sai da planta. E a planta volta ordenada por
-// fileira, independentemente da ordem em que o corpo a listou.
 func TestPostSalaDerivaACapacidadeDoLayout(t *testing.T) {
 	amb := montarComSalas(t, nil)
 	foraDeOrdem := `{"cinema_id":"` + cinemaID + `","numero":7,"tipo_tela":"IMAX",` +
@@ -221,7 +213,6 @@ func TestPostSalaDerivaACapacidadeDoLayout(t *testing.T) {
 			t.Errorf("fileira %d = %v, esperava %q", i, fileiras[i], esperada)
 		}
 	}
-	// Sem `tipo` no corpo, a fileira nasce normal — o mesmo padrão de `ativo`.
 	if fileiras[0].(map[string]any)["tipo"] != "NORMAL" {
 		t.Errorf("fileira sem tipo deveria nascer NORMAL: %v", fileiras[0])
 	}
@@ -259,8 +250,6 @@ func TestPostSalaRecusaCorpoInvalido(t *testing.T) {
 			`"fileiras":[{"fileira":"A","assentos":0}]}`,
 		"tipo de poltrona desconhecido": `{"cinema_id":"` + cinemaID + `","numero":7,"tipo_tela":"IMAX",` +
 			`"fileiras":[{"fileira":"A","assentos":10,"tipo":"PUFE"}]}`,
-		// A capacidade é derivada: quem ainda a mandar leva 400, porque os
-		// handlers recusam campo desconhecido.
 		"capacidade_total no corpo": `{"cinema_id":"` + cinemaID + `","numero":7,"tipo_tela":"IMAX",` +
 			fileirasValidas + `,"capacidade_total":180}`,
 		"campo desconhecido": `{"cinema_id":"` + cinemaID + `","numero":7,"tipo_tela":"IMAX",` +
@@ -347,8 +336,6 @@ func TestPutSalaSemCinemaIDMantemOCinema(t *testing.T) {
 	}
 }
 
-// A planta é do cadastro, como o cinema: as sessões já anunciadas desta sala
-// carregam a matriz de poltronas que valia quando foram criadas.
 func TestPutSalaComOutraPlantaDevolve409(t *testing.T) {
 	amb := montarComSalas(t, []catalogo.Sala{salaDeTeste()})
 	redesenho := `{"cinema_id":"` + cinemaID + `","numero":3,"tipo_tela":"IMAX",` +
@@ -368,7 +355,6 @@ func TestPutSalaComOutraPlantaDevolve409(t *testing.T) {
 	}
 }
 
-// Omitir a planta não é apagá-la: o resto da sala é substituído e ela permanece.
 func TestPutSalaSemFileirasMantemAPlanta(t *testing.T) {
 	amb := montarComSalas(t, []catalogo.Sala{salaDeTeste()})
 	semPlanta := `{"cinema_id":"` + cinemaID + `","numero":9,"tipo_tela":"VIP"}`
@@ -386,7 +372,6 @@ func TestPutSalaSemFileirasMantemAPlanta(t *testing.T) {
 	}
 }
 
-// O vínculo com o cinema é do cadastro, não do corpo do PUT: a sala não migra.
 func TestPutSalaComOutroCinemaDevolve409(t *testing.T) {
 	amb := montarComSalas(t, []catalogo.Sala{salaDeTeste()})
 	migrando := `{"cinema_id":"` + outroCinemaID + `","numero":3,"tipo_tela":"2D",` + fileirasValidas + `}`

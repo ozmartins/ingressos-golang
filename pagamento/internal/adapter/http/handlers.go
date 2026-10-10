@@ -32,15 +32,13 @@ type erroResposta struct {
 }
 
 type pagamentoResposta struct {
-	TransacaoID string      `json:"transacao_id"`
-	ReservaID   string      `json:"reserva_id"`
-	Status      string      `json:"status"`
-	ValorTotal  json.Number `json:"valor_total"`
-	// Vazio enquanto a escolha não acontece: o valor é conhecido desde a
-	// reserva, a forma não.
-	FormaPagamento string `json:"forma_pagamento,omitempty"`
-	ExpiraEm       string `json:"expira_em"`
-	CriadoEm       string `json:"criado_em"`
+	TransacaoID    string      `json:"transacao_id"`
+	ReservaID      string      `json:"reserva_id"`
+	Status         string      `json:"status"`
+	ValorTotal     json.Number `json:"valor_total"`
+	FormaPagamento string      `json:"forma_pagamento,omitempty"`
+	ExpiraEm       string      `json:"expira_em"`
+	CriadoEm       string      `json:"criado_em"`
 }
 
 type escolhaEntrada struct {
@@ -57,8 +55,6 @@ type API struct {
 
 func (a *API) Rotas() http.Handler {
 	r := chi.NewRouter()
-	// O ServeMux atendia HEAD em todo padrão GET; o chi não. Registrar os dois
-	// mantém a resposta de antes.
 	get := func(caminho string, h http.HandlerFunc) {
 		r.Get(caminho, h)
 		r.Head(caminho, h)
@@ -71,7 +67,6 @@ func (a *API) Rotas() http.Handler {
 	ui := openapi.HandlerUI("/openapi.yaml")
 	get("/openapi.yaml", openapi.HandlerEspecificacao())
 	get("/docs", ui)
-	// No ServeMux, "/docs/" casava toda a subárvore.
 	get("/docs/*", ui)
 
 	r.NotFound(http.NotFound)
@@ -82,8 +77,6 @@ func (a *API) Rotas() http.Handler {
 	return r
 }
 
-// Os métodos que casam com o caminho, em ordem alfabética, como o ServeMux
-// informava no cabeçalho Allow do 405.
 func metodosPermitidos(r chi.Routes, caminho string) []string {
 	var ms []string
 	for _, m := range []string{
@@ -123,8 +116,6 @@ func (a *API) consultar(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// A escolha da forma de pagamento. Responde 202: o pedido foi aceito e a
-// cobrança acontece fora desta requisição — quem paga não espera o adquirente.
 func (a *API) escolherForma(w http.ResponseWriter, r *http.Request) {
 	sub, err := a.Auth.Identificar(r)
 	if err != nil {
@@ -154,8 +145,6 @@ func (a *API) escolherForma(w http.ResponseWriter, r *http.Request) {
 		responderErro(w, http.StatusBadRequest, CodFormaDesconhecida,
 			"forma_pagamento deve ser PIX ou CARTAO_CREDITO")
 
-	// A corrida entre duas escolhas simultâneas cai aqui pelo mesmo caminho da
-	// segunda escolha deliberada: em ambos os casos a forma já está definida.
 	case errors.Is(err, transacao.ErrFormaJaEscolhida), errors.Is(err, usecase.ErrJaFinalizada):
 		responderErro(w, http.StatusConflict, CodFormaJaEscolhida,
 			"a forma de pagamento desta reserva já foi escolhida")
@@ -164,8 +153,6 @@ func (a *API) escolherForma(w http.ResponseWriter, r *http.Request) {
 		responderErro(w, http.StatusConflict, CodFormaJaEscolhida,
 			"esta reserva não aceita mais escolha de forma de pagamento")
 
-	// O prazo venceu antes da escolha. O cancelamento é da varredura; aqui só
-	// se informa que não há mais o que pagar.
 	case errors.Is(err, transacao.ErrReservaExpirada):
 		responderErro(w, http.StatusConflict, CodReservaExpirada,
 			"o prazo da reserva venceu e ela não pode mais ser paga")

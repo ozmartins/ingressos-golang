@@ -22,8 +22,6 @@ func (d Dinheiro) String() string {
 	return fmt.Sprintf("%s%d.%02d", sinal, c/100, c%100)
 }
 
-// Multiplicar por uma quantidade inteira é exato em centavos: não há casa
-// decimal a arredondar, porque o fator não tem fração.
 func (d Dinheiro) Multiplicar(n int) Dinheiro {
 	return Dinheiro{centavos: d.centavos * int64(n)}
 }

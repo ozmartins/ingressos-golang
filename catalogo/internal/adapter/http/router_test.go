@@ -23,8 +23,6 @@ func (v verificadorFalso) Verificar(context.Context, string) (identidade.Identid
 	return identidade.Identidade{UsuarioID: "u1"}, nil
 }
 
-// tabelaFalsa mantém método, caminho e proteção de produção e troca só o
-// handler por um que registra o que recebeu.
 func tabelaFalsa(visto *[]string) []Rota {
 	falsa := Rotas()
 	for i := range falsa {
@@ -174,10 +172,6 @@ func TestMiddlewaresEnvolvemTambemAsRequisicoesSemRota(t *testing.T) {
 	}
 }
 
-// O ServeMux entrega o parâmetro decodificado ("x/y") e o chi o entrega bruto
-// ("x%2Fy"); como o handler valida o UUID antes de qualquer caso de uso, os dois
-// caem na mesma recusa de validação. Os handlers reais rodam aqui com
-// casos de uso zerados, que a validação nunca alcança.
 func TestIdComBarraCodificadaDaAMesmaRecusaQueIdInvalido(t *testing.T) {
 	router := NovoRouter(Dependencias{})
 
@@ -197,9 +191,6 @@ func TestIdComBarraCodificadaDaAMesmaRecusaQueIdInvalido(t *testing.T) {
 	}
 }
 
-// Divergência residual conhecida (research D5): o ServeMux redireciona (307) um
-// caminho não canônico; o chi responde 404. Fixa o comportamento atual para que
-// uma mudança futura seja deliberada.
 func TestCaminhoNaoCanonicoResponde404(t *testing.T) {
 	router := NovoRouter(Dependencias{})
 	for _, caminho := range []string{"/api/v1//filmes", "/api/v1/filmes/../cinemas"} {

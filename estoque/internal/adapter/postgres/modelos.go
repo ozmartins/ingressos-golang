@@ -6,23 +6,14 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/poltrona"
 )
 
-// Os modelos abaixo existem só para o GORM e nunca saem deste pacote: o domínio
-// não conhece tags nem a biblioteca. Os nomes de tabela não levam o schema — o
-// `search_path` da conexão (ver Abrir) é quem o resolve.
-//
-// Colunas que o banco preenche sozinho (`criado_em` das poltronas e do outbox,
-// `processado_em`) ficam de fora dos modelos de propósito: o GORM não as grava
-// e o default da migração vale.
-
 type poltronaRow struct {
-	ID       string `gorm:"column:id;primaryKey"`
-	SessaoID string `gorm:"column:sessao_id"`
-	Fileira  string `gorm:"column:fileira"`
-	Numero   int    `gorm:"column:numero"`
-	Rotulo   string `gorm:"column:rotulo"`
-	Tipo     string `gorm:"column:tipo"`
-	Status   string `gorm:"column:status"`
-	// Nunca escrito na criação (vale o default), sempre `now()` nos UPDATE.
+	ID           string     `gorm:"column:id;primaryKey"`
+	SessaoID     string     `gorm:"column:sessao_id"`
+	Fileira      string     `gorm:"column:fileira"`
+	Numero       int        `gorm:"column:numero"`
+	Rotulo       string     `gorm:"column:rotulo"`
+	Tipo         string     `gorm:"column:tipo"`
+	Status       string     `gorm:"column:status"`
 	AtualizadoEm *time.Time `gorm:"column:atualizado_em;<-:update"`
 }
 
@@ -43,8 +34,7 @@ type reservaRow struct {
 	Status       string     `gorm:"column:status"`
 	CriadoEm     time.Time  `gorm:"column:criado_em"`
 	FinalizadoEm *time.Time `gorm:"column:finalizado_em"`
-	// Anulável no banco: reservas anteriores à migração 000003 não têm valor.
-	ValorTotal *string `gorm:"column:valor_total"`
+	ValorTotal   *string    `gorm:"column:valor_total"`
 }
 
 func (reservaRow) TableName() string { return "reservas" }

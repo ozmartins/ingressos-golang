@@ -86,13 +86,6 @@ func (r *Reservas) ExpirarUma(ctx context.Context, reservaID string, agora time.
 	return resultado, err
 }
 
-// CancelarPendentesDaSessao solta todas as reservas pendentes de uma sessão de
-// uma vez. A forma é a de `ExpirarVencidas` — `UPDATE ... RETURNING` sobre um
-// `SELECT ... FOR UPDATE SKIP LOCKED` —, com o filtro trocado de prazo vencido
-// para sessão, e sem limite: uma sessão cancelada solta tudo, não um lote.
-//
-// As confirmadas não são tocadas: são ingressos pagos. Elas só são contadas,
-// para que o caso de uso possa registrar que existem.
 func (r *Reservas) CancelarPendentesDaSessao(
 	ctx context.Context,
 	fila, messageID, sessaoID string,
@@ -112,9 +105,6 @@ func (r *Reservas) CancelarPendentesDaSessao(
 			}
 		}
 
-		// Contado antes do UPDATE: depois dele as pendentes viraram canceladas,
-		// e a contagem de confirmadas não mudaria — mas ler antes deixa claro
-		// que o número é o do instante do cancelamento.
 		var confirmadas int64
 		if err := tx.Model(&reservaRow{}).
 			Where("sessao_id = ? AND status = ?", sessaoID, string(reserva.Confirmada)).

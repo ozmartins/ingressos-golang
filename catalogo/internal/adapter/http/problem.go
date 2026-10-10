@@ -103,9 +103,6 @@ func EscreverErroDeDominio(w http.ResponseWriter, r *http.Request, err error, co
 	case errors.Is(err, shared.ErrPoltronasIndisponiveis):
 		EscreverProblem(w, r, catPoltronasIndisp, "Uma ou mais poltronas selecionadas não estão disponíveis.")
 
-	// As três recusas que o estoque decide. Antes caíam todas em
-	// `estoque-indisponivel`, o que dizia ao cliente para tentar de novo quando
-	// o defeito estava na própria solicitação.
 	case errors.Is(err, shared.ErrPoltronaInexistente):
 		EscreverProblem(w, r, catPoltronaInexistente,
 			"Uma ou mais poltronas informadas não existem nesta sessão.")
@@ -115,8 +112,6 @@ func EscreverErroDeDominio(w http.ResponseWriter, r *http.Request, err error, co
 	case errors.Is(err, shared.ErrSolicitacaoRecusadaPeloEstoque):
 		EscreverProblem(w, r, catReservaRecusada, mensagemLimpa(err))
 
-	// Defeito do parceiro, e não indisponibilidade: o contrato dele diz que
-	// repetir não tem por que dar certo.
 	case errors.Is(err, shared.ErrEstoqueComDefeito):
 		EscreverProblem(w, r, catRespostaInvalida,
 			"O serviço responsável pela reserva falhou. Informe o identificador desta requisição ao suporte.")
@@ -131,10 +126,6 @@ func EscreverErroDeDominio(w http.ResponseWriter, r *http.Request, err error, co
 	}
 }
 
-// O recurso ausente muda o `type` do problema. Quando o erro diz qual recurso
-// faltou, é ele quem manda: numa escrita de sessão o ausente pode ser o filme
-// ou a sala, e o caminho não denuncia isso. O contexto do handler fica como
-// resposta para os erros que não se identificam.
 func categoriaNaoEncontrado(err error, contexto string) string {
 	var ausente shared.RecursoAusente
 	if errors.As(err, &ausente) {

@@ -7,8 +7,6 @@ import (
 	"testing"
 )
 
-// Valores medidos no http.ServeMux antes da troca pelo chi; a troca não pode
-// mudá-los (FR-005, FR-006).
 func TestRoteamentoPreservaRespostasDoServeMux(t *testing.T) {
 	api := apiCom(repoStub{})
 	const (
@@ -22,7 +20,7 @@ func TestRoteamentoPreservaRespostasDoServeMux(t *testing.T) {
 		status          int
 		contentType     string
 		allow           string
-		corpo           string // vazio = não confere
+		corpo           string
 	}{
 		{"GET", "/nao-existe", 404, textoCT, "", texto404},
 		{"GET", "/api/v1/health/live/", 404, textoCT, "", texto404},

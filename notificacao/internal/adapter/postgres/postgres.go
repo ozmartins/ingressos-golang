@@ -15,8 +15,6 @@ import (
 
 const Schema = "notificacao"
 
-// Banco é a conexão do serviço com o PostgreSQL: o GORM por cima de um *sql.DB
-// aberto pelo pgx, com o search_path fixado no schema do serviço.
 type Banco struct {
 	db  *gorm.DB
 	sql *sql.DB
@@ -33,7 +31,6 @@ func Conectar(ctx context.Context, url string) (*Banco, error) {
 	cfg.RuntimeParams["search_path"] = Schema
 
 	conexoes := stdlib.OpenDB(*cfg)
-	// Mesmo teto do pool anterior: max(4, CPUs).
 	conexoes.SetMaxOpenConns(max(4, runtime.NumCPU()))
 
 	db, err := gorm.Open(gormpg.New(gormpg.Config{Conn: conexoes}), &gorm.Config{
@@ -54,8 +51,6 @@ func Conectar(ctx context.Context, url string) (*Banco, error) {
 
 func (b *Banco) DB() *gorm.DB { return b.db }
 
-// SQL expõe o *sql.DB subjacente, para os testes de integração consultarem o
-// banco sem passar pelo GORM.
 func (b *Banco) SQL() *sql.DB { return b.sql }
 
 func (b *Banco) Fechar() { _ = b.sql.Close() }

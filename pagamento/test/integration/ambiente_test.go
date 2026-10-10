@@ -185,7 +185,6 @@ func (a *ambiente) consumidorDe(t *testing.T, adq usecase.Adquirente, prefetch i
 	}
 	c := &adaptamqp.Consumidor{
 		Canal: canal, Fila: filaReserva, Prefetch: prefetch,
-		// O consumo só registra a intenção; a cobrança é do varredor.
 		Caso: usecase.RegistrarIntencao{Repo: a.Repo, Relogio: relogioReal{}, IDs: idsReais{}},
 		Log:  a.Log, Propagador: propagation.TraceContext{},
 		EmAndamento: &adaptamqp.Medidor{},
@@ -193,9 +192,6 @@ func (a *ambiente) consumidorDe(t *testing.T, adq usecase.Adquirente, prefetch i
 	ctx, cancelar := context.WithCancel(context.Background())
 	go func() { _ = c.Consumir(ctx) }()
 
-	// Em produção estes dois são processos separados: o consumidor registra e o
-	// varredor cobra. Aqui eles sobem juntos porque os testes verificam o
-	// desfecho da cobrança, e o varredor é a única coisa que o produz.
 	varrer := usecase.VarrerCobrancas{
 		Repo: a.Repo,
 		Cobranca: usecase.ProcessarPagamento{
@@ -206,7 +202,6 @@ func (a *ambiente) consumidorDe(t *testing.T, adq usecase.Adquirente, prefetch i
 		Relogio: relogioReal{}, Log: a.Log,
 	}
 	go func() {
-		// Mais rápido que o padrão de produção: o teste espera o desfecho.
 		tique := time.NewTicker(50 * time.Millisecond)
 		defer tique.Stop()
 		for {
@@ -222,14 +217,7 @@ func (a *ambiente) consumidorDe(t *testing.T, adq usecase.Adquirente, prefetch i
 	return c, cancelar
 }
 
-// A escolha da forma é uma ação de quem paga, e nos testes ninguém a faz: este
-// laço a simula para toda transação recém-registrada, para que o fluxo chegue
-// até a cobrança. É o único ponto em que o ambiente de teste faz o papel do
-// cliente HTTP.
 func (a *ambiente) escolherFormasPendentes(ctx context.Context) {
-	// A consulta é SQL direto, e não um método do repositório: "quem está
-	// esperando a escolha" é pergunta que só o teste faz, e acrescentá-la ao
-	// port de produção seria ampliar a interface para servir ao teste.
 	linhas, err := a.Banco.SQL().QueryContext(ctx,
 		`SELECT reserva_id, usuario_id FROM transacoes_pagamento WHERE status = 'AGUARDANDO_FORMA'`)
 	if err != nil {

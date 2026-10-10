@@ -19,9 +19,7 @@ type EventoReservaCriada struct {
 	UsuarioID    string   `json:"usuario_id"`
 	PoltronasIDs []string `json:"poltronas_ids"`
 	ExpiraEm     string   `json:"expira_em"`
-	// Texto decimal, vindo de quem tem autoridade sobre o preço. Quem cobra
-	// precisa dele: sem valor não há cobrança.
-	ValorTotal string `json:"valor_total"`
+	ValorTotal   string   `json:"valor_total"`
 }
 
 const RoutingKeyReservaCriada = "reserva.criada"

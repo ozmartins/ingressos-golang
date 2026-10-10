@@ -241,8 +241,6 @@ func TestListarSalasRecusaCinemaInexistente(t *testing.T) {
 	}
 }
 
-// Sem recorte por cinema não há cinema para conferir: a listagem vai direto ao
-// repositório, mesmo que nenhum cinema exista.
 func TestListarSalasSemCinemaNaoConfereCinema(t *testing.T) {
 	salas := &salaRepoFalso{}
 	cinemas := &cinemaRepoFalso{existe: false}
@@ -270,9 +268,6 @@ func TestAtualizarSalaRecusaTrocaDeCinema(t *testing.T) {
 	}
 }
 
-// A planta é do cadastro da sala: as sessões já anunciadas dela carregam a
-// matriz de poltronas que valia quando foram criadas, e redesenhá-la deixaria
-// essas matrizes descrevendo assentos que não existem mais.
 func TestAtualizarSalaRecusaRedesenhoDaPlanta(t *testing.T) {
 	salas := &salaRepoFalso{sala: salaGravada("sala-1", "cinema-a", 3)}
 	uc := AtualizarSala{Cinemas: &cinemaRepoFalso{existe: true}, Salas: salas}
@@ -299,8 +294,6 @@ func TestAtualizarSalaRecusaRedesenhoDaPlanta(t *testing.T) {
 	}
 }
 
-// Repetir a mesma planta passa, e a ordem em que ela é enviada não importa: a
-// comparação é sobre a planta normalizada.
 func TestAtualizarSalaAceitaAMesmaPlantaEmOutraOrdem(t *testing.T) {
 	salas := &salaRepoFalso{sala: salaGravada("sala-1", "cinema-a", 3)}
 	uc := AtualizarSala{Cinemas: &cinemaRepoFalso{existe: true}, Salas: salas}
@@ -318,7 +311,6 @@ func TestAtualizarSalaAceitaAMesmaPlantaEmOutraOrdem(t *testing.T) {
 	}
 }
 
-// Sem `fileiras` no corpo a planta permanece — omitir não é apagar.
 func TestAtualizarSalaSemFileirasMantemAPlanta(t *testing.T) {
 	salas := &salaRepoFalso{sala: salaGravada("sala-1", "cinema-a", 3)}
 	uc := AtualizarSala{Cinemas: &cinemaRepoFalso{existe: true}, Salas: salas}
@@ -361,8 +353,6 @@ func sessaoReservavel() catalogo.Sessao {
 	}
 }
 
-// O cliente pede poltronas; quanto custam é decisão do catálogo, dono do
-// cadastro da sessão. Quem cobra recebe este valor pelo fato do estoque.
 func TestReservarPoltronasDerivaOValorDoPrecoDaSessao(t *testing.T) {
 	est := &estoqueFalso{resultado: reserva.ResultadoReserva{
 		ReservaID: "9982a1b3-44c1-4221-a123-902183120192",
@@ -376,13 +366,11 @@ func TestReservarPoltronasDerivaOValorDoPrecoDaSessao(t *testing.T) {
 		t.Fatalf("erro inesperado: %v", err)
 	}
 
-	// 42,50 × 3 poltronas, sem centavo perdido no caminho.
 	if got := est.solicitacao.ValorTotal; got != "127.50" {
 		t.Fatalf("valor_total = %q, esperado \"127.50\"", got)
 	}
 }
 
-// O valor é derivado, não recebido: o que o cliente mandar é ignorado.
 func TestReservarPoltronasIgnoraValorInformadoPeloCliente(t *testing.T) {
 	est := &estoqueFalso{resultado: reserva.ResultadoReserva{
 		ReservaID: "9982a1b3-44c1-4221-a123-902183120192",
@@ -678,8 +666,6 @@ func TestRemoverCinemaDesativa(t *testing.T) {
 	}
 }
 
-// A sala como o repositório a devolveria, com a planta que `fileirasSala`
-// descreve — a planta é imutável, e o corpo do PUT precisa repeti-la.
 func salaGravada(id, cinemaID string, numero int) catalogo.Sala {
 	sala, err := catalogo.NovaSala(id, catalogo.DadosSala{
 		CinemaID: cinemaID, Numero: numero, TipoTela: "IMAX", Fileiras: fileirasSala(),
@@ -789,8 +775,6 @@ func dadosSessao() catalogo.DadosSessao {
 
 func idFixo() string { return "id-gerado" }
 
-// O anúncio da sessão sai junto com ela, e leva a planta da sala expandida
-// assento a assento — é dela que quem consome monta a matriz de poltronas.
 func TestCriarSessaoEnfileiraOAnuncioComAPlantaDaSala(t *testing.T) {
 	layout, err := catalogo.NovoLayoutSala([]catalogo.DadosFileira{
 		{Fileira: "A", Assentos: 2},
@@ -817,7 +801,6 @@ func TestCriarSessaoEnfileiraOAnuncioComAPlantaDaSala(t *testing.T) {
 	if fato.RoutingKey != RoutingKeySessaoCriada {
 		t.Errorf("routing key = %q, esperava %q", fato.RoutingKey, RoutingKeySessaoCriada)
 	}
-	// É pelo `message_id` que quem consome descarta a repetição.
 	if fato.MessageID != sessao.ID {
 		t.Errorf("message_id = %q, esperava o id da sessão %q", fato.MessageID, sessao.ID)
 	}
@@ -854,7 +837,6 @@ func TestCriarSessaoEnfileiraOAnuncioComAPlantaDaSala(t *testing.T) {
 	}
 }
 
-// A sessão que não chega a ser criada não anuncia nada.
 func TestCriarSessaoRecusadaNaoEnfileiraAnuncio(t *testing.T) {
 	sessoes := &sessaoRepoFalso{salaOcupada: true}
 	uc := CriarSessao{Sessoes: sessoes, Filmes: &filmeRepoFalso{}, Salas: &salaRepoFalso{}, GerarID: idFixo}
@@ -962,8 +944,6 @@ func TestAtualizarSessaoIgnoraAPropriaNaChecagemDeOcupacao(t *testing.T) {
 	}
 }
 
-// A sala é do cadastro da sessão, não do estado que o PUT redesenha: trocá-la
-// apagaria o chão sob quem já reservou. Mesma regra do `cinema_id` da sala.
 func TestAtualizarSessaoRecusaTrocaDeSala(t *testing.T) {
 	atual := sessaoReservavel()
 	atual.SalaID = "sala-original"
@@ -1006,7 +986,6 @@ func TestAtualizarSessaoSemSalaIDMantemASalaAtual(t *testing.T) {
 	}
 }
 
-// Alterar anuncia. Sem isso, quem tem estado preso à sessão não fica sabendo.
 func TestAtualizarSessaoEnfileiraOAnuncio(t *testing.T) {
 	atual := sessaoReservavel()
 	atual.SalaID = dadosSessao().SalaID
@@ -1027,8 +1006,6 @@ func TestAtualizarSessaoEnfileiraOAnuncio(t *testing.T) {
 	if fato.RoutingKey != RoutingKeySessaoAlterada {
 		t.Errorf("routing key = %q", fato.RoutingKey)
 	}
-	// Identificador próprio, e não o da sessão: duas alterações não podem
-	// colidir na caixa de saída, cujo `message_id` é único.
 	if fato.MessageID != idFixo() {
 		t.Errorf("message_id = %q, esperava um identificador próprio do fato", fato.MessageID)
 	}
@@ -1048,7 +1025,6 @@ func TestAtualizarSessaoEnfileiraOAnuncio(t *testing.T) {
 	}
 }
 
-// Cancelar anuncia: é o fato que solta as reservas pendentes no estoque.
 func TestRemoverSessaoEnfileiraOAnuncio(t *testing.T) {
 	sessoes := &sessaoRepoFalso{sessao: sessaoReservavel()}
 	uc := RemoverSessao{Repo: sessoes, Agora: agoraFixo}
@@ -1061,8 +1037,6 @@ func TestRemoverSessaoEnfileiraOAnuncio(t *testing.T) {
 	if fato.RoutingKey != RoutingKeySessaoCancelada {
 		t.Errorf("routing key = %q", fato.RoutingKey)
 	}
-	// O cancelamento é terminal e acontece uma vez: a chave é estável, e é ela
-	// que dá idempotência a quem consome.
 	if fato.MessageID != "sessao-1:cancelada" {
 		t.Errorf("message_id = %q", fato.MessageID)
 	}

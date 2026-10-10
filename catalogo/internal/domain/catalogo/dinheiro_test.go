@@ -2,8 +2,6 @@ package catalogo
 
 import "testing"
 
-// A multiplicação por quantidade inteira precisa ser exata: o resultado vira
-// cobrança, e um centavo perdido aqui é um centavo cobrado errado.
 func TestDinheiroMultiplicar(t *testing.T) {
 	casos := []struct {
 		nome     string
@@ -27,7 +25,6 @@ func TestDinheiroMultiplicar(t *testing.T) {
 	}
 }
 
-// O tipo é imutável: multiplicar devolve outro valor e não altera o original.
 func TestDinheiroMultiplicarNaoAlteraOOriginal(t *testing.T) {
 	preco := DinheiroDeCentavos(4250)
 	_ = preco.Multiplicar(3)

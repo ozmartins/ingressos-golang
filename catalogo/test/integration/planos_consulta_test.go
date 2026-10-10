@@ -18,9 +18,6 @@ import (
 	"github.com/oseias/ingressos-golang/catalogo/internal/usecase"
 )
 
-// Cada caso executa a operação do adaptador — a que o serviço de fato chama — e
-// pede o plano do SQL que o GORM emitiu. Um EXPLAIN sobre SQL escrito no teste
-// não notaria o GORM trocar `= ANY($1)` por `IN (...)` e perder o índice.
 func TestConsultasUsamOsIndices(t *testing.T) {
 	carregarVolume(t, 10)
 	ctx := context.Background()
@@ -112,8 +109,6 @@ func TestConsultasUsamOsIndices(t *testing.T) {
 	}
 }
 
-// Guarda o SQL de cada consulta que o GORM executa, já com os valores no lugar
-// dos parâmetros (é o que `ExplainSQL` entrega ao logger).
 type capturaSQL struct {
 	mu   sync.Mutex
 	sqls []string
@@ -136,8 +131,6 @@ func (c *capturaSQL) limpar() {
 	c.mu.Unlock()
 }
 
-// A listagem executa duas consultas: a contagem e a página. Interessa a página,
-// a única com LIMIT.
 func (c *capturaSQL) paginaDaListagem(t *testing.T) string {
 	t.Helper()
 	c.mu.Lock()

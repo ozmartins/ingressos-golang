@@ -56,8 +56,6 @@ func paraFilmeDTO(f catalogo.Filme) filmeDTO {
 	}
 }
 
-// Campos ponteiro para separar "ausente" de "vazio": no PUT, que substitui o
-// filme inteiro, um `duracao_minutos` omitido é erro, não zero.
 type filmeEntradaDTO struct {
 	Titulo              *string `json:"titulo"`
 	Sinopse             *string `json:"sinopse"`
@@ -102,8 +100,6 @@ func paraCinemaDTO(c catalogo.Cinema) cinemaDTO {
 		Endereco: c.Endereco, Ativo: c.Ativo}
 }
 
-// Campos ponteiro pelo mesmo motivo de `filmeEntradaDTO`: no PUT, que substitui
-// o cinema inteiro, um `nome` omitido é erro, não string vazia.
 type cinemaEntradaDTO struct {
 	Nome     *string `json:"nome"`
 	Cidade   *string `json:"cidade"`
@@ -136,15 +132,13 @@ type fileiraDTO struct {
 }
 
 type salaDTO struct {
-	ID       string       `json:"id"`
-	CinemaID string       `json:"cinema_id"`
-	Numero   int          `json:"numero"`
-	TipoTela string       `json:"tipo_tela"`
-	Fileiras []fileiraDTO `json:"fileiras"`
-	// Derivada do layout, não informada pelo cliente: é a soma dos assentos das
-	// fileiras. Continua na resposta porque é o que a maioria dos clientes quer.
-	CapacidadeTotal int  `json:"capacidade_total"`
-	Ativo           bool `json:"ativo"`
+	ID              string       `json:"id"`
+	CinemaID        string       `json:"cinema_id"`
+	Numero          int          `json:"numero"`
+	TipoTela        string       `json:"tipo_tela"`
+	Fileiras        []fileiraDTO `json:"fileiras"`
+	CapacidadeTotal int          `json:"capacidade_total"`
+	Ativo           bool         `json:"ativo"`
 }
 
 func paraSalaDTO(s catalogo.Sala) salaDTO {
@@ -158,9 +152,6 @@ func paraSalaDTO(s catalogo.Sala) salaDTO {
 		CapacidadeTotal: s.CapacidadeTotal(), Ativo: s.Ativo}
 }
 
-// Campos ponteiro pelo mesmo motivo de `filmeEntradaDTO`: no PUT, que substitui
-// a sala inteira, um `numero` omitido é erro, não zero. `cinema_id` entra no
-// corpo agora que a sala não vive mais dentro do caminho do cinema.
 type salaEntradaDTO struct {
 	CinemaID *string `json:"cinema_id"`
 	Numero   *int    `json:"numero"`
@@ -173,8 +164,6 @@ type salaEntradaDTO struct {
 	Ativo *bool `json:"ativo"`
 }
 
-// O formato do `cinema_id` é conferido aqui, e não no domínio: um identificador
-// malformado nem chega ao banco, que só conhece UUID.
 func (d salaEntradaDTO) paraDadosSala() (catalogo.DadosSala, error) {
 	dados := catalogo.DadosSala{Ativo: d.Ativo}
 	if d.CinemaID != nil {
@@ -232,9 +221,6 @@ func paraSessaoDTO(s catalogo.SessaoDetalhada) sessaoDTO {
 	}
 }
 
-// A linha da grade traz o filme e o cinema resolvidos; o recurso traz a sessão
-// como ela é gravada. São representações diferentes da mesma entidade, e é a
-// segunda que o POST, o PUT e a busca por identificador devolvem.
 type sessaoRecursoDTO struct {
 	ID             string `json:"id"`
 	FilmeID        string `json:"filme_id"`
@@ -254,9 +240,6 @@ func paraSessaoRecursoDTO(s catalogo.Sessao) sessaoRecursoDTO {
 	}
 }
 
-// Campos ponteiro pelo mesmo motivo de `filmeEntradaDTO`. `data_hora_inicio`
-// chega como texto para que um instante mal formatado vire erro de corpo, e não
-// a data zero do Go.
 type sessaoEntradaDTO struct {
 	FilmeID        *string `json:"filme_id"`
 	SalaID         *string `json:"sala_id"`

@@ -14,8 +14,6 @@ import (
 func traduzir(resposta *estoquepb.RespostaBloqueio, desfecho Desfecho, err error) (reserva.ResultadoReserva, error) {
 	switch desfecho {
 	case DesfechoRecusado:
-		// O circuito está aberto: não houve chamada, e não há categoria do
-		// estoque para traduzir.
 		return reserva.ResultadoReserva{}, fmt.Errorf("%w: %v", shared.ErrEstoqueIndisponivel, err)
 	case DesfechoFalha:
 		return reserva.ResultadoReserva{}, traduzirErroDeChamada(err)

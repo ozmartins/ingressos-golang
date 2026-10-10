@@ -52,7 +52,6 @@ func TestEscritaDeSalaRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BuscarPorID: %v", err)
 	}
-	// A sala carrega o layout, que é uma fatia: a comparação precisa ser profunda.
 	if !reflect.DeepEqual(lida, sala) {
 		t.Fatalf("a sala lida difere da gravada:\n gravada: %+v\n lida:    %+v", sala, lida)
 	}
@@ -75,7 +74,6 @@ func TestEscritaDeSalaRoundTrip(t *testing.T) {
 		t.Fatalf("Desativar: %v", err)
 	}
 
-	// A remoção é lógica: a linha permanece e as sessões seguem apontando para ela.
 	inativa, err := repo.BuscarPorID(ctx, id)
 	if err != nil {
 		t.Fatalf("a sala desativada deveria seguir legível: %v", err)
@@ -126,7 +124,6 @@ func TestNumeroDeSalaEhUnicoEntreAsAtivas(t *testing.T) {
 		t.Fatal("a sala 3 das fixtures está ativa: o número deveria constar em uso")
 	}
 
-	// A própria sala não disputa o próprio número.
 	emUso, err = repo.NumeroEmUso(ctx, cinemaDasFixtures, 3, "d1b2c3d4-0000-4000-8000-000000000002")
 	if err != nil {
 		t.Fatal(err)
@@ -135,7 +132,6 @@ func TestNumeroDeSalaEhUnicoEntreAsAtivas(t *testing.T) {
 		t.Fatal("a sala deveria poder manter o próprio número")
 	}
 
-	// O índice é parcial: desativar libera o número.
 	if err := repo.Desativar(ctx, "d1b2c3d4-0000-4000-8000-000000000002"); err != nil {
 		t.Fatal(err)
 	}
@@ -279,8 +275,6 @@ func TestSessaoCanceladaSaiDaGrade(t *testing.T) {
 	}
 }
 
-// A sessão de 18h na sala VIP das fixtures projeta "Zebra Selvagem", de 90
-// minutos: ocupa a sala das 18h às 19h30.
 func TestSalaOcupadaUsaADuracaoDoFilme(t *testing.T) {
 	carregarFixtures(t)
 	repo := pgadapter.NovoSessaoRepository(banco)
@@ -319,7 +313,6 @@ func TestSalaOcupadaIgnoraSessoesQueNaoOcupam(t *testing.T) {
 	repo := pgadapter.NovoSessaoRepository(banco)
 	ctx := context.Background()
 
-	// A sessão CANCELADA das fixtures começa às 15h de 03/09 na sala IMAX.
 	const salaImax = "d1b2c3d4-0000-4000-8000-000000000002"
 	inicio := time.Date(2026, 9, 3, 15, 0, 0, 0, time.UTC)
 

@@ -29,13 +29,8 @@ type API struct {
 }
 
 type solicitacaoBloqueio struct {
-	PoltronasIDs []string `json:"poltronas_ids"`
-	// As duas superfícies chamam o mesmo caso de uso, então valem as mesmas
-	// regras de domínio — e o valor é obrigatório nas duas. A diferença é de
-	// quem chama: no gRPC é o catálogo, autoridade do preço; aqui é o cliente
-	// final, que declara o valor. Ver a ressalva no contrato: em produção quem
-	// abre a reserva é o catálogo, e esta superfície é de operação e teste.
-	ValorTotal json.Number `json:"valor_total"`
+	PoltronasIDs []string    `json:"poltronas_ids"`
+	ValorTotal   json.Number `json:"valor_total"`
 }
 
 type respostaBloqueio struct {
@@ -68,8 +63,6 @@ func (a *API) Rotas() http.Handler {
 	return r
 }
 
-// sessaoID devolve o parâmetro de caminho já decodificado. O chi roteia pelo
-// caminho codificado e entrega o valor cru (x%2Fy); o ServeMux entregava x/y.
 func sessaoID(r *http.Request) string {
 	cru := r.PathValue("sessao_id")
 	if decodificado, err := url.PathUnescape(cru); err == nil {

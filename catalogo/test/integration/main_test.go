@@ -17,8 +17,6 @@ import (
 	pgadapter "github.com/oseias/ingressos-golang/catalogo/internal/adapter/postgres"
 )
 
-// `banco` é o que o serviço usa; `pool` é a mesma conexão crua, para os testes
-// prepararem e inspecionarem o banco com SQL que o adaptador não escreve.
 var (
 	banco    *pgadapter.Banco
 	pool     *sql.DB

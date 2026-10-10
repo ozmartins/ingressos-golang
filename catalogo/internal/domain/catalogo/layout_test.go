@@ -46,8 +46,6 @@ func TestNovoLayoutSalaNormalizaALetra(t *testing.T) {
 	}
 }
 
-// A ordem da resposta não pode depender da ordem em que o corpo listou as
-// fileiras: a mesma planta descrita de duas formas é a mesma planta.
 func TestNovoLayoutSalaOrdenaPorLetra(t *testing.T) {
 	layout, err := NovoLayoutSala([]DadosFileira{
 		{Fileira: "C", Assentos: 4},
@@ -87,8 +85,6 @@ func TestNovoLayoutSalaRecusaEntradasInvalidas(t *testing.T) {
 	}
 }
 
-// A planta é anunciada poltrona a poltrona: é essa lista que o estoque consome
-// para provisionar a matriz de uma sessão.
 func TestLayoutSalaExpandeEmPoltronasNumeradas(t *testing.T) {
 	layout, err := NovoLayoutSala([]DadosFileira{
 		{Fileira: "B", Assentos: 2, Tipo: "PCD"},
@@ -126,7 +122,6 @@ func TestLayoutSalaIgual(t *testing.T) {
 		return l
 	}
 
-	// A mesma planta em outra ordem é a mesma planta: `NovoLayoutSala` ordena.
 	invertida := fileirasValidas()
 	invertida[0], invertida[2] = invertida[2], invertida[0]
 	outraOrdem, err := NovoLayoutSala(invertida)
@@ -157,8 +152,6 @@ func TestLayoutSalaIgual(t *testing.T) {
 	}
 }
 
-// `Dados` desfaz a planta na forma de entrada, e o resultado precisa reconstruir
-// a mesma planta — é assim que a atualização a preserva sem recebê-la.
 func TestLayoutSalaDadosFazIdaEVolta(t *testing.T) {
 	original, err := NovoLayoutSala(fileirasValidas())
 	if err != nil {

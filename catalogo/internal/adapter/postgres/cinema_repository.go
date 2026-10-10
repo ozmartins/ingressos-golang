@@ -26,7 +26,6 @@ func (r *CinemaRepository) Listar(
 	req shared.PageRequest,
 ) (shared.Page[catalogo.Cinema], error) {
 	base := r.banco.conn(ctx).Model(&cinemaRow{})
-	// Filtro nulo significa "qualquer situação".
 	if filtro.Ativo != nil {
 		base = base.Where("ativo = ?", *filtro.Ativo)
 	}

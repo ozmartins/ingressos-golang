@@ -21,8 +21,6 @@ func TestNovaSolicitacaoNormalizaRotulos(t *testing.T) {
 	}
 }
 
-// O valor não é decidido aqui, mas o formato é conferido: ele vira cobrança, e
-// um valor malformado que passe daqui só apareceria na hora de cobrar.
 func TestNovaSolicitacaoRecusaValorInvalido(t *testing.T) {
 	casos := map[string]string{
 		"ausente":            "",

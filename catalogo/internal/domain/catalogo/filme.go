@@ -95,7 +95,6 @@ func NovoFilme(id string, d DadosFilme) (Filme, error) {
 		return Filme{}, fmt.Errorf("%w: imagem_url deve ter no máximo 500 caracteres", shared.ErrValidacao)
 	}
 
-	// Sem `status` no corpo, o filme nasce em cartaz — mesmo padrão da coluna.
 	status := StatusEmCartaz
 	if d.Status != "" {
 		s, err := ParseStatusFilme(d.Status)

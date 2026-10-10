@@ -142,8 +142,6 @@ func sessaoDeTeste() catalogo.Sessao {
 	}
 }
 
-// A escrita de uma sessão consulta o filme e a sala: as duas precisam existir no
-// ambiente para o caminho felizardo passar.
 func montarComSessoes(t *testing.T, itens []catalogo.Sessao) *ambiente {
 	t.Helper()
 	return montar(t, func(a *ambiente) {
@@ -176,7 +174,6 @@ func TestGetSessaoPorIDDevolveARepresentacaoGravada(t *testing.T) {
 			t.Errorf("campo obrigatório %q ausente", campo)
 		}
 	}
-	// A grade resolve o filme e o cinema; o recurso, não.
 	if _, presente := sessao["filme_titulo"]; presente {
 		t.Error("o recurso não deveria trazer filme_titulo: isso é da grade")
 	}
@@ -222,8 +219,6 @@ func TestPostSessaoPublicaEDevolveLocation(t *testing.T) {
 	}
 }
 
-// Criar a sessão pela API enfileira o anúncio dela, com a planta da sala já
-// expandida. A resposta não espera pela publicação — o fato fica na caixa.
 func TestPostSessaoEnfileiraOAnuncio(t *testing.T) {
 	amb := montarComSessoes(t, nil)
 	resp, corpo := requisitar(t, amb.servidor, http.MethodPost, "/api/v1/sessoes", "token-bom", corpoSessaoValido)
@@ -252,7 +247,6 @@ func TestPostSessaoEnfileiraOAnuncio(t *testing.T) {
 	}
 }
 
-// Uma sessão recusada não anuncia nada: nada foi criado.
 func TestPostSessaoRecusadaNaoEnfileiraAnuncio(t *testing.T) {
 	amb := montar(t, func(a *ambiente) {
 		a.salas.itens = []catalogo.Sala{salaDeTeste()}

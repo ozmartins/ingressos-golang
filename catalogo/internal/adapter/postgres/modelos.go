@@ -2,12 +2,6 @@ package postgres
 
 import "time"
 
-// Os modelos do GORM. Ficam aqui, no adaptador: o domínio não conhece tags, e as
-// tabelas são lidas e escritas só pelas colunas que cada operação nomeia — nada
-// de associações, de carregamento implícito nem de timestamps automáticos.
-//
-// `TableName` não qualifica o schema: quem o fixa é o `search_path` da conexão.
-
 type filmeRow struct {
 	ID                  string  `gorm:"column:id;primaryKey"`
 	Titulo              string  `gorm:"column:titulo"`
@@ -43,8 +37,6 @@ type salaRow struct {
 
 func (salaRow) TableName() string { return "salas" }
 
-// `preco_base` é NUMERIC(10,2): trafega como texto e vira `Dinheiro` pela
-// aritmética exata de `big.Rat`, nunca por ponto flutuante.
 type sessaoRow struct {
 	ID             string    `gorm:"column:id;primaryKey"`
 	FilmeID        string    `gorm:"column:filme_id"`
@@ -57,7 +49,6 @@ type sessaoRow struct {
 
 func (sessaoRow) TableName() string { return "sessoes" }
 
-// A grade de sessões é uma leitura sobre quatro tabelas; esta é a projeção.
 type sessaoDetalhadaRow struct {
 	ID             string    `gorm:"column:id"`
 	FilmeID        string    `gorm:"column:filme_id"`
@@ -75,8 +66,6 @@ const colunasSessaoDetalhada = `s.id, s.filme_id, f.titulo AS filme_titulo,
 	c.id AS cinema_id, c.nome AS cinema_nome, sa.numero AS sala_numero,
 	sa.tipo_tela, s.data_hora_inicio, s.idioma, s.preco_base`
 
-// `publicado_em`, `tentativas` e `criado_em` ficam de fora de propósito: a
-// inserção deixa o banco preencher os defaults, e as atualizações os nomeiam.
 type outboxRow struct {
 	ID           int64  `gorm:"column:id;primaryKey;autoIncrement"`
 	MessageID    string `gorm:"column:message_id"`

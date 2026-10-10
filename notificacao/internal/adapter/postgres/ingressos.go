@@ -18,8 +18,6 @@ type Ingressos struct{ DB *gorm.DB }
 func (r Ingressos) CriarSeAusente(ctx context.Context, i ingresso.Ingresso) (bool, ingresso.Ingresso, error) {
 	linha := paraLinha(i)
 
-	// A unicidade por reserva é decidida pelo índice do banco; o alvo do
-	// ON CONFLICT é só reserva_id, então um codigo_qr repetido continua sendo erro.
 	res := r.DB.WithContext(ctx).
 		Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "reserva_id"}}, DoNothing: true}).
 		Create(&linha)

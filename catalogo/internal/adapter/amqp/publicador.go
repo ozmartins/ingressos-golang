@@ -16,8 +16,6 @@ const (
 	timeoutPublicar = 5 * time.Second
 )
 
-// Drena a caixa de saída fora do caminho da requisição. O broker fora do ar não
-// impede a criação de uma sessão: o fato fica na caixa e sai quando ele voltar.
 type Publicador struct {
 	Conexao   *Conexao
 	Caixa     *postgres.CaixaDeSaida
@@ -70,9 +68,6 @@ func (p *Publicador) drenar(ctx context.Context, lote int) {
 		p.Log.Warn("falha ao drenar a caixa de saída", slog.Any("erro", err))
 		return
 	}
-	// Um fato que não sai fica na caixa e volta no próximo tique. Sem este
-	// registro a fila travaria em silêncio, com a contagem de tentativas subindo
-	// e ninguém sabendo por quê.
 	if falhas > 0 {
 		p.Log.Warn("fatos não publicados; serão reenviados",
 			slog.Int("quantidade", falhas), slog.Any("erro", primeiraFalha))

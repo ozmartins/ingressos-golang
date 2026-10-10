@@ -15,9 +15,6 @@ import (
 	"time"
 )
 
-// O canal com o estoque é mTLS obrigatório: o serviço não sobe sem material
-// válido. Estes testes cobrem o que `NovoCliente` recusa — nenhum deles precisa
-// de servidor, porque a falha acontece antes de qualquer conexão.
 func TestNovoClienteRecusaMaterialInvalido(t *testing.T) {
 	dir := t.TempDir()
 	ca, cert, chave := escreverParDeTeste(t, dir)
@@ -78,9 +75,6 @@ func TestNovoClienteAceitaMaterialValido(t *testing.T) {
 	t.Cleanup(func() { _ = cliente.Fechar() })
 }
 
-// Um par autoassinado, só para exercitar o carregamento. Não precisa ser
-// assinado por CA de verdade: o que se testa aqui é o que `NovoCliente` recusa
-// antes de abrir conexão, e o handshake em si é exercitado com o estoque de pé.
 func escreverParDeTeste(t *testing.T, dir string) (ca, cert, chave string) {
 	t.Helper()
 
@@ -108,7 +102,6 @@ func escreverParDeTeste(t *testing.T, dir string) (ca, cert, chave string) {
 
 	cert = escrever(t, dir, "cliente.pem", pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}))
 	chave = escrever(t, dir, "cliente-key.pem", pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: derChave}))
-	// O mesmo certificado serve de CA: ele é autoassinado.
 	ca = escrever(t, dir, "ca.pem", pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}))
 	return ca, cert, chave
 }

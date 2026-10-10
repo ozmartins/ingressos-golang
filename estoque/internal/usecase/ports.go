@@ -54,9 +54,6 @@ type RepositorioReservas interface {
 
 	Cancelar(ctx context.Context, fila, messageID, reservaID string, agora time.Time) (ResultadoTransicao, error)
 
-	// Solta em bloco as reservas pendentes de uma sessão que saiu da grade. As
-	// confirmadas ficam — são ingressos pagos — e só são contadas, para que
-	// alguém saiba que existem.
 	CancelarPendentesDaSessao(ctx context.Context, fila, messageID, sessaoID string, agora time.Time) (DesfechoCancelamentoDeSessao, error)
 
 	ExpirarVencidas(ctx context.Context, agora time.Time, limite int) ([]string, error)

@@ -22,8 +22,6 @@ type Config struct {
 	EstoqueGRPCAddr string
 	EstoqueTimeout  time.Duration
 
-	// O canal com o estoque é mTLS: ele exige certificado de cliente, e é por
-	// ele que identifica quem chama.
 	EstoqueTLSCAFile   string
 	EstoqueTLSCertFile string
 	EstoqueTLSKeyFile  string

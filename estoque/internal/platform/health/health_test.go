@@ -9,10 +9,6 @@ import (
 	"testing"
 )
 
-// Teste de caracterização da porta de administração (specs/003-roteamento-chi,
-// D8): fixa status, cabeçalhos e corpos para que a troca do roteador não mude
-// nada observável.
-
 func executar(t *testing.T, s *Servico, metodo, caminho string) *httptest.ResponseRecorder {
 	t.Helper()
 	w := httptest.NewRecorder()

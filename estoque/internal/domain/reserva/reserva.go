@@ -23,15 +23,13 @@ func (s Status) Final() bool {
 }
 
 type Reserva struct {
-	ID        string
-	SessaoID  string
-	UsuarioID string
-	Rotulos   []string
-	ExpiraEm  time.Time
-	Status    Status
-	CriadoEm  time.Time
-	// Valor a cobrar, como texto decimal. Guardado aqui porque é ele que segue
-	// no fato `reserva.criada` para quem cobra; este serviço não o interpreta.
+	ID         string
+	SessaoID   string
+	UsuarioID  string
+	Rotulos    []string
+	ExpiraEm   time.Time
+	Status     Status
+	CriadoEm   time.Time
 	ValorTotal string
 }
 

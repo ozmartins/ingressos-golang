@@ -7,14 +7,8 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-// O exchange é compartilhado pelos quatro serviços. Este declara só ele: fila é
-// de quem consome, e criar a fila do vizinho é decidir por ele quando ela existe
-// e como ela é. A declaração é idempotente — quem subir primeiro cria.
 const Exchange = "cinema.eventos"
 
-// A conexão se refaz sozinha. O fato precisa ser reenviado até o broker aceitá-lo,
-// e um broker que reinicia derruba a conexão: sem reabri-la, a caixa de saída
-// nunca esvaziaria e só um restart do processo destravaria a fila.
 type Conexao struct {
 	url string
 
@@ -34,9 +28,6 @@ func Conectar(url string) (*Conexao, error) {
 	return c, nil
 }
 
-// canalDePublicacao devolve um canal vivo e o fluxo de confirmações dele,
-// reabrindo a conexão quando ela ou o canal caíram. Os dois andam juntos porque
-// as confirmações são por canal: reabrir um sem o outro escutaria no vazio.
 func (c *Conexao) canalDePublicacao() (*amqp.Channel, chan amqp.Confirmation, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -50,7 +41,6 @@ func (c *Conexao) canalDePublicacao() (*amqp.Channel, chan amqp.Confirmation, er
 	return c.canal, c.confirmacoes, nil
 }
 
-// Exige c.mu.
 func (c *Conexao) abrir() error {
 	conn, err := amqp.Dial(c.url)
 	if err != nil {
@@ -66,8 +56,6 @@ func (c *Conexao) abrir() error {
 		conn.Close()
 		return fmt.Errorf("declarar exchange %s: %w", Exchange, err)
 	}
-	// Sem confirmação do broker não há como saber que o fato saiu, e marcá-lo
-	// como publicado às cegas é perdê-lo.
 	if err := canal.Confirm(false); err != nil {
 		conn.Close()
 		return fmt.Errorf("habilitar confirmações de publicação: %w", err)
@@ -79,7 +67,6 @@ func (c *Conexao) abrir() error {
 	return nil
 }
 
-// Exige c.mu.
 func (c *Conexao) fechar() {
 	if c.conn != nil && !c.conn.IsClosed() {
 		_ = c.conn.Close()

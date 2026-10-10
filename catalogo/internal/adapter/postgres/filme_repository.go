@@ -68,8 +68,6 @@ func (r *FilmeRepository) Criar(ctx context.Context, f catalogo.Filme) error {
 	return nil
 }
 
-// Updates com mapa, e não com struct: o GORM descarta zero values de struct, e
-// um campo opcional que volta a ser nulo precisa ser gravado como NULL.
 func (r *FilmeRepository) Atualizar(ctx context.Context, f catalogo.Filme) error {
 	res := r.banco.conn(ctx).Model(&filmeRow{}).Where("id = ?", f.ID).Updates(map[string]any{
 		"titulo": f.Titulo, "sinopse": f.Sinopse, "duracao_minutos": f.DuracaoMinutos,

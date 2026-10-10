@@ -33,7 +33,6 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/usecase"
 )
 
-// O valor é decidido pelo catálogo; aqui só precisa ser um decimal válido.
 const valorDeTeste = "84.00"
 
 const (

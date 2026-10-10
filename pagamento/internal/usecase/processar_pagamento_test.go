@@ -217,10 +217,6 @@ func TestSemPrazoConfiguradoNaoHaDeadline(t *testing.T) {
 	}
 }
 
-// A retomada parte de uma transação que já existe num certo estado — é o que
-// acontece quando o varredor volta a pegar uma linha que ficou pelo caminho.
-// Por isso estes casos chamam `Cobrar` direto, sem passar pela escolha da forma:
-// ela já foi feita, e é justamente o estado posterior a ela que se testa.
 func TestReentregaEmCadaEstado(t *testing.T) {
 	base := func() transacao.Transacao {
 		t := transacao.Nova("t-existente", "r-1", "u-1", "84.00", instante.Add(10*time.Minute), instante)

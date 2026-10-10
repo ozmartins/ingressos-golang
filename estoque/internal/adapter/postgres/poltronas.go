@@ -10,8 +10,6 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/usecase"
 )
 
-// Maior lote de poltronas por INSERT: 1000 linhas x 7 colunas fica muito abaixo
-// do limite de 65535 parâmetros do protocolo.
 const loteProvisionamento = 1000
 
 type Poltronas struct{ banco *Banco }

@@ -206,9 +206,6 @@ func TestRecusaRapidaAbreEDepoisRetomaSozinha(t *testing.T) {
 	}
 }
 
-// O circuito protege contra parceiro doente. Uma entrada inválida repetida não
-// é doença do parceiro: contá-la abriria o circuito e tiraria a reserva do ar
-// para todos, por conta de um cliente só.
 func TestRecusaDoEstoqueNaoAbreRecusaRapida(t *testing.T) {
 	recusas := map[string]error{
 		"solicitação inválida": comRazao(codes.InvalidArgument, "rótulo inválido", razaoSolicitacaoInvalida, nil),
@@ -221,7 +218,6 @@ func TestRecusaDoEstoqueNaoAbreRecusaRapida(t *testing.T) {
 			sim := &estoqueSimulado{erro: recusa}
 			c := clienteCom(conectar(t, sim), time.Second, 2, time.Minute)
 
-			// Bem acima do limite de 2 falhas consecutivas que abriria o circuito.
 			for i := 0; i < 6; i++ {
 				_, _ = c.BloquearPoltronas(context.Background(), solicitacao())
 			}
@@ -233,7 +229,6 @@ func TestRecusaDoEstoqueNaoAbreRecusaRapida(t *testing.T) {
 	}
 }
 
-// O contraste: indisponibilidade de verdade continua abrindo o circuito.
 func TestIndisponibilidadeSegueAbrindoRecusaRapida(t *testing.T) {
 	sim := &estoqueSimulado{erro: comRazao(codes.Unavailable, "banco fora", "DEPENDENCIA_INDISPONIVEL", nil)}
 	c := clienteCom(conectar(t, sim), time.Second, 2, time.Minute)

@@ -94,11 +94,9 @@ func TestErroDeDominioMapeiaParaCategoria(t *testing.T) {
 		{shared.ErrNaoEncontrado, "sessao", catSessaoNaoEncontrada, 404},
 		{shared.ErrSessaoNaoReservavel, "", catSessaoNaoReservavel, 422},
 		{shared.ErrPoltronasIndisponiveis, "", catPoltronasIndisp, 409},
-		// As recusas que o estoque decide: erro de quem chamou, não do parceiro.
 		{shared.ErrPoltronaInexistente, "", catPoltronaInexistente, 422},
 		{shared.ErrSessaoSemPoltronas, "", catSessaoSemPoltronas, 422},
 		{fmt.Errorf("%w: no máximo 10 poltronas por reserva", shared.ErrSolicitacaoRecusadaPeloEstoque), "", catReservaRecusada, 400},
-		// Defeito do parceiro: repetir não tem por que dar certo.
 		{shared.ErrEstoqueComDefeito, "", catRespostaInvalida, 502},
 		{shared.ErrEstoqueIndisponivel, "", catEstoqueIndisponivel, 503},
 		{shared.ErrRespostaInvalidaDoParceiro, "", catRespostaInvalida, 502},

@@ -10,8 +10,6 @@ import (
 
 var instante = time.Date(2026, 8, 29, 21, 33, 0, 0, time.UTC)
 
-// A solicitação já validada é a entrada de `Nova`: o valor vem de quem tem
-// autoridade sobre o preço, e aqui só precisa ser um decimal válido.
 func solicitacaoDeTeste(rotulos ...string) Solicitacao {
 	return Solicitacao{
 		SessaoID:   "sessao",

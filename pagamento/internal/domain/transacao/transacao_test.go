@@ -51,13 +51,6 @@ func TestEscolherFormaRecusaFormaDesconhecida(t *testing.T) {
 	}
 }
 
-// A escolha tardia não cobra: a reserva vencida já liberou as poltronas do outro
-// lado, e cobrar por ela seria cobrar por assento que outra pessoa pode ter
-// levado.
-//
-// Ela recusa sem cancelar. Quem cancela por prazo é a varredura, num lugar só, e
-// é ela que anuncia o desfecho — cancelar aqui deixaria um cancelamento que
-// ninguém anuncia.
 func TestEscolherFormaAposOPrazoRecusaSemCancelar(t *testing.T) {
 	tr := nova()
 	depoisDoPrazo := tr.ExpiraEm.Add(time.Second)
@@ -101,7 +94,6 @@ func TestEscolherFormaEmEstadoFinalRecusa(t *testing.T) {
 	}
 }
 
-// AGUARDANDO_FORMA admite transição: tratá-lo como terminal travaria a escolha.
 func TestAguardandoFormaNaoEhTerminal(t *testing.T) {
 	if AguardandoForma.Final() {
 		t.Fatal("AGUARDANDO_FORMA não é estado terminal")

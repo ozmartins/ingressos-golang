@@ -17,9 +17,6 @@ func montarCancelarSessao(e *estoqueFalso, p *prazoFalso, l *logFalso) CancelarS
 	}
 }
 
-// A sessão saiu da grade: as reservas pendentes precisam soltar as poltronas, e o
-// prazo de cada uma precisa sair do índice — senão a varredura de expiração fica
-// perseguindo reservas de uma sessão que não existe mais.
 func TestCancelarSessaoSoltaAsPendentes(t *testing.T) {
 	estoque, prazo, log := novoEstoqueFalso(), novoPrazoFalso(), &logFalso{}
 	estoque.provisionar(sessao, "A1", "A2", "A3")
@@ -58,9 +55,6 @@ func TestCancelarSessaoSoltaAsPendentes(t *testing.T) {
 	}
 }
 
-// Uma reserva confirmada é um ingresso pago: cancelar a sessão não a apaga, e não
-// devolve a poltrona ao estoque. O que o caso de uso faz é contar, para que
-// alguém saiba que existe algo a resolver fora do sistema.
 func TestCancelarSessaoPreservaAsConfirmadas(t *testing.T) {
 	estoque, prazo, log := novoEstoqueFalso(), novoPrazoFalso(), &logFalso{}
 	estoque.provisionar(sessao, "A1", "A2")
@@ -115,8 +109,6 @@ func TestCancelarSessaoEhIdempotente(t *testing.T) {
 	}
 }
 
-// Sessão que este serviço nunca viu, ou sem reserva alguma: não há o que soltar,
-// e o cancelamento não tem por que falhar por isso — a mensagem é confirmada.
 func TestCancelarSessaoSemReservasNaoFalha(t *testing.T) {
 	estoque, prazo, log := novoEstoqueFalso(), novoPrazoFalso(), &logFalso{}
 	uc := montarCancelarSessao(estoque, prazo, log)

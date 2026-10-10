@@ -35,9 +35,6 @@ type Opcoes struct {
 	IntervaloAberto time.Duration
 	Metricas        *observability.Metricas
 
-	// Material do canal mTLS. O estoque exige certificado de cliente, e é por
-	// ele que sabe quem está chamando: o `usuario_id` vai no corpo justamente
-	// porque a identidade do serviço vem daqui.
 	CAFile   string
 	CertFile string
 	KeyFile  string
@@ -57,10 +54,6 @@ func NovoCliente(opts Opcoes) (*Cliente, error) {
 	return NovoClienteComConexao(conn, opts), nil
 }
 
-// A CA é a do estoque, e não uma autoridade pública: ela não está em nenhum
-// pool do sistema, então o pool é montado à mão. Sem `InsecureSkipVerify` — o
-// ponto do mTLS é que os dois lados se verifiquem, e desligar metade disso
-// deixaria só a aparência.
 func credenciaisMTLS(opts Opcoes) (credentials.TransportCredentials, error) {
 	par, err := tls.LoadX509KeyPair(opts.CertFile, opts.KeyFile)
 	if err != nil {
@@ -76,9 +69,6 @@ func credenciaisMTLS(opts Opcoes) (credentials.TransportCredentials, error) {
 		return nil, fmt.Errorf("a CA em %s não contém certificado PEM válido", opts.CAFile)
 	}
 
-	// O `ServerName` não é informado: o gRPC o deriva do endereço de conexão, e
-	// o certificado do servidor cobre tanto `estoque` (dentro do compose) como
-	// `localhost` (fora dele).
 	return credentials.NewTLS(&tls.Config{
 		Certificates: []tls.Certificate{par},
 		RootCAs:      raiz,

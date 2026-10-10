@@ -141,8 +141,6 @@ func lerEntradaDeFilme(w http.ResponseWriter, r *http.Request) (filmeEntradaDTO,
 	return corpo, true
 }
 
-// Na escrita, entrada inválida veio do corpo, não da URL: o problema é
-// `corpo-invalido`, como em PostReservar.
 func escreverErroDeEscritaDeFilme(w http.ResponseWriter, r *http.Request, err error) {
 	if errors.Is(err, shared.ErrValidacao) {
 		EscreverProblem(w, r, catCorpoInvalido, mensagemLimpa(err))
@@ -469,8 +467,6 @@ func (h Handlers) DeleteSessao(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// Diferente das outras entradas, aqui a conversão pode falhar sozinha: o
-// instante vem como texto, e um formato errado é problema de corpo.
 func lerEntradaDeSessao(w http.ResponseWriter, r *http.Request) (catalogo.DadosSessao, bool) {
 	var corpo sessaoEntradaDTO
 	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64*1024))
@@ -547,8 +543,6 @@ func validarUUID(v, campo string) error {
 	return nil
 }
 
-// `strconv.ParseBool` aceitaria "1", "t" e "TRUE"; o contrato promete apenas
-// `true` e `false`, e o erro precisa listar o que é aceito.
 func parseBooleano(v, campo string) (*bool, error) {
 	switch v {
 	case "true":

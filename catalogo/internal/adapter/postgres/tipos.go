@@ -7,8 +7,6 @@ import (
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/catalogo"
 )
 
-// O NUMERIC chega como texto (`42.50`) e é convertido por aritmética racional
-// exata, que recusa o que tem mais de duas casas decimais.
 func dinheiroDeTexto(texto string) (catalogo.Dinheiro, error) {
 	if texto == "" {
 		return catalogo.Dinheiro{}, fmt.Errorf("preco_base nulo")

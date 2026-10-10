@@ -27,8 +27,6 @@ func (uc CriarSala) Executar(ctx context.Context, dados catalogo.DadosSala) (cat
 	return sala, nil
 }
 
-// As duas verificações andam juntas nas duas escritas: o cinema informado
-// precisa existir, e o número precisa estar livre entre as salas ativas dele.
 func conferirCinemaELiberdadeDoNumero(
 	ctx context.Context,
 	cinemas CinemaRepository,
@@ -44,8 +42,6 @@ func conferirCinemaELiberdadeDoNumero(
 		return shared.NaoEncontrado("cinema", sala.CinemaID)
 	}
 	if !sala.Ativo {
-		// O índice único vale entre as salas ativas: uma sala desativada não
-		// disputa o número com ninguém.
 		return nil
 	}
 	emUso, err := salas.NumeroEmUso(ctx, sala.CinemaID, sala.Numero, excetoID)

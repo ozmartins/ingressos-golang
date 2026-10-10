@@ -10,9 +10,6 @@ import (
 
 type TipoPoltrona string
 
-// Os três tipos são os que o estoque aceita ao provisionar a matriz de uma
-// sessão; o catálogo não pode inventar um quarto, porque quem materializa a
-// poltrona é do outro lado.
 const (
 	PoltronaNormal      TipoPoltrona = "NORMAL"
 	PoltronaPCD         TipoPoltrona = "PCD"
@@ -32,15 +29,12 @@ func ParseTipoPoltrona(v string) (TipoPoltrona, error) {
 		shared.ErrValidacao, v, listar(tiposDePoltronaConhecidos))
 }
 
-// Uma fileira é uniforme: todos os seus assentos são do mesmo tipo. Um assento
-// PCD no meio de uma fileira comum se declara como fileira própria.
 type Fileira struct {
 	Letra    string
 	Assentos int
 	Tipo     TipoPoltrona
 }
 
-// A planta da sala. É sempre lida e escrita inteira, junto da sala.
 type LayoutSala struct {
 	Fileiras []Fileira
 }
@@ -53,9 +47,6 @@ func (l LayoutSala) CapacidadeTotal() int {
 	return total
 }
 
-// Uma poltrona da planta: a expansão de uma fileira em assentos numerados de 1
-// em diante. O catálogo não guarda poltrona — quem as materializa é o estoque —,
-// mas precisa enumerá-las para anunciar a sessão.
 type PoltronaDoLayout struct {
 	Fileira string
 	Numero  int
@@ -72,9 +63,6 @@ func (l LayoutSala) Poltronas() []PoltronaDoLayout {
 	return poltronas
 }
 
-// Igual responde se duas plantas descrevem a mesma sala. A comparação é
-// posicional porque `NovoLayoutSala` sempre ordena as fileiras: a mesma planta
-// descrita em ordens diferentes chega aqui na mesma ordem.
 func (l LayoutSala) Igual(outra LayoutSala) bool {
 	if len(l.Fileiras) != len(outra.Fileiras) {
 		return false
@@ -87,8 +75,6 @@ func (l LayoutSala) Igual(outra LayoutSala) bool {
 	return true
 }
 
-// Dados desfaz a planta na forma de entrada, para quem precisa reapresentá-la a
-// `NovaSala` sem tê-la recebido do cliente.
 func (l LayoutSala) Dados() []DadosFileira {
 	ds := make([]DadosFileira, 0, len(l.Fileiras))
 	for _, f := range l.Fileiras {
@@ -103,9 +89,6 @@ type DadosFileira struct {
 	Tipo     string
 }
 
-// O teto de 5 caracteres e o alfabeto sem dígito vêm do que o estoque aceita
-// numa fileira: o rótulo da poltrona é a letra seguida do número, e um dígito na
-// letra tornaria o rótulo ambíguo.
 const maxLetraFileira = 5
 
 func NovoLayoutSala(ds []DadosFileira) (LayoutSala, error) {
@@ -137,8 +120,6 @@ func NovoLayoutSala(ds []DadosFileira) (LayoutSala, error) {
 		}
 		vistas[letra] = struct{}{}
 
-		// Sem `tipo` na fileira, ela nasce normal — mesmo padrão da coluna do
-		// estoque, onde a maioria das poltronas é comum.
 		tipo := PoltronaNormal
 		if d.Tipo != "" {
 			t, err := ParseTipoPoltrona(d.Tipo)
@@ -151,8 +132,6 @@ func NovoLayoutSala(ds []DadosFileira) (LayoutSala, error) {
 		fileiras = append(fileiras, Fileira{Letra: letra, Assentos: d.Assentos, Tipo: tipo})
 	}
 
-	// A ordem alfabética torna a resposta e a ida e volta pelo banco
-	// determinísticas, independentemente da ordem em que o corpo as listou.
 	sort.Slice(fileiras, func(i, j int) bool { return fileiras[i].Letra < fileiras[j].Letra })
 
 	return LayoutSala{Fileiras: fileiras}, nil

@@ -57,8 +57,6 @@ func (r sessaoDetalhadaRow) paraDominio() (catalogo.SessaoDetalhada, error) {
 	}, nil
 }
 
-// A origem, as junções e os filtros da grade. É a mesma consulta que o teste de
-// planos observa, por isso mora numa função.
 func (r *SessaoRepository) consultaDaGrade(ctx context.Context, filtro usecase.FiltroSessoes) *gorm.DB {
 	base := r.banco.conn(ctx).
 		Table("sessoes AS s").
@@ -110,8 +108,6 @@ func (r *SessaoRepository) avisarSobreSessoesOrfas(ctx context.Context, filtro u
 	}
 }
 
-// A sessão e o fato que a anuncia vão na mesma transação: se o processo morrer
-// entre as duas escritas, nenhuma delas aconteceu.
 func (r *SessaoRepository) Criar(ctx context.Context, s catalogo.Sessao, fato usecase.FatoPendente) error {
 	return r.banco.EmTransacao(ctx, func(tx *gorm.DB) error {
 		linha := sessaoParaLinha(s)
@@ -154,10 +150,6 @@ func (r *SessaoRepository) Cancelar(ctx context.Context, sessaoID string, fato u
 	})
 }
 
-// A duração de cada sessão concorrente é a do filme dela, então a janela sai do
-// próprio SQL: nenhuma linha precisa subir para o Go só para ser descartada. É
-// SQL cru porque a soma de um instante com `duracao * INTERVAL` não tem forma
-// no construtor do GORM.
 func (r *SessaoRepository) SalaOcupada(
 	ctx context.Context,
 	salaID string,

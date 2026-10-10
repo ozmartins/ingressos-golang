@@ -104,8 +104,6 @@ func executar() error {
 	sessoes := postgres.NovoSessaoRepository(banco)
 	caixa := postgres.NovaCaixaDeSaida(banco)
 
-	// A caixa é drenada fora do caminho da requisição: criar uma sessão não
-	// espera pelo broker, e o fato sai quando ele estiver de pé.
 	publicador := &adaptadoramqp.Publicador{
 		Conexao:   broker,
 		Caixa:     caixa,
@@ -187,9 +185,6 @@ func executar() error {
 	return servidor.Shutdown(ctxDesligamento)
 }
 
-// O contexto W3C da requisição, capturado para viajar nos cabeçalhos do fato. O
-// publicador roda fora da requisição, e sem isso o span de quem consome nasceria
-// órfão.
 func contextoDeRastreamento(ctx context.Context) map[string]string {
 	portador := propagation.MapCarrier{}
 	otel.GetTextMapPropagator().Inject(ctx, portador)

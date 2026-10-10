@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -58,7 +59,11 @@ func (b *Banco) PendentesParaPublicar(ctx context.Context, limite int, fn func(F
 		for _, l := range linhas {
 			f := FatoNaCaixa{ID: l.ID, MessageID: l.MessageID, RoutingKey: l.RoutingKey, Payload: l.Payload}
 			if len(l.TraceContext) > 0 {
-				_ = json.Unmarshal(l.TraceContext, &f.TraceContext)
+				if err := json.Unmarshal(l.TraceContext, &f.TraceContext); err != nil {
+					slog.WarnContext(ctx, "contexto de rastreamento ilegível na caixa de saída; publicando sem ele",
+						slog.String("message_id", l.MessageID), slog.Any("erro", err))
+					f.TraceContext = nil
+				}
 			}
 
 			caixa := tx.Model(&outboxRow{}).Where("id = ?", f.ID)

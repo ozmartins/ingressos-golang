@@ -15,8 +15,6 @@ var (
 
 	ErrSessaoDesconhecida = errors.New("sessão desconhecida")
 
-	ErrReservaDesconhecida = errors.New("reserva desconhecida")
-
 	ErrTransicaoInvalida = errors.New("transição de estado inválida")
 
 	ErrDependenciaIndisponivel = errors.New("dependência indisponível")

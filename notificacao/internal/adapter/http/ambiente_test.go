@@ -48,6 +48,7 @@ func (assinadorFalso) Verificar(c string) (string, error) {
 type repoMemoria struct {
 	mu    sync.Mutex
 	porID map[string]ingresso.Ingresso
+	falha error // quando definido, toda consulta falha com ele
 }
 
 func novoRepo() *repoMemoria { return &repoMemoria{porID: map[string]ingresso.Ingresso{}} }
@@ -59,6 +60,9 @@ func (r *repoMemoria) CriarSeAusente(context.Context, ingresso.Ingresso) (bool, 
 func (r *repoMemoria) Utilizar(_ context.Context, id string, agora time.Time) (bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if r.falha != nil {
+		return false, r.falha
+	}
 	i, ok := r.porID[id]
 	if !ok || i.Status != ingresso.Valido {
 		return false, nil
@@ -74,6 +78,9 @@ func (r *repoMemoria) Utilizar(_ context.Context, id string, agora time.Time) (b
 func (r *repoMemoria) BuscarPorID(_ context.Context, id string) (ingresso.Ingresso, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if r.falha != nil {
+		return ingresso.Ingresso{}, r.falha
+	}
 	i, ok := r.porID[id]
 	if !ok {
 		return ingresso.Ingresso{}, usecase.ErrNaoEncontrado
@@ -84,6 +91,9 @@ func (r *repoMemoria) BuscarPorID(_ context.Context, id string) (ingresso.Ingres
 func (r *repoMemoria) ListarPorUsuario(_ context.Context, usuarioID string, filtro ingresso.Status) ([]ingresso.Ingresso, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if r.falha != nil {
+		return nil, r.falha
+	}
 	var out []ingresso.Ingresso
 	for _, i := range r.porID {
 		if i.UsuarioID != usuarioID || (filtro != "" && i.Status != filtro) {

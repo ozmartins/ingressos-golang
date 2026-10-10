@@ -3,7 +3,6 @@ package postgres
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"gorm.io/gorm"
@@ -22,7 +21,7 @@ func (r Ingressos) CriarSeAusente(ctx context.Context, i ingresso.Ingresso) (boo
 		Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "reserva_id"}}, DoNothing: true}).
 		Create(&linha)
 	if res.Error != nil {
-		return false, ingresso.Ingresso{}, fmt.Errorf("inserir ingresso: %w", res.Error)
+		return false, ingresso.Ingresso{}, falhaInfra("inserir ingresso", res.Error)
 	}
 	if res.RowsAffected == 1 {
 		return true, linha.paraDominio(), nil
@@ -41,7 +40,7 @@ func (r Ingressos) Utilizar(ctx context.Context, id string, agora time.Time) (bo
 		Where("id = ? AND status = ?", id, string(ingresso.Valido)).
 		Updates(map[string]any{"status": string(ingresso.Utilizado), "utilizado_em": agora})
 	if res.Error != nil {
-		return false, fmt.Errorf("dar baixa no ingresso: %w", res.Error)
+		return false, falhaInfra("dar baixa no ingresso", res.Error)
 	}
 	return res.RowsAffected == 1, nil
 }
@@ -53,7 +52,7 @@ func (r Ingressos) BuscarPorID(ctx context.Context, id string) (ingresso.Ingress
 		return ingresso.Ingresso{}, usecase.ErrNaoEncontrado
 	}
 	if err != nil {
-		return ingresso.Ingresso{}, fmt.Errorf("buscar ingresso: %w", err)
+		return ingresso.Ingresso{}, falhaInfra("buscar ingresso", err)
 	}
 	return linha.paraDominio(), nil
 }
@@ -66,7 +65,7 @@ func (r Ingressos) ListarPorUsuario(ctx context.Context, usuarioID string, filtr
 
 	var linhas []ingressoRow
 	if err := consulta.Order("criado_em DESC, id DESC").Find(&linhas).Error; err != nil {
-		return nil, fmt.Errorf("listar ingressos: %w", err)
+		return nil, falhaInfra("listar ingressos", err)
 	}
 
 	lista := make([]ingresso.Ingresso, 0, len(linhas))
@@ -83,7 +82,7 @@ func (r Ingressos) buscarPorReserva(ctx context.Context, reservaID string) (ingr
 		return ingresso.Ingresso{}, usecase.ErrNaoEncontrado
 	}
 	if err != nil {
-		return ingresso.Ingresso{}, fmt.Errorf("buscar ingresso por reserva: %w", err)
+		return ingresso.Ingresso{}, falhaInfra("buscar ingresso por reserva", err)
 	}
 	return linha.paraDominio(), nil
 }

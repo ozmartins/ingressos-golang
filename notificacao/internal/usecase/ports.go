@@ -12,6 +12,10 @@ import (
 var (
 	ErrNaoEncontrado      = errors.New("usecase: ingresso não encontrado")
 	ErrStatusDesconhecido = errors.New("usecase: estado de filtro não reconhecido")
+
+	// ErrDependenciaIndisponivel indica falha de infraestrutura (banco fora do ar,
+	// timeout), distinta dos erros de negócio acima.
+	ErrDependenciaIndisponivel = errors.New("usecase: dependência indisponível")
 )
 
 type Relogio interface{ Agora() time.Time }

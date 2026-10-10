@@ -83,6 +83,12 @@ func (a *API) listar(w http.ResponseWriter, r *http.Request) {
 			"O parâmetro status aceita VALIDO, UTILIZADO ou CANCELADO.")
 		return
 	}
+	if errors.Is(err, usecase.ErrDependenciaIndisponivel) {
+		a.log().Error("dependência indisponível ao listar ingressos", "erro", err)
+		problema(w, http.StatusServiceUnavailable, "indisponivel",
+			"Serviço indisponível", "Não foi possível consultar os ingressos agora.")
+		return
+	}
 	if err != nil {
 		a.log().Error("falha ao listar ingressos", "erro", err)
 		problema(w, http.StatusServiceUnavailable, "indisponivel",
@@ -126,6 +132,12 @@ func (a *API) validar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res, err := a.Validacao.Executar(r.Context(), *pedido.CodigoQR)
+	if errors.Is(err, usecase.ErrDependenciaIndisponivel) {
+		a.log().Error("dependência indisponível ao validar ingresso", "erro", err)
+		problema(w, http.StatusServiceUnavailable, "indisponivel",
+			"Serviço indisponível", "Não foi possível validar o ingresso agora.")
+		return
+	}
 	if err != nil {
 		a.log().Error("falha ao validar ingresso", "erro", err)
 		problema(w, http.StatusServiceUnavailable, "indisponivel",

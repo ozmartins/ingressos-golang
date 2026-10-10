@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
 	"github.com/oseias/ingressos-golang/notificacao/internal/domain/ingresso"
@@ -65,7 +66,7 @@ func (u ValidarIngresso) Executar(ctx context.Context, codigo string) (Resultado
 
 	i, err := u.Ingressos.BuscarPorID(ctx, id)
 	if err != nil {
-		if err == ErrNaoEncontrado {
+		if errors.Is(err, ErrNaoEncontrado) {
 			u.log().Warn("código autêntico sem ingresso correspondente",
 				"ingresso_id", id, "desfecho", NaoEncontrado.String())
 			return ResultadoValidacao{Veredito: NaoEncontrado}, nil

@@ -362,3 +362,31 @@ func TestEscritaDeSessaoInexistenteDevolveNaoEncontrado(t *testing.T) {
 		t.Errorf("Cancelar: esperava ErrNaoEncontrado, obteve %v", err)
 	}
 }
+
+func TestIndiceUnicoDoNumeroDaSalaViraConflito(t *testing.T) {
+	carregarFixtures(t)
+	repo := pgadapter.NovoSalaRepository(banco)
+	ctx := context.Background()
+
+	// A sala 3 das fixtures está ativa. Gravar direto no repositório pula a checagem
+	// prévia de NumeroEmUso e simula a requisição que perdeu a corrida.
+	duplicada, err := catalogo.NovaSala("d0000000-0000-4000-8000-00000000dada", dadosSala(3))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.Criar(ctx, duplicada); !errors.Is(err, shared.ErrConflito) {
+		t.Fatalf("Criar com número já ativo deveria dar ErrConflito, obteve: %v", err)
+	}
+
+	livre, err := catalogo.NovaSala("d0000000-0000-4000-8000-00000000f00d", dadosSala(8))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.Criar(ctx, livre); err != nil {
+		t.Fatalf("Criar: %v", err)
+	}
+	livre.Numero = 3
+	if err := repo.Atualizar(ctx, livre); !errors.Is(err, shared.ErrConflito) {
+		t.Fatalf("Atualizar para número já ativo deveria dar ErrConflito, obteve: %v", err)
+	}
+}

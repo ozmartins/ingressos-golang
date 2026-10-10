@@ -10,6 +10,8 @@ import (
 	"github.com/oseias/ingressos-golang/catalogo/internal/usecase"
 )
 
+const indiceNumeroDaSalaAtiva = "idx_salas_cinema_numero_ativa"
+
 type SalaRepository struct{ banco *Banco }
 
 func NovoSalaRepository(b *Banco) *SalaRepository { return &SalaRepository{banco: b} }
@@ -35,6 +37,15 @@ func (r salaRow) paraDominio() (catalogo.Sala, error) {
 		TipoTela: catalogo.TipoTela(r.TipoTela), Layout: catalogo.LayoutSala{Fileiras: fileiras},
 		Ativo: r.Ativo,
 	}, nil
+}
+
+// A checagem prévia de NumeroEmUso não fecha a corrida entre duas requisições:
+// quem perde cai no índice único, e isso é conflito de negócio, não falha de infra.
+func erroDeEscritaDeSala(err error, acao string, numero int) error {
+	if violaRestricao(err, indiceNumeroDaSalaAtiva) {
+		return fmt.Errorf("%w: o cinema já tem uma sala ativa de número %d", shared.ErrConflito, numero)
+	}
+	return fmt.Errorf("%s sala: %w", acao, err)
 }
 
 func layoutParaJSON(l catalogo.LayoutSala) ([]byte, error) {
@@ -80,7 +91,7 @@ func (r *SalaRepository) Criar(ctx context.Context, s catalogo.Sala) error {
 	linha := salaRow{ID: s.ID, CinemaID: s.CinemaID, Numero: s.Numero,
 		TipoTela: string(s.TipoTela), Layout: layout, Ativo: s.Ativo}
 	if err := r.banco.conn(ctx).Create(&linha).Error; err != nil {
-		return fmt.Errorf("inserindo sala: %w", err)
+		return erroDeEscritaDeSala(err, "inserindo", s.Numero)
 	}
 	return nil
 }
@@ -95,7 +106,7 @@ func (r *SalaRepository) Atualizar(ctx context.Context, s catalogo.Sala) error {
 		"ativo": s.Ativo, "atualizado_em": gormAgora,
 	})
 	if res.Error != nil {
-		return fmt.Errorf("atualizando sala: %w", res.Error)
+		return erroDeEscritaDeSala(res.Error, "atualizando", s.Numero)
 	}
 	if res.RowsAffected == 0 {
 		return shared.NaoEncontrado("sala", s.ID)

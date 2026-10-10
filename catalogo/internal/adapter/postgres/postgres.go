@@ -3,10 +3,12 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/stdlib"
 	gormpostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -14,6 +16,15 @@ import (
 )
 
 const Schema = "catalogo"
+
+const codigoViolacaoDeUnicidade = "23505"
+
+func violaRestricao(err error, restricao string) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) &&
+		pgErr.Code == codigoViolacaoDeUnicidade &&
+		pgErr.ConstraintName == restricao
+}
 
 type Banco struct {
 	db  *gorm.DB

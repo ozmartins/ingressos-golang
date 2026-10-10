@@ -87,7 +87,9 @@ func (c *Consumidor) tratar(ctx context.Context, d amqp.Delivery) {
 	var i usecase.Intencao
 	if err := json.Unmarshal(d.Body, &i); err != nil {
 		c.Log.Error("anúncio ilegível, indo para a quarentena", "erro", err)
-		_ = d.Nack(false, false)
+		if err := d.Nack(false, false); err != nil {
+			c.Log.Error("falha ao enviar anúncio ilegível para a quarentena", "erro", err)
+		}
 		return
 	}
 
@@ -116,13 +118,17 @@ func (c *Consumidor) tratar(ctx context.Context, d amqp.Delivery) {
 		}
 	case usecase.Quarentena:
 		log.Warn("intenção encaminhada para a quarentena", "erro", err)
-		_ = d.Nack(false, false)
+		if err := d.Nack(false, false); err != nil {
+			log.Error("falha ao enviar para a quarentena", "erro", err)
+		}
 	default:
 		log.Warn("intenção devolvida para nova tentativa", "erro", err)
 		select {
 		case <-time.After(200 * time.Millisecond):
 		case <-ctx.Done():
 		}
-		_ = d.Nack(false, true)
+		if err := d.Nack(false, true); err != nil {
+			log.Error("falha ao devolver para nova tentativa", "erro", err)
+		}
 	}
 }

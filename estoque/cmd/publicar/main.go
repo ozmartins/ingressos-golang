@@ -48,7 +48,9 @@ func publicarSessao(args []string) {
 	sessao := fs.String("sessao", "", "identificador da sessão")
 	fileiras := fs.String("fileiras", "A,B", "fileiras separadas por vírgula")
 	assentos := fs.Int("assentos", 10, "assentos por fileira")
-	_ = fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		os.Exit(2)
+	}
 
 	if *sessao == "" {
 		fmt.Fprintln(os.Stderr, "-sessao é obrigatório")
@@ -80,7 +82,9 @@ func publicarPagamento(args []string) {
 	fs := flag.NewFlagSet("pagamento", flag.ExitOnError)
 	reserva := fs.String("reserva", "", "identificador da reserva")
 	resultado := fs.String("resultado", "sucesso", "sucesso|falhou")
-	_ = fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		os.Exit(2)
+	}
 
 	if *reserva == "" {
 		fmt.Fprintln(os.Stderr, "-reserva é obrigatório")

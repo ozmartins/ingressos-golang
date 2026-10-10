@@ -94,10 +94,16 @@ func (u EmitirIngresso) avisar(ctx context.Context, ing ingresso.Ingresso) {
 	}
 
 	if err := u.Notificador.Avisar(ctxAviso, ing); err != nil {
+		detalhes := err.Error()
+		if detalhes == "" {
+			detalhes = "falha sem detalhe"
+		}
 		var errReg error
-		reg, errReg = aviso.NovoFalho(u.IDs.Novo(), ing.ID, ing.UsuarioID, canal, err.Error(), agora)
+		reg, errReg = aviso.NovoFalho(u.IDs.Novo(), ing.ID, ing.UsuarioID, canal, detalhes, agora)
 		if errReg != nil {
-			reg, _ = aviso.NovoFalho(u.IDs.Novo(), ing.ID, ing.UsuarioID, canal, "falha sem detalhe", agora)
+			u.log().Error("registro de falha de aviso não montado",
+				"ingresso_id", ing.ID, "erro", errReg)
+			return
 		}
 		u.log().Warn("aviso não saiu; ingresso permanece válido",
 			"ingresso_id", ing.ID, "canal", string(canal),

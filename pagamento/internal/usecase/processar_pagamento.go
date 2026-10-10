@@ -75,11 +75,10 @@ func (uc RegistrarIntencao) Executar(ctx context.Context, i Intencao) (Desfecho,
 	agora := uc.Relogio.Agora()
 	nova := transacao.Nova(uc.IDs.Novo(), i.ReservaID, i.UsuarioID, valor, expiraEm, agora)
 
-	criada, _, err := uc.Repo.CriarSeAusente(ctx, nova)
+	_, _, err = uc.Repo.CriarSeAusente(ctx, nova)
 	if err != nil {
 		return Requeue, err
 	}
-	_ = criada
 	return Confirmar, nil
 }
 

@@ -11,6 +11,8 @@ import (
 	gormpg "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+
+	"github.com/oseias/ingressos-golang/pagamento/internal/usecase"
 )
 
 const Schema = "pagamento"
@@ -56,3 +58,12 @@ func (b *Banco) SQL() *sql.DB { return b.sql }
 func (b *Banco) Fechar() { _ = b.sql.Close() }
 
 func (b *Banco) Verificar(ctx context.Context) error { return b.sql.PingContext(ctx) }
+
+// falhaInfra marca como falha de infraestrutura qualquer erro do banco que não
+// seja "não encontrado"; os casos de negócio são traduzidos antes de chegar aqui.
+func falhaInfra(err error) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%w: %w", usecase.ErrDependenciaIndisponivel, err)
+}

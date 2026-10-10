@@ -3,7 +3,7 @@ package http
 import (
 	"context"
 	"encoding/json"
-	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -214,7 +214,7 @@ func TestEscolhaDaFormaRecusaCadaCategoriaDeErro(t *testing.T) {
 			codigo: CodReservaExpirada,
 		},
 		"armazenamento indisponível": {
-			repo: &repoEscolha{err: errors.New("banco fora do ar")}, bearer: token(t, dona, nil),
+			repo: &repoEscolha{err: fmt.Errorf("%w: banco fora do ar", usecase.ErrDependenciaIndisponivel)}, bearer: token(t, dona, nil),
 			corpo: `{"forma_pagamento":"PIX"}`, status: http.StatusServiceUnavailable,
 			codigo: CodIndisponivel,
 		},
@@ -376,7 +376,7 @@ func TestReservaIDMalformado(t *testing.T) {
 
 func TestFalhaDeArmazenamentoDa503(t *testing.T) {
 	reserva := uuid.NewString()
-	api := apiCom(repoStub{err: context.DeadlineExceeded})
+	api := apiCom(repoStub{err: fmt.Errorf("%w: %w", usecase.ErrDependenciaIndisponivel, context.DeadlineExceeded)})
 	w := chamar(t, api, reserva, token(t, dona, nil))
 	if w.Code != http.StatusServiceUnavailable {
 		t.Fatalf("esperava 503, veio %d", w.Code)

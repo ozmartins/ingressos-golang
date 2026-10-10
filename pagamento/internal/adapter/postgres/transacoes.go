@@ -25,7 +25,7 @@ func (r *Repositorio) CriarSeAusente(ctx context.Context, t transacao.Transacao)
 		Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "reserva_id"}}, DoNothing: true}, clause.Returning{}).
 		Create(&linha)
 	if res.Error != nil {
-		return false, transacao.Transacao{}, res.Error
+		return false, transacao.Transacao{}, falhaInfra(res.Error)
 	}
 	if res.RowsAffected == 1 {
 		return true, linha.paraDominio(), nil
@@ -45,7 +45,7 @@ func (r *Repositorio) BuscarPorReserva(ctx context.Context, reservaID string) (t
 		return transacao.Transacao{}, usecase.ErrNaoEncontrada
 	}
 	if err != nil {
-		return transacao.Transacao{}, err
+		return transacao.Transacao{}, falhaInfra(err)
 	}
 	return linha.paraDominio(), nil
 }
@@ -61,7 +61,7 @@ func (r *Repositorio) Finalizar(ctx context.Context, t transacao.Transacao) erro
 			"atualizado_em":            t.AtualizadoEm,
 		})
 	if res.Error != nil {
-		return res.Error
+		return falhaInfra(res.Error)
 	}
 	if res.RowsAffected == 0 {
 		return usecase.ErrJaFinalizada
@@ -70,9 +70,10 @@ func (r *Repositorio) Finalizar(ctx context.Context, t transacao.Transacao) erro
 }
 
 func (r *Repositorio) MarcarAnunciado(ctx context.Context, id string, agora time.Time) error {
-	return r.db.WithContext(ctx).Model(&transacaoRow{}).
+	res := r.db.WithContext(ctx).Model(&transacaoRow{}).
 		Where("id = ? AND status IN ?", id, estadosAnunciaveis).
-		Updates(map[string]any{"resultado_anunciado": true, "atualizado_em": agora}).Error
+		Updates(map[string]any{"resultado_anunciado": true, "atualizado_em": agora})
+	return falhaInfra(res.Error)
 }
 
 func (r *Repositorio) ReivindicarCobranca(ctx context.Context, id string, agora time.Time) (bool, error) {
@@ -80,15 +81,16 @@ func (r *Repositorio) ReivindicarCobranca(ctx context.Context, id string, agora 
 		Where("id = ? AND status = ? AND cobranca_emitida = false", id, string(transacao.Processando)).
 		Updates(map[string]any{"cobranca_emitida": true, "atualizado_em": agora})
 	if res.Error != nil {
-		return false, res.Error
+		return false, falhaInfra(res.Error)
 	}
 	return res.RowsAffected == 1, nil
 }
 
 func (r *Repositorio) LiberarCobranca(ctx context.Context, id string, agora time.Time) error {
-	return r.db.WithContext(ctx).Model(&transacaoRow{}).
+	res := r.db.WithContext(ctx).Model(&transacaoRow{}).
 		Where("id = ? AND status = ?", id, string(transacao.Processando)).
-		Updates(map[string]any{"cobranca_emitida": false, "atualizado_em": agora}).Error
+		Updates(map[string]any{"cobranca_emitida": false, "atualizado_em": agora})
+	return falhaInfra(res.Error)
 }
 
 func (r *Repositorio) RegistrarEscolha(ctx context.Context, t transacao.Transacao) error {
@@ -101,7 +103,7 @@ func (r *Repositorio) RegistrarEscolha(ctx context.Context, t transacao.Transaca
 			"atualizado_em":   t.AtualizadoEm,
 		})
 	if res.Error != nil {
-		return res.Error
+		return falhaInfra(res.Error)
 	}
 	if res.RowsAffected == 0 {
 		return usecase.ErrJaFinalizada
@@ -115,7 +117,7 @@ func (r *Repositorio) AguardandoCobranca(ctx context.Context, limite int) ([]tra
 		Where("status = ? AND NOT cobranca_emitida", string(transacao.Processando)).
 		Order("criado_em").Limit(limite).
 		Find(&linhas).Error
-	return paraDominioLista(linhas), err
+	return paraDominioLista(linhas), falhaInfra(err)
 }
 
 func (r *Repositorio) CancelarEsperasVencidas(ctx context.Context, agora time.Time, limite int) ([]transacao.Transacao, error) {
@@ -133,7 +135,7 @@ func (r *Repositorio) CancelarEsperasVencidas(ctx context.Context, agora time.Ti
 			"motivo_falha":  string(transacao.MotivoReservaExpirada),
 			"atualizado_em": agora,
 		}).Error
-	return paraDominioLista(linhas), err
+	return paraDominioLista(linhas), falhaInfra(err)
 }
 
 func (r *Repositorio) AnunciosPendentes(ctx context.Context, limite int) ([]transacao.Transacao, error) {
@@ -142,7 +144,7 @@ func (r *Repositorio) AnunciosPendentes(ctx context.Context, limite int) ([]tran
 		Where("status IN ? AND NOT resultado_anunciado", estadosAnunciaveis).
 		Order("atualizado_em").Limit(limite).
 		Find(&linhas).Error
-	return paraDominioLista(linhas), err
+	return paraDominioLista(linhas), falhaInfra(err)
 }
 
 func paraDominioLista(linhas []transacaoRow) []transacao.Transacao {

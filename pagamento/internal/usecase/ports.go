@@ -11,6 +11,10 @@ import (
 var (
 	ErrNaoEncontrada = errors.New("usecase: transação não encontrada")
 	ErrJaFinalizada  = errors.New("usecase: transação já finalizada por outra execução")
+
+	// ErrDependenciaIndisponivel indica falha de infraestrutura (banco fora do ar,
+	// timeout), distinta dos erros de negócio acima.
+	ErrDependenciaIndisponivel = errors.New("usecase: dependência indisponível")
 )
 
 type Relogio interface{ Agora() time.Time }

@@ -34,6 +34,17 @@ Quem já leu `ers-catalogo.md` precisa saber destas duas mudanças deliberadas:
    passa a `FORA_DE_CARTAZ` — porque as sessões gravadas referenciam o filme e
    apagá-lo romperia a grade.
 
+## A dependência externa é gRPC, não REST
+
+Conforme a ERS (seção 5), o único serviço chamado pelo catálogo é o
+`Servico-Estoque`, por gRPC com mTLS (contrato em `proto/estoque/estoque.proto`).
+Os cuidados que se esperam de um cliente de serviço externo estão no lugar
+equivalente: timeout por `context` (`ESTOQUE_TIMEOUT`, teto de 2s), circuit
+breaker, e tradução do código de status gRPC em erro de negócio ou de
+indisponibilidade (`internal/adapter/estoque/categorias.go`). Não há `http.Client`
+nem corpo de resposta a fechar; o único tráfego HTTP de saída é a descoberta do
+emissor Keycloak, feita pela biblioteca `go-oidc`.
+
 O catálogo de erros está em [`specs/001-catalogo-sessoes-reserva/contracts/errors.md`](specs/001-catalogo-sessoes-reserva/contracts/errors.md),
 e o contrato do fato publicado em [`contracts/eventos.md`](specs/001-catalogo-sessoes-reserva/contracts/eventos.md).
 

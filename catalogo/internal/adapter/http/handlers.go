@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -40,10 +41,12 @@ type Handlers struct {
 	Limites           LimitesPaginacao
 }
 
-func escreverJSON(w http.ResponseWriter, codigo int, corpo any) {
+func escreverJSON(w http.ResponseWriter, r *http.Request, codigo int, corpo any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(codigo)
-	_ = json.NewEncoder(w).Encode(corpo)
+	if err := json.NewEncoder(w).Encode(corpo); err != nil {
+		slog.ErrorContext(r.Context(), "falha ao serializar resposta json", slog.Any("erro", err))
+	}
 }
 
 func (h Handlers) GetFilmes(w http.ResponseWriter, r *http.Request) {
@@ -68,7 +71,7 @@ func (h Handlers) GetFilmes(w http.ResponseWriter, r *http.Request) {
 		EscreverErroDeDominio(w, r, err, "filme")
 		return
 	}
-	escreverJSON(w, http.StatusOK, envelope(pagina, paraFilmeDTO))
+	escreverJSON(w, r, http.StatusOK, envelope(pagina, paraFilmeDTO))
 }
 
 func (h Handlers) GetFilme(w http.ResponseWriter, r *http.Request) {
@@ -82,7 +85,7 @@ func (h Handlers) GetFilme(w http.ResponseWriter, r *http.Request) {
 		EscreverErroDeDominio(w, r, err, "filme")
 		return
 	}
-	escreverJSON(w, http.StatusOK, paraFilmeDTO(filme))
+	escreverJSON(w, r, http.StatusOK, paraFilmeDTO(filme))
 }
 
 func (h Handlers) PostFilme(w http.ResponseWriter, r *http.Request) {
@@ -96,7 +99,7 @@ func (h Handlers) PostFilme(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Location", "/api/v1/filmes/"+filme.ID)
-	escreverJSON(w, http.StatusCreated, paraFilmeDTO(filme))
+	escreverJSON(w, r, http.StatusCreated, paraFilmeDTO(filme))
 }
 
 func (h Handlers) PutFilme(w http.ResponseWriter, r *http.Request) {
@@ -114,7 +117,7 @@ func (h Handlers) PutFilme(w http.ResponseWriter, r *http.Request) {
 		escreverErroDeEscritaDeFilme(w, r, err)
 		return
 	}
-	escreverJSON(w, http.StatusOK, paraFilmeDTO(filme))
+	escreverJSON(w, r, http.StatusOK, paraFilmeDTO(filme))
 }
 
 func (h Handlers) DeleteFilme(w http.ResponseWriter, r *http.Request) {
@@ -171,7 +174,7 @@ func (h Handlers) GetCinemas(w http.ResponseWriter, r *http.Request) {
 		EscreverErroDeDominio(w, r, err, "cinema")
 		return
 	}
-	escreverJSON(w, http.StatusOK, envelope(pagina, paraCinemaDTO))
+	escreverJSON(w, r, http.StatusOK, envelope(pagina, paraCinemaDTO))
 }
 
 func (h Handlers) GetCinema(w http.ResponseWriter, r *http.Request) {
@@ -185,7 +188,7 @@ func (h Handlers) GetCinema(w http.ResponseWriter, r *http.Request) {
 		EscreverErroDeDominio(w, r, err, "cinema")
 		return
 	}
-	escreverJSON(w, http.StatusOK, paraCinemaDTO(cinema))
+	escreverJSON(w, r, http.StatusOK, paraCinemaDTO(cinema))
 }
 
 func (h Handlers) PostCinema(w http.ResponseWriter, r *http.Request) {
@@ -199,7 +202,7 @@ func (h Handlers) PostCinema(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Location", "/api/v1/cinemas/"+cinema.ID)
-	escreverJSON(w, http.StatusCreated, paraCinemaDTO(cinema))
+	escreverJSON(w, r, http.StatusCreated, paraCinemaDTO(cinema))
 }
 
 func (h Handlers) PutCinema(w http.ResponseWriter, r *http.Request) {
@@ -217,7 +220,7 @@ func (h Handlers) PutCinema(w http.ResponseWriter, r *http.Request) {
 		escreverErroDeEscritaDeCinema(w, r, err)
 		return
 	}
-	escreverJSON(w, http.StatusOK, paraCinemaDTO(cinema))
+	escreverJSON(w, r, http.StatusOK, paraCinemaDTO(cinema))
 }
 
 func (h Handlers) DeleteCinema(w http.ResponseWriter, r *http.Request) {
@@ -282,7 +285,7 @@ func (h Handlers) GetSalas(w http.ResponseWriter, r *http.Request) {
 		EscreverErroDeDominio(w, r, err, "cinema")
 		return
 	}
-	escreverJSON(w, http.StatusOK, envelope(pagina, paraSalaDTO))
+	escreverJSON(w, r, http.StatusOK, envelope(pagina, paraSalaDTO))
 }
 
 func (h Handlers) GetSala(w http.ResponseWriter, r *http.Request) {
@@ -296,7 +299,7 @@ func (h Handlers) GetSala(w http.ResponseWriter, r *http.Request) {
 		EscreverErroDeDominio(w, r, err, "sala")
 		return
 	}
-	escreverJSON(w, http.StatusOK, paraSalaDTO(sala))
+	escreverJSON(w, r, http.StatusOK, paraSalaDTO(sala))
 }
 
 func (h Handlers) PostSala(w http.ResponseWriter, r *http.Request) {
@@ -310,7 +313,7 @@ func (h Handlers) PostSala(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Location", "/api/v1/salas/"+sala.ID)
-	escreverJSON(w, http.StatusCreated, paraSalaDTO(sala))
+	escreverJSON(w, r, http.StatusCreated, paraSalaDTO(sala))
 }
 
 func (h Handlers) PutSala(w http.ResponseWriter, r *http.Request) {
@@ -328,7 +331,7 @@ func (h Handlers) PutSala(w http.ResponseWriter, r *http.Request) {
 		escreverErroDeEscritaDeSala(w, r, err)
 		return
 	}
-	escreverJSON(w, http.StatusOK, paraSalaDTO(sala))
+	escreverJSON(w, r, http.StatusOK, paraSalaDTO(sala))
 }
 
 func (h Handlers) DeleteSala(w http.ResponseWriter, r *http.Request) {
@@ -405,7 +408,7 @@ func (h Handlers) GetSessoes(w http.ResponseWriter, r *http.Request) {
 		EscreverErroDeDominio(w, r, err, "sessao")
 		return
 	}
-	escreverJSON(w, http.StatusOK, envelope(pagina, paraSessaoDTO))
+	escreverJSON(w, r, http.StatusOK, envelope(pagina, paraSessaoDTO))
 }
 
 func (h Handlers) GetSessao(w http.ResponseWriter, r *http.Request) {
@@ -419,7 +422,7 @@ func (h Handlers) GetSessao(w http.ResponseWriter, r *http.Request) {
 		EscreverErroDeDominio(w, r, err, "sessao")
 		return
 	}
-	escreverJSON(w, http.StatusOK, paraSessaoRecursoDTO(sessao))
+	escreverJSON(w, r, http.StatusOK, paraSessaoRecursoDTO(sessao))
 }
 
 func (h Handlers) PostSessao(w http.ResponseWriter, r *http.Request) {
@@ -433,7 +436,7 @@ func (h Handlers) PostSessao(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Location", "/api/v1/sessoes/"+sessao.ID)
-	escreverJSON(w, http.StatusCreated, paraSessaoRecursoDTO(sessao))
+	escreverJSON(w, r, http.StatusCreated, paraSessaoRecursoDTO(sessao))
 }
 
 func (h Handlers) PutSessao(w http.ResponseWriter, r *http.Request) {
@@ -451,7 +454,7 @@ func (h Handlers) PutSessao(w http.ResponseWriter, r *http.Request) {
 		escreverErroDeEscritaDeSessao(w, r, err)
 		return
 	}
-	escreverJSON(w, http.StatusOK, paraSessaoRecursoDTO(sessao))
+	escreverJSON(w, r, http.StatusOK, paraSessaoRecursoDTO(sessao))
 }
 
 func (h Handlers) DeleteSessao(w http.ResponseWriter, r *http.Request) {
@@ -521,7 +524,7 @@ func (h Handlers) PostReservar(w http.ResponseWriter, r *http.Request) {
 		EscreverErroDeDominio(w, r, err, "sessao")
 		return
 	}
-	escreverJSON(w, http.StatusCreated, paraReservaDTO(resultado))
+	escreverJSON(w, r, http.StatusCreated, paraReservaDTO(resultado))
 }
 
 func validarUUID(v, campo string) error {

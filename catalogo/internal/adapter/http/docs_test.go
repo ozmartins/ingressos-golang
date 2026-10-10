@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/oseias/ingressos-golang/catalogo/internal/adapter/http/openapi"
-	"go.yaml.in/yaml/v3"
+	"gopkg.in/yaml.v3"
 )
 
 type documento struct {

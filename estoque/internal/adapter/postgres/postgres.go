@@ -85,7 +85,7 @@ func indisponivel(err error) error {
 	if err == nil {
 		return nil
 	}
-	return fmt.Errorf("%w: %s", shared.ErrDependenciaIndisponivel, err.Error())
+	return fmt.Errorf("%w: %w", shared.ErrDependenciaIndisponivel, err)
 }
 
 func ehConflitoDeTravamento(err error) bool {

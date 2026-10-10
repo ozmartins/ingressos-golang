@@ -24,5 +24,5 @@ docker compose up --build
 
 As portas do host e os endereços de cada serviço, incluindo os `/docs` (Swagger
 UI), os health checks, o painel do RabbitMQ e o console do Keycloak, estão em
-[`URLS.txt`](URLS.txt). Todas as portas são configuráveis pelas variáveis
+[`urls.txt`](urls.txt). Todas as portas são configuráveis pelas variáveis
 `PORTA_*` do compose.

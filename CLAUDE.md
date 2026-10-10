@@ -12,7 +12,7 @@ All services share one PostgreSQL database (`cinema`) with one schema per servic
 docker compose up --build
 ```
 
-Host ports and URLs (Swagger at `/docs`, health checks, RabbitMQ panel, Keycloak console) are listed in `urls.txt` (renamed from `URLS.txt`; `README.md` still links the old name); ports are overridable via `PORTA_*` variables.
+Host ports and URLs (Swagger at `/docs`, health checks, RabbitMQ panel, Keycloak console) are listed in `urls.txt`; ports are overridable via `PORTA_*` variables.
 
 Frontend (`web/`, not Go) — run inside `web/`: `npm run dev`, `npm run build` (`tsc -b && vite build`), `npm run typecheck`. No test or lint scripts. Infra seed SQL (roles/schemas) lives in `infra/postgres/`.
 

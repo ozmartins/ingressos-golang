@@ -368,8 +368,6 @@ func TestIndiceUnicoDoNumeroDaSalaViraConflito(t *testing.T) {
 	repo := pgadapter.NovoSalaRepository(banco)
 	ctx := context.Background()
 
-	// A sala 3 das fixtures está ativa. Gravar direto no repositório pula a checagem
-	// prévia de NumeroEmUso e simula a requisição que perdeu a corrida.
 	duplicada, err := catalogo.NovaSala("d0000000-0000-4000-8000-00000000dada", dadosSala(3))
 	if err != nil {
 		t.Fatal(err)

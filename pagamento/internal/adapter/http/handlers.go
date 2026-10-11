@@ -39,7 +39,6 @@ var titulos = map[string]string{
 	CodReservaExpirada:    "Reserva expirada",
 }
 
-// problema é o formato de erro RFC 9457, o mesmo dos demais serviços.
 type problema struct {
 	Type   string `json:"type"`
 	Title  string `json:"title"`

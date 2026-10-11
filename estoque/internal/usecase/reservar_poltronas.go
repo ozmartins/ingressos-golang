@@ -8,8 +8,6 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/shared"
 )
 
-// ReservarPoltronas é o caminho de compra: consulta a sessão no catálogo,
-// decide se ela aceita reserva, calcula o valor e bloqueia as poltronas.
 type ReservarPoltronas struct {
 	Sessoes  CatalogoDeSessoes
 	Bloqueio BloquearPoltronas

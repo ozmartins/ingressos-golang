@@ -48,7 +48,7 @@ func (assinadorFalso) Verificar(c string) (string, error) {
 type repoMemoria struct {
 	mu    sync.Mutex
 	porID map[string]ingresso.Ingresso
-	falha error // quando definido, toda consulta falha com ele
+	falha error
 }
 
 func novoRepo() *repoMemoria { return &repoMemoria{porID: map[string]ingresso.Ingresso{}} }

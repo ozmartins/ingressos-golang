@@ -13,8 +13,6 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// comportamento define o que o banco falso responde a qualquer comando: um
-// erro, ou "nenhuma linha" nas consultas e `afetadas` linhas nas escritas.
 type comportamento struct {
 	err      error
 	afetadas int64
@@ -22,8 +20,6 @@ type comportamento struct {
 
 var contadorDrivers atomic.Int64
 
-// abrirBancoFalso devolve um *gorm.DB sobre um driver database/sql em memória,
-// sem PostgreSQL, para exercitar a tradução de erros do repositório.
 func abrirBancoFalso(t *testing.T, c comportamento) *gorm.DB {
 	t.Helper()
 	nome := "banco-falso-" + string(rune('a'+contadorDrivers.Add(1)))

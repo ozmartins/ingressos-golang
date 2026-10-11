@@ -28,7 +28,6 @@ func (r *reconhecedorFalso) Nack(_ uint64, _ bool, requeue bool) error {
 }
 func (r *reconhecedorFalso) Reject(uint64, bool) error { return nil }
 
-// repoFalso embute a interface para implementar só o que o consumidor usa.
 type repoFalso struct {
 	usecase.Repositorio
 	errCriar error

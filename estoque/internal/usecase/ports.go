@@ -83,9 +83,6 @@ type Registrador interface {
 	Error(msg string, args ...any)
 }
 
-// CatalogoDeSessoes é a porta para o serviço dono das sessões (preço e status).
-// Devolve ErrSessaoNaoEncontrada, ErrCatalogoIndisponivel ou
-// ErrRespostaInvalidaDoCatalogo.
 type CatalogoDeSessoes interface {
 	BuscarSessao(ctx context.Context, sessaoID string) (dominiosessao.Sessao, error)
 }

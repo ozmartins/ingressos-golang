@@ -1,5 +1,3 @@
-// Package sessao guarda a visão que o estoque tem da sessão do catálogo: só o
-// que é preciso para decidir se ela aceita reserva e quanto custa.
 package sessao
 
 import (
@@ -20,12 +18,10 @@ type Sessao struct {
 	PrecoBase string
 }
 
-// AceitaReserva espelha a regra do catálogo: sessão agendada e ainda por começar.
 func (s Sessao) AceitaReserva(agora time.Time) bool {
 	return s.Status == Agendada && s.Inicio.After(agora)
 }
 
-// ValorTotal devolve preço_base × quantidade como decimal com duas casas ("84.00").
 func (s Sessao) ValorTotal(quantidade int) (string, error) {
 	centavos, err := centavosDe(s.PrecoBase)
 	if err != nil {

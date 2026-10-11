@@ -8,8 +8,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// O algoritmo vem do token; aceitar HS256 permitiria validar a assinatura com
-// um segredo simétrico em vez da chave pública do emissor.
 func TestIdentificarRecusaAlgoritmoDiferenteDeRS256(t *testing.T) {
 	segredo := []byte("segredo-simetrico")
 	auth := NovoAutenticadorComChave(func(*jwt.Token) (any, error) { return segredo, nil }, "iss", "aud")

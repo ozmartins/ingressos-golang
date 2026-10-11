@@ -18,8 +18,6 @@ import (
 	"github.com/oseias/ingressos-golang/catalogo/internal/usecase"
 )
 
-// Sobe um PostgreSQL só para este teste e o derruba: o banco compartilhado do
-// pacote não pode ser interrompido sem quebrar os demais testes.
 func TestBancoForaDoArViraErroDeIndisponibilidade(t *testing.T) {
 	ctx := context.Background()
 

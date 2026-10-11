@@ -39,8 +39,6 @@ func (r salaRow) paraDominio() (catalogo.Sala, error) {
 	}, nil
 }
 
-// A checagem prévia de NumeroEmUso não fecha a corrida entre duas requisições:
-// quem perde cai no índice único, e isso é conflito de negócio, não falha de infra.
 func erroDeEscritaDeSala(err error, acao string, numero int) error {
 	if violaRestricao(err, indiceNumeroDaSalaAtiva) {
 		return fmt.Errorf("%w: o cinema já tem uma sala ativa de número %d", shared.ErrConflito, numero)

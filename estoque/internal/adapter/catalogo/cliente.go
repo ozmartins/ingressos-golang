@@ -1,5 +1,3 @@
-// Package catalogo é o cliente HTTP do serviço de catálogo: o estoque o usa
-// para saber o preço e o status da sessão antes de bloquear poltronas.
 package catalogo
 
 import (
@@ -48,7 +46,6 @@ func NovoClienteComTransporte(opts Opcoes, transporte http.RoundTripper) *Client
 			ReadyToTrip: func(c gobreaker.Counts) bool {
 				return c.ConsecutiveFailures >= opts.FalhasParaAbrir
 			},
-			// Sessão inexistente é resposta válida do catálogo, não falha dele.
 			IsSuccessful: func(err error) bool {
 				return err == nil || errors.Is(err, shared.ErrSessaoNaoEncontrada)
 			},

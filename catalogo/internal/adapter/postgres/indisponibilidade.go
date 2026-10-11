@@ -16,9 +16,6 @@ import (
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/shared"
 )
 
-// Classes e códigos SQLSTATE que dizem "o servidor não está em condição de
-// atender", e não "sua consulta está errada": 08 (falha de conexão), 53300
-// (conexões esgotadas), 57P01..57P03 (desligamento e inicialização).
 func codigoDeIndisponibilidade(codigo string) bool {
 	return strings.HasPrefix(codigo, "08") ||
 		codigo == "53300" ||
@@ -45,9 +42,6 @@ func ehFalhaDeInfraestrutura(err error) bool {
 		errors.Is(err, context.DeadlineExceeded)
 }
 
-// marcarIndisponibilidade etiqueta com shared.ErrBancoIndisponivel o erro que é
-// falha de infraestrutura, preservando a causa original na cadeia. Erro de
-// consulta, de dado ou de "não encontrado" passa intacto.
 func marcarIndisponibilidade(err error) error {
 	if err == nil || errors.Is(err, shared.ErrBancoIndisponivel) || !ehFalhaDeInfraestrutura(err) {
 		return err
@@ -55,8 +49,6 @@ func marcarIndisponibilidade(err error) error {
 	return fmt.Errorf("%w: %w", shared.ErrBancoIndisponivel, err)
 }
 
-// registrarClassificacao aplica marcarIndisponibilidade a todo erro que o GORM
-// produz, para que nenhum repositório precise lembrar de fazê-lo.
 func registrarClassificacao(db *gorm.DB) error {
 	marcar := func(tx *gorm.DB) { tx.Error = marcarIndisponibilidade(tx.Error) }
 	cb := db.Callback()

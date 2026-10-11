@@ -8,5 +8,5 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /bin/estoque ./cmd/esto
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /bin/estoque /estoque
 USER nonroot:nonroot
-EXPOSE 50051 8090
+EXPOSE 8085 8090
 ENTRYPOINT ["/estoque"]

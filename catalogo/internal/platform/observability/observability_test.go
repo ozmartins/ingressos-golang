@@ -18,8 +18,7 @@ func TestIniciarSemColetorConfigurado(t *testing.T) {
 		}
 	}()
 
-	if metricas == nil || metricas.EstoqueTotal == nil || metricas.EstoqueDuracao == nil ||
-		metricas.BreakerEstado == nil || metricas.HTTPDuracao == nil {
+	if metricas == nil || metricas.HTTPDuracao == nil {
 		t.Fatal("Iniciar devolveu instrumentos incompletos")
 	}
 }
@@ -38,24 +37,5 @@ func TestPropagacaoW3CEstaInstaladaSempre(t *testing.T) {
 	}
 	if !temTraceparent {
 		t.Fatalf("o propagador não trata traceparent (campos: %v)", campos)
-	}
-}
-
-func TestRotulosDeDesfechoSaoDistintos(t *testing.T) {
-	vistos := map[string]bool{}
-	for _, d := range []string{
-		DesfechoSucesso, DesfechoIndisponivel, DesfechoTimeout,
-		DesfechoRecusaRapida, DesfechoPoltronasIndisponiveis,
-	} {
-		if d == "" {
-			t.Error("rótulo vazio")
-		}
-		if vistos[d] {
-			t.Errorf("rótulo duplicado: %s", d)
-		}
-		vistos[d] = true
-	}
-	if len(vistos) != 5 {
-		t.Fatalf("esperava 5 rótulos distintos, obteve %d", len(vistos))
 	}
 }

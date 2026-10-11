@@ -14,7 +14,7 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 
 	adaptadoramqp "github.com/oseias/ingressos-golang/estoque/internal/adapter/amqp"
-	adaptadorgrpc "github.com/oseias/ingressos-golang/estoque/internal/adapter/grpc"
+	adaptadorcatalogo "github.com/oseias/ingressos-golang/estoque/internal/adapter/catalogo"
 	adaptadorhttp "github.com/oseias/ingressos-golang/estoque/internal/adapter/http"
 	"github.com/oseias/ingressos-golang/estoque/internal/adapter/postgres"
 	adaptadorredis "github.com/oseias/ingressos-golang/estoque/internal/adapter/redis"
@@ -95,6 +95,17 @@ func executar() error {
 		Limite:         cfg.PoltronasMaxPorBloqueio,
 		TraceContextDe: contextoDeRastreamento,
 	}
+	reservar := usecase.ReservarPoltronas{
+		Sessoes: adaptadorcatalogo.NovoCliente(adaptadorcatalogo.Opcoes{
+			URLBase:         cfg.CatalogoURL,
+			Timeout:         cfg.CatalogoTimeout,
+			FalhasParaAbrir: uint32(cfg.BreakerFalhas),
+			IntervaloAberto: cfg.BreakerIntervalo,
+		}),
+		Bloqueio: bloquear,
+		Relogio:  relogio,
+		Log:      obs.Log,
+	}
 	consultar := usecase.ConsultarMapa{Poltronas: poltronas}
 	confirmar := usecase.ConfirmarReserva{Reservas: reservas, Prazo: indiceDePrazo, Relogio: relogio, Log: obs.Log}
 	cancelar := usecase.CancelarReserva{Reservas: reservas, Prazo: indiceDePrazo, Relogio: relogio, Log: obs.Log}
@@ -173,7 +184,7 @@ func executar() error {
 		return fmt.Errorf("autenticador da API REST: %w", err)
 	}
 	apiREST := &adaptadorhttp.API{
-		Bloqueio: bloquear,
+		Bloqueio: reservar,
 		Mapa:     consultar,
 		Auth:     autenticador,
 		Limite:   cfg.PoltronasMaxPorBloqueio,
@@ -183,39 +194,29 @@ func executar() error {
 		Handler:           apiREST.Rotas(),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
-	go func() {
-		if err := rest.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			obs.Log.Error("porta da API REST caiu", "erro", err.Error())
-		}
-	}()
 	defer func() {
 		ctxDesligar, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancelar()
 		_ = rest.Shutdown(ctxDesligar)
 	}()
 
-	servidor, err := adaptadorgrpc.NovoServidor(adaptadorgrpc.Opcoes{
-		Bloqueio: bloquear, Mapa: consultar, Obs: obs, Config: cfg,
-	})
-	if err != nil {
-		return err
-	}
-
 	erros := make(chan error, 1)
-	go func() { erros <- servidor.Servir(cfg.GRPCAddr) }()
+	go func() {
+		if err := rest.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			erros <- err
+		}
+	}()
 
 	obs.Log.Info("estoque no ar",
-		"grpc", cfg.GRPCAddr, "admin", cfg.AdminAddr, "rest", cfg.HTTPAddr,
+		"admin", cfg.AdminAddr, "rest", cfg.HTTPAddr, "catalogo", cfg.CatalogoURL,
 		"reserva_ttl", cfg.ReservaTTL.String(),
-		"limite_poltronas", cfg.PoltronasMaxPorBloqueio,
-		"mtls", string(cfg.TLSClientAuth))
+		"limite_poltronas", cfg.PoltronasMaxPorBloqueio)
 
 	select {
 	case err := <-erros:
 		return err
 	case <-ctx.Done():
 		obs.Log.Info("encerrando")
-		servidor.Encerrar()
 		ctxDreno, cancelarDreno := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancelarDreno()
 		if n, err := publicador.Drenar(ctxDreno, 500); err != nil {

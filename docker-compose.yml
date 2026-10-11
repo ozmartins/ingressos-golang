@@ -111,30 +111,14 @@ services:
       DATABASE_URL: postgres://catalogo:catalogo@postgres:5432/cinema?sslmode=disable
       KEYCLOAK_ISSUER_URL: http://keycloak:8081/realms/cinema
       KEYCLOAK_AUDIENCE: cinema-app
-      ESTOQUE_GRPC_ADDR: estoque:50051
-      # O canal com o estoque é mTLS: ele exige certificado de cliente, e é por
-      # ele que sabe quem chama. O par vem de `estoque/scripts/gerar-certs.sh`
-      # (`make certs` no estoque), que emite um cliente com CN
-      # `servico-catalogo` assinado pela mesma CA do servidor.
-      #
-      # O diretório não é versionado — material criptográfico nunca é —, então
-      # `make certs` é pré-requisito para subir o catálogo, e não só o estoque.
-      ESTOQUE_TLS_CA_FILE: /certs/ca.pem
-      ESTOQUE_TLS_CERT_FILE: /certs/cliente.pem
-      ESTOQUE_TLS_KEY_FILE: /certs/cliente-key.pem
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       LOG_LEVEL: info
-    volumes: ["./estoque/certs:/certs:ro"]
     ports: ["${PORTA_CATALOGO:-8082}:8080"]
     depends_on:
       migrate-catalogo:
         condition: service_completed_successfully
       keycloak:
         condition: service_healthy
-      # Sem healthcheck de propósito: o cliente gRPC conecta na primeira
-      # chamada, não na largada, então subir junto basta.
-      estoque:
-        condition: service_started
       # O catálogo anuncia a sessão criada. A caixa de saída o deixa subir e
       # atender sem o broker, mas ele o exige na largada como qualquer outra
       # configuração obrigatória.
@@ -148,24 +132,20 @@ services:
       DATABASE_URL: postgres://estoque:estoque@postgres:5432/cinema?sslmode=disable
       REDIS_URL: redis://redis:6379/0
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
-      GRPC_ADDR: ":50051"
       ADMIN_ADDR: ":8090"
-      HTTP_ADDR: ":8085"      
+      HTTP_ADDR: ":8085"
       JWKS_URL: http://keycloak:8081/realms/cinema/protocol/openid-connect/certs
       JWT_ISSUER: http://keycloak:8081/realms/cinema
       JWT_AUDIENCE: cinema-app
-      TLS_CERT_FILE: /certs/servidor.pem
-      TLS_KEY_FILE: /certs/servidor-key.pem
-      TLS_CLIENT_CA_FILE: /certs/ca.pem
-      TLS_CLIENT_AUTH: require
+      # A reserva consulta preço e status da sessão no catálogo (rota pública).
+      CATALOGO_URL: http://catalogo:8080
+      CATALOGO_TIMEOUT: 2s
       RESERVA_TTL: 10m
       POLTRONAS_MAX_POR_BLOQUEIO: "10"
       VARREDURA_EXPIRACAO_INTERVALO: 10s
       AMQP_PREFETCH: "32"
       LOG_LEVEL: info
-    volumes: ["./estoque/certs:/certs:ro"]
     ports:
-      - "${PORTA_ESTOQUE_GRPC:-50051}:50051"
       - "${PORTA_ESTOQUE_ADMIN:-8090}:8090"
       - "${PORTA_ESTOQUE_REST:-8085}:8085"
     depends_on:
@@ -177,6 +157,10 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_healthy
+      # Sem healthcheck de propósito: o catálogo só é consultado quando chega
+      # uma reserva, não na largada, então subir junto basta.
+      catalogo:
+        condition: service_started
 
   pagamento:
     build:

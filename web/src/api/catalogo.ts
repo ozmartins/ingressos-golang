@@ -1,6 +1,6 @@
 import { chamar } from './cliente'
 import type {
-  Cinema, CinemaEntrada, Filme, FilmeEntrada, Pagina, ReservaConfirmada,
+  Cinema, CinemaEntrada, Filme, FilmeEntrada, Pagina,
   Sala, SalaAtualizacao, SalaEntrada, Sessao, SessaoAtualizacao, SessaoEntrada,
   SessaoNaGrade, StatusFilme,
 } from './tipos'
@@ -66,12 +66,3 @@ export const substituirSessao = (token: string, id: string, corpo: SessaoAtualiz
 
 export const removerSessao = (token: string, id: string) =>
   chamar<void>('catalogo', `/sessoes/${id}`, { metodo: 'DELETE', token })
-
-/** O caminho de compra: o catálogo calcula o valor e fala com o estoque por
- *  gRPC. A tela nunca chama o estoque para escrever. */
-export const reservarPoltronas = (token: string, sessaoId: string, poltronas: string[]) =>
-  chamar<ReservaConfirmada>('catalogo', `/sessoes/${sessaoId}/reservar`, {
-    metodo: 'POST',
-    corpo: { poltronas_ids: poltronas },
-    token,
-  })

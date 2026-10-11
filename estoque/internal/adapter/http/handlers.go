@@ -14,7 +14,7 @@ import (
 )
 
 type CasoDeUsoBloqueio interface {
-	Executar(ctx context.Context, sessaoID, usuarioID string, rotulos []string, valorTotal string) (usecase.ResultadoBloqueio, error)
+	Executar(ctx context.Context, sessaoID, usuarioID string, rotulos []string) (usecase.ResultadoBloqueio, error)
 }
 
 type CasoDeUsoMapa interface {
@@ -29,8 +29,7 @@ type API struct {
 }
 
 type solicitacaoBloqueio struct {
-	PoltronasIDs []string    `json:"poltronas_ids"`
-	ValorTotal   json.Number `json:"valor_total"`
+	PoltronasIDs []string `json:"poltronas_ids"`
 }
 
 type respostaBloqueio struct {
@@ -80,14 +79,16 @@ func (a *API) bloquear(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var corpo solicitacaoBloqueio
-	if err := json.NewDecoder(r.Body).Decode(&corpo); err != nil {
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64*1024))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&corpo); err != nil {
 		escreverProblem(w, r, http.StatusBadRequest, tipoCorpoInvalido,
 			"Corpo inválido", "o corpo da requisição não é um JSON válido", nil)
 		return
 	}
 
 	resultado, err := a.Bloqueio.Executar(r.Context(), sessaoID(r), usuarioID,
-		corpo.PoltronasIDs, corpo.ValorTotal.String())
+		corpo.PoltronasIDs)
 	if err != nil {
 		responderErroDeDominio(w, r, err, a.Limite)
 		return

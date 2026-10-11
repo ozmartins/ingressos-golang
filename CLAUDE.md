@@ -18,7 +18,7 @@ Frontend (`web/`, not Go) — run inside `web/`: `npm run dev`, `npm run build` 
 
 ## Async flow
 
-`catalogo` starts a reservation (gRPC call to `estoque`) → `estoque` locks seats and publishes `reserva.criada` → `pagamento` charges and publishes `pagamento.sucesso` / `pagamento.falhou` → `estoque` confirms or releases the seats, and `notificacao` issues the digital ticket. `estoque` also consumes `sessao.criada` (provisions the seat matrix) and expires unpaid reservations after 10 minutes.
+`estoque` starts a reservation (`POST /api/v1/sessoes/{id}/bloqueios`; it reads the session's price/status from `catalogo` over REST) → `estoque` locks seats and publishes `reserva.criada` → `pagamento` charges and publishes `pagamento.sucesso` / `pagamento.falhou` → `estoque` confirms or releases the seats, and `notificacao` issues the digital ticket. `estoque` also consumes `sessao.criada` (provisions the seat matrix) and expires unpaid reservations after 10 minutes.
 
 ## Commands
 
@@ -31,18 +31,17 @@ go test -race ./internal/usecase/... -run TestName    # single test
 make test-integration   # -tags=integration ./test/integration/... (needs Docker infra)
 make lint               # golangci-lint run (.golangci.yml per service)
 make migrate-up         # / migrate-down; needs DATABASE_URL
-make proto              # buf generate (catalogo, estoque)
 ```
 
-`estoque` also has `make certs` (mTLS for gRPC), and `publicar-sessao` / `publicar-pagamento` (publish AMQP facts by hand for the quickstart).
+`estoque` also has `publicar-sessao` / `publicar-pagamento` (publish AMQP facts by hand for the quickstart).
 
 ## Architecture (hexagonal, same in every service)
 
-`internal/domain` and `internal/usecase` are the core; `internal/adapter/*` (http, grpc, amqp, postgres, redis) and `internal/platform` (config/wiring) are infrastructure; `cmd/<svc>` is the entrypoint. The core must not import adapters, platform, generated protobuf, pgx, amqp or redis. `estoque`, `pagamento` and `notificacao` enforce this in `test/arquitetura_test.go` (via `go list -json`, so a violation fails `make test`); `catalogo` enforces it with the `depguard` rule `nucleo-sem-adaptadores` in `.golangci.yml` (`make lint`).
+`internal/domain` and `internal/usecase` are the core; `internal/adapter/*` (http, amqp, postgres, redis) and `internal/platform` (config/wiring) are infrastructure; `cmd/<svc>` is the entrypoint. The core must not import adapters, platform, pgx, amqp or redis. `estoque`, `pagamento` and `notificacao` enforce this in `test/arquitetura_test.go` (via `go list -json`, so a violation fails `make test`); `catalogo` enforces it with the `depguard` rule `nucleo-sem-adaptadores` in `.golangci.yml` (`make lint`).
 
 Non-obvious rules:
-- **Contracts live in the code.** `internal/adapter/http/openapi/openapi.yaml` (embedded via `go:embed` and served at `/docs`) is the OpenAPI source of truth, and `proto/*.proto` is the gRPC one (`make proto`).
+- **Contracts live in the code.** `internal/adapter/http/openapi/openapi.yaml` (embedded via `go:embed` and served at `/docs`) is the OpenAPI source of truth.
 - **Exclusivity lives in PostgreSQL** (`SELECT ... FOR UPDATE NOWAIT`, deterministic row order, same transaction as reservation + outbox row). Redis holds only the expiry index: losing it delays release but cannot cause double-selling.
 - **Transactional outbox** for `reserva.criada`; consumers are idempotent (processed-message table plus `WHERE status = 'PENDENTE'` state guards).
 - **`schema_migrations` is pinned to each service's schema** via `search_path` (shared DB); migration SQL qualifies every object itself.
-- Auth: REST uses Keycloak JWT (`notificacao` also accepts `X-API-Key`); `estoque` gRPC (:50051) requires mTLS, with a plaintext simulated estoque on :50052.
+- Auth: REST uses Keycloak JWT (`notificacao` also accepts `X-API-Key`); `estoque` calls `catalogo` (public `GET /api/v1/sessoes/{id}`, timeout + circuit breaker, `CATALOGO_URL`) when reserving. There is no gRPC anywhere.

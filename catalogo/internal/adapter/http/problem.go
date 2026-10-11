@@ -34,15 +34,8 @@ const (
 	catSalaNaoEncontrada   = "sala-nao-encontrada"
 	catFilmeNaoEncontrado  = "filme-nao-encontrado"
 	catSessaoNaoEncontrada = "sessao-nao-encontrada"
-	catSessaoNaoReservavel = "sessao-nao-reservavel"
 	catConflito            = "conflito"
-	catPoltronasIndisp     = "poltronas-indisponiveis"
-	catReservaRecusada     = "reserva-recusada"
-	catPoltronaInexistente = "poltrona-inexistente"
-	catSessaoSemPoltronas  = "sessao-sem-poltronas"
-	catEstoqueIndisponivel = "estoque-indisponivel"
 	catBancoIndisponivel   = "banco-indisponivel"
-	catRespostaInvalida    = "resposta-invalida-do-parceiro"
 	catErroInterno         = "erro-interno"
 )
 
@@ -59,15 +52,8 @@ var categorias = map[string]descricaoCategoria{
 	catSalaNaoEncontrada:   {"Sala não encontrada", http.StatusNotFound},
 	catFilmeNaoEncontrado:  {"Filme não encontrado", http.StatusNotFound},
 	catSessaoNaoEncontrada: {"Sessão não encontrada", http.StatusNotFound},
-	catSessaoNaoReservavel: {"Sessão não aceita reservas", http.StatusUnprocessableEntity},
 	catConflito:            {"Conflito com o estado atual", http.StatusConflict},
-	catPoltronasIndisp:     {"Poltronas indisponíveis", http.StatusConflict},
-	catReservaRecusada:     {"Reserva recusada", http.StatusBadRequest},
-	catPoltronaInexistente: {"Poltrona inexistente na sessão", http.StatusUnprocessableEntity},
-	catSessaoSemPoltronas:  {"Sessão ainda sem poltronas", http.StatusUnprocessableEntity},
-	catEstoqueIndisponivel: {"Serviço temporariamente indisponível", http.StatusServiceUnavailable},
 	catBancoIndisponivel:   {"Serviço temporariamente indisponível", http.StatusServiceUnavailable},
-	catRespostaInvalida:    {"Resposta inválida do serviço parceiro", http.StatusBadGateway},
 	catErroInterno:         {"Erro interno", http.StatusInternalServerError},
 }
 
@@ -100,31 +86,9 @@ func EscreverErroDeDominio(w http.ResponseWriter, r *http.Request, err error, co
 		EscreverProblem(w, r, catConflito, mensagemLimpa(err))
 	case errors.Is(err, shared.ErrNaoEncontrado):
 		EscreverProblem(w, r, categoriaNaoEncontrado(err, contexto), mensagemLimpa(err))
-	case errors.Is(err, shared.ErrSessaoNaoReservavel):
-		EscreverProblem(w, r, catSessaoNaoReservavel, mensagemLimpa(err))
-	case errors.Is(err, shared.ErrPoltronasIndisponiveis):
-		EscreverProblem(w, r, catPoltronasIndisp, "Uma ou mais poltronas selecionadas não estão disponíveis.")
-
-	case errors.Is(err, shared.ErrPoltronaInexistente):
-		EscreverProblem(w, r, catPoltronaInexistente,
-			"Uma ou mais poltronas informadas não existem nesta sessão.")
-	case errors.Is(err, shared.ErrSessaoSemPoltronas):
-		EscreverProblem(w, r, catSessaoSemPoltronas,
-			"Esta sessão ainda não tem poltronas disponíveis para reserva.")
-	case errors.Is(err, shared.ErrSolicitacaoRecusadaPeloEstoque):
-		EscreverProblem(w, r, catReservaRecusada, mensagemLimpa(err))
-
-	case errors.Is(err, shared.ErrEstoqueComDefeito):
-		EscreverProblem(w, r, catRespostaInvalida,
-			"O serviço responsável pela reserva falhou. Informe o identificador desta requisição ao suporte.")
-
-	case errors.Is(err, shared.ErrEstoqueIndisponivel):
-		EscreverProblem(w, r, catEstoqueIndisponivel, "Serviço temporariamente indisponível. Tente novamente em instantes.")
 	case errors.Is(err, shared.ErrBancoIndisponivel):
 		slog.ErrorContext(r.Context(), "banco de dados indisponível", slog.Any("erro", err), slog.String("contexto", contexto))
 		EscreverProblem(w, r, catBancoIndisponivel, "Serviço temporariamente indisponível. Tente novamente em instantes.")
-	case errors.Is(err, shared.ErrRespostaInvalidaDoParceiro):
-		EscreverProblem(w, r, catRespostaInvalida, "Não foi possível confirmar a reserva junto ao serviço responsável.")
 	default:
 		slog.ErrorContext(r.Context(), "erro não previsto", slog.Any("erro", err), slog.String("contexto", contexto))
 		EscreverProblem(w, r, catErroInterno, "Erro interno. Consulte o suporte informando o identificador desta requisição.")
@@ -154,7 +118,6 @@ func mensagemLimpa(err error) string {
 		shared.ErrValidacao.Error() + ": ",
 		shared.ErrNaoEncontrado.Error() + ": ",
 		shared.ErrConflito.Error() + ": ",
-		shared.ErrSessaoNaoReservavel.Error() + ": ",
 	} {
 		if strings.HasPrefix(msg, prefixo) {
 			return strings.TrimPrefix(msg, prefixo)

@@ -15,7 +15,6 @@ import (
 	adapterhttp "github.com/oseias/ingressos-golang/catalogo/internal/adapter/http"
 	"github.com/oseias/ingressos-golang/catalogo/internal/adapter/identidade"
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/catalogo"
-	"github.com/oseias/ingressos-golang/catalogo/internal/domain/reserva"
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/shared"
 	"github.com/oseias/ingressos-golang/catalogo/internal/usecase"
 )
@@ -251,17 +250,6 @@ func (s *sessoesFalsas) SalaOcupada(context.Context, string, time.Time, time.Tim
 	return s.salaOcupada, nil
 }
 
-type estoqueContado struct {
-	chamadas  int
-	resultado reserva.ResultadoReserva
-	erro      error
-}
-
-func (e *estoqueContado) BloquearPoltronas(context.Context, reserva.SolicitacaoReserva) (reserva.ResultadoReserva, error) {
-	e.chamadas++
-	return e.resultado, e.erro
-}
-
 type verificadorFalso struct{ usuarioID string }
 
 func (v verificadorFalso) Verificar(_ context.Context, token string) (identidade.Identidade, error) {
@@ -285,7 +273,6 @@ func recortar[T any](todos []T, req shared.PageRequest) shared.Page[T] {
 
 type ambiente struct {
 	servidor *httptest.Server
-	estoque  *estoqueContado
 	sessoes  *sessoesFalsas
 	cinemas  *cinemasFalsos
 	salas    *salasFalsas
@@ -293,6 +280,8 @@ type ambiente struct {
 }
 
 const agoraDeTeste = "2026-09-01T10:00:00Z"
+
+const sessaoID = "f781a9b2-11e2-4f81-a901-8890bc123456"
 
 func agora() time.Time {
 	t, _ := time.Parse(time.RFC3339, agoraDeTeste)
@@ -302,7 +291,6 @@ func agora() time.Time {
 func montar(t *testing.T, ajustar func(*ambiente)) *ambiente {
 	t.Helper()
 	amb := &ambiente{
-		estoque: &estoqueContado{},
 		sessoes: &sessoesFalsas{},
 		cinemas: &cinemasFalsos{existe: true},
 		salas:   &salasFalsas{},
@@ -339,10 +327,7 @@ func montar(t *testing.T, ajustar func(*ambiente)) *ambiente {
 				GerarID: uuid.NewString, Agora: agora,
 			},
 			RemoverSessao: usecase.RemoverSessao{Repo: amb.sessoes, Agora: agora},
-			ReservarPoltronas: usecase.ReservarPoltronas{
-				Sessoes: amb.sessoes, Estoque: amb.estoque, Agora: agora,
-			},
-			Limites: adapterhttp.LimitesPaginacao{Padrao: 20, Maximo: 100},
+			Limites:       adapterhttp.LimitesPaginacao{Padrao: 20, Maximo: 100},
 		},
 		Saude:       func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) },
 		Verificador: verificadorFalso{usuarioID: "usuario-1"},

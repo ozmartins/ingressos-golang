@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/catalogo"
-	"github.com/oseias/ingressos-golang/catalogo/internal/domain/reserva"
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/shared"
 )
 
@@ -96,19 +95,6 @@ func (s *sessaoRepoFalso) SalaOcupada(_ context.Context, salaID string, inicio, 
 	s.janelaConsultada = [2]time.Time{inicio, fim}
 	s.excetoRecebido = excetoID
 	return s.salaOcupada, nil
-}
-
-type estoqueFalso struct {
-	chamadas    int
-	solicitacao reserva.SolicitacaoReserva
-	resultado   reserva.ResultadoReserva
-	erro        error
-}
-
-func (e *estoqueFalso) BloquearPoltronas(_ context.Context, s reserva.SolicitacaoReserva) (reserva.ResultadoReserva, error) {
-	e.chamadas++
-	e.solicitacao = s
-	return e.resultado, e.erro
 }
 
 type cinemaRepoFalso struct {
@@ -344,155 +330,14 @@ func TestAtualizarSalaSemCinemaIDMantemOCinemaAtual(t *testing.T) {
 	}
 }
 
+func agoraFixo() time.Time { return time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC) }
+
 func sessaoReservavel() catalogo.Sessao {
 	return catalogo.Sessao{
 		ID:             "f781a9b2-11e2-4f81-a901-8890bc123456",
 		Status:         catalogo.SessaoAgendada,
 		DataHoraInicio: time.Date(2026, 9, 1, 20, 30, 0, 0, time.UTC),
 		PrecoBase:      catalogo.DinheiroDeCentavos(4250),
-	}
-}
-
-func TestReservarPoltronasDerivaOValorDoPrecoDaSessao(t *testing.T) {
-	est := &estoqueFalso{resultado: reserva.ResultadoReserva{
-		ReservaID: "9982a1b3-44c1-4221-a123-902183120192",
-		ExpiraEm:  agoraFixo().Add(10 * time.Minute),
-	}}
-	uc := ReservarPoltronas{Sessoes: &sessaoRepoFalso{sessao: sessaoReservavel()}, Estoque: est, Agora: agoraFixo}
-
-	s := solicitacao()
-	s.PoltronasIDs = []string{"A1", "A2", "F1"}
-	if _, err := uc.Executar(context.Background(), s); err != nil {
-		t.Fatalf("erro inesperado: %v", err)
-	}
-
-	if got := est.solicitacao.ValorTotal; got != "127.50" {
-		t.Fatalf("valor_total = %q, esperado \"127.50\"", got)
-	}
-}
-
-func TestReservarPoltronasIgnoraValorInformadoPeloCliente(t *testing.T) {
-	est := &estoqueFalso{resultado: reserva.ResultadoReserva{
-		ReservaID: "9982a1b3-44c1-4221-a123-902183120192",
-		ExpiraEm:  agoraFixo().Add(10 * time.Minute),
-	}}
-	uc := ReservarPoltronas{Sessoes: &sessaoRepoFalso{sessao: sessaoReservavel()}, Estoque: est, Agora: agoraFixo}
-
-	s := solicitacao()
-	s.ValorTotal = "0.01"
-	if _, err := uc.Executar(context.Background(), s); err != nil {
-		t.Fatalf("erro inesperado: %v", err)
-	}
-	if got := est.solicitacao.ValorTotal; got == "0.01" {
-		t.Fatal("o valor informado pelo cliente não deveria chegar ao estoque")
-	}
-}
-
-func agoraFixo() time.Time { return time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC) }
-
-func solicitacao() reserva.SolicitacaoReserva {
-	return reserva.SolicitacaoReserva{
-		SessaoID:     "f781a9b2-11e2-4f81-a901-8890bc123456",
-		PoltronasIDs: []string{"A1"},
-		UsuarioID:    "usuario-1",
-	}
-}
-
-func TestReservarCaminhoFeliz(t *testing.T) {
-	est := &estoqueFalso{resultado: reserva.ResultadoReserva{ReservaID: "r1", ExpiraEm: agoraFixo().Add(10 * time.Minute)}}
-	uc := ReservarPoltronas{Sessoes: &sessaoRepoFalso{sessao: sessaoReservavel()}, Estoque: est, Agora: agoraFixo}
-
-	r, err := uc.Executar(context.Background(), solicitacao())
-	if err != nil {
-		t.Fatalf("erro inesperado: %v", err)
-	}
-	if r.ReservaID != "r1" || est.chamadas != 1 {
-		t.Fatalf("resultado=%v chamadas=%d", r, est.chamadas)
-	}
-}
-
-func TestReservarNaoChamaEstoqueQuandoRecusaLocalmente(t *testing.T) {
-	casos := []struct {
-		nome        string
-		solicitacao reserva.SolicitacaoReserva
-		repo        *sessaoRepoFalso
-		sentinela   error
-	}{
-		{
-			nome:        "sem identidade",
-			solicitacao: reserva.SolicitacaoReserva{SessaoID: "s", PoltronasIDs: []string{"A1"}},
-			repo:        &sessaoRepoFalso{sessao: sessaoReservavel()},
-			sentinela:   shared.ErrValidacao,
-		},
-		{
-			nome:        "lista vazia",
-			solicitacao: reserva.SolicitacaoReserva{SessaoID: "s", UsuarioID: "u"},
-			repo:        &sessaoRepoFalso{sessao: sessaoReservavel()},
-			sentinela:   shared.ErrValidacao,
-		},
-		{
-			nome:        "poltronas duplicadas",
-			solicitacao: reserva.SolicitacaoReserva{SessaoID: "s", UsuarioID: "u", PoltronasIDs: []string{"A1", "A1"}},
-			repo:        &sessaoRepoFalso{sessao: sessaoReservavel()},
-			sentinela:   shared.ErrValidacao,
-		},
-		{
-			nome:        "sessão inexistente",
-			solicitacao: solicitacao(),
-			repo:        &sessaoRepoFalso{erroBusca: shared.ErrNaoEncontrado},
-			sentinela:   shared.ErrNaoEncontrado,
-		},
-	}
-	for _, c := range casos {
-		t.Run(c.nome, func(t *testing.T) {
-			est := &estoqueFalso{}
-			uc := ReservarPoltronas{Sessoes: c.repo, Estoque: est, Agora: agoraFixo}
-			_, err := uc.Executar(context.Background(), c.solicitacao)
-			if !errors.Is(err, c.sentinela) {
-				t.Fatalf("esperava %v, obteve %v", c.sentinela, err)
-			}
-			if est.chamadas != 0 {
-				t.Fatalf("o estoque foi contatado %d vez(es) numa recusa local", est.chamadas)
-			}
-		})
-	}
-}
-
-func TestReservarRecusaSessaoQueNaoAceitaMais(t *testing.T) {
-	for _, s := range []catalogo.Sessao{
-		{ID: "s", Status: catalogo.SessaoCancelada, DataHoraInicio: agoraFixo().Add(time.Hour)},
-		{ID: "s", Status: catalogo.SessaoFinalizada, DataHoraInicio: agoraFixo().Add(-time.Hour)},
-		{ID: "s", Status: catalogo.SessaoEmAndamento, DataHoraInicio: agoraFixo().Add(-time.Hour)},
-		{ID: "s", Status: catalogo.SessaoAgendada, DataHoraInicio: agoraFixo().Add(-time.Minute)},
-	} {
-		est := &estoqueFalso{}
-		uc := ReservarPoltronas{Sessoes: &sessaoRepoFalso{sessao: s}, Estoque: est, Agora: agoraFixo}
-		_, err := uc.Executar(context.Background(), solicitacao())
-		if !errors.Is(err, shared.ErrSessaoNaoReservavel) {
-			t.Errorf("status %s: esperava ErrSessaoNaoReservavel, obteve %v", s.Status, err)
-		}
-		if est.chamadas != 0 {
-			t.Errorf("status %s: estoque contatado indevidamente", s.Status)
-		}
-	}
-}
-
-func TestReservarRecusaSucessoSemDadosObrigatorios(t *testing.T) {
-	est := &estoqueFalso{resultado: reserva.ResultadoReserva{ExpiraEm: agoraFixo()}}
-	uc := ReservarPoltronas{Sessoes: &sessaoRepoFalso{sessao: sessaoReservavel()}, Estoque: est, Agora: agoraFixo}
-	_, err := uc.Executar(context.Background(), solicitacao())
-	if !errors.Is(err, shared.ErrRespostaInvalidaDoParceiro) {
-		t.Fatalf("esperava ErrRespostaInvalidaDoParceiro, obteve %v", err)
-	}
-}
-
-func TestReservarPropagaIndisponibilidade(t *testing.T) {
-	for _, sentinela := range []error{shared.ErrPoltronasIndisponiveis, shared.ErrEstoqueIndisponivel} {
-		est := &estoqueFalso{erro: sentinela}
-		uc := ReservarPoltronas{Sessoes: &sessaoRepoFalso{sessao: sessaoReservavel()}, Estoque: est, Agora: agoraFixo}
-		if _, err := uc.Executar(context.Background(), solicitacao()); !errors.Is(err, sentinela) {
-			t.Errorf("esperava %v, obteve %v", sentinela, err)
-		}
 	}
 }
 

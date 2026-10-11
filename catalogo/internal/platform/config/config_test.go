@@ -11,11 +11,7 @@ func ambienteMinimo(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://u:p@localhost:5432/catalogo")
 	t.Setenv("KEYCLOAK_ISSUER_URL", "http://localhost:8081/realms/cinema")
 	t.Setenv("KEYCLOAK_AUDIENCE", "cinema-app")
-	t.Setenv("ESTOQUE_GRPC_ADDR", "localhost:50051")
 	t.Setenv("RABBITMQ_URL", "amqp://cinema:cinema@localhost:5672/")
-	t.Setenv("ESTOQUE_TLS_CA_FILE", "/certs/ca.pem")
-	t.Setenv("ESTOQUE_TLS_CERT_FILE", "/certs/cliente.pem")
-	t.Setenv("ESTOQUE_TLS_KEY_FILE", "/certs/cliente-key.pem")
 }
 
 func TestCarregarAplicaPadroes(t *testing.T) {
@@ -27,12 +23,6 @@ func TestCarregarAplicaPadroes(t *testing.T) {
 	if c.HTTPPort != "8080" || c.LogLevel != "info" {
 		t.Fatalf("padrões não aplicados: porta=%s log=%s", c.HTTPPort, c.LogLevel)
 	}
-	if c.EstoqueTimeout != 2*time.Second {
-		t.Fatalf("timeout padrão esperado 2s, obteve %s", c.EstoqueTimeout)
-	}
-	if c.BreakerFalhasConsecutivas != 5 || c.BreakerIntervaloAberto != 30*time.Second {
-		t.Fatalf("padrões de recusa rápida errados: %d/%s", c.BreakerFalhasConsecutivas, c.BreakerIntervaloAberto)
-	}
 	if c.PaginacaoTamanhoPadrao != 20 || c.PaginacaoTamanhoMaximo != 100 {
 		t.Fatalf("padrões de paginação errados: %d/%d", c.PaginacaoTamanhoPadrao, c.PaginacaoTamanhoMaximo)
 	}
@@ -43,12 +33,12 @@ func TestCarregarAplicaPadroes(t *testing.T) {
 
 func TestCarregarRecusaVariavelObrigatoriaAusente(t *testing.T) {
 	ambienteMinimo(t)
-	t.Setenv("ESTOQUE_GRPC_ADDR", "")
+	t.Setenv("RABBITMQ_URL", "")
 	_, err := Carregar()
 	if err == nil {
 		t.Fatal("esperava erro com variável obrigatória ausente")
 	}
-	if !strings.Contains(err.Error(), "ESTOQUE_GRPC_ADDR") {
+	if !strings.Contains(err.Error(), "RABBITMQ_URL") {
 		t.Fatalf("erro deveria nomear a variável faltante, obteve: %v", err)
 	}
 }
@@ -57,38 +47,17 @@ func TestCarregarAgregaTodasAsFalhas(t *testing.T) {
 	t.Setenv("DATABASE_URL", "")
 	t.Setenv("KEYCLOAK_ISSUER_URL", "")
 	t.Setenv("KEYCLOAK_AUDIENCE", "")
-	t.Setenv("ESTOQUE_GRPC_ADDR", "")
 	t.Setenv("RABBITMQ_URL", "")
-	t.Setenv("ESTOQUE_TLS_CA_FILE", "")
-	t.Setenv("ESTOQUE_TLS_CERT_FILE", "")
-	t.Setenv("ESTOQUE_TLS_KEY_FILE", "")
 	_, err := Carregar()
 	if err == nil {
 		t.Fatal("esperava erro")
 	}
 	for _, campo := range []string{
-		"DATABASE_URL", "KEYCLOAK_ISSUER_URL", "KEYCLOAK_AUDIENCE", "ESTOQUE_GRPC_ADDR",
-		"RABBITMQ_URL", "ESTOQUE_TLS_CA_FILE", "ESTOQUE_TLS_CERT_FILE", "ESTOQUE_TLS_KEY_FILE",
+		"DATABASE_URL", "KEYCLOAK_ISSUER_URL", "KEYCLOAK_AUDIENCE", "RABBITMQ_URL",
 	} {
 		if !strings.Contains(err.Error(), campo) {
 			t.Errorf("erro não menciona %s: %v", campo, err)
 		}
-	}
-}
-
-func TestCarregarRecusaValorMalformado(t *testing.T) {
-	ambienteMinimo(t)
-	t.Setenv("ESTOQUE_TIMEOUT", "dois segundos")
-	if _, err := Carregar(); err == nil || !strings.Contains(err.Error(), "ESTOQUE_TIMEOUT") {
-		t.Fatalf("esperava recusa de duração malformada, obteve %v", err)
-	}
-}
-
-func TestCarregarRecusaTimeoutAcimaDoTetoDaEspecificacao(t *testing.T) {
-	ambienteMinimo(t)
-	t.Setenv("ESTOQUE_TIMEOUT", "10s")
-	if _, err := Carregar(); err == nil || !strings.Contains(err.Error(), "ESTOQUE_TIMEOUT") {
-		t.Fatalf("esperava recusa de timeout acima do teto, obteve %v", err)
 	}
 }
 

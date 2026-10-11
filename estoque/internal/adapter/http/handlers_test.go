@@ -37,17 +37,15 @@ func gerarChaveDeTeste() *rsa.PrivateKey {
 }
 
 type bloqueioFalso struct {
-	valorVisto   string
 	resultado    usecase.ResultadoBloqueio
 	err          error
 	usuarioVisto string
 	rotulosVisto []string
 }
 
-func (b *bloqueioFalso) Executar(_ context.Context, _, usuarioID string, rotulos []string, valorTotal string) (usecase.ResultadoBloqueio, error) {
+func (b *bloqueioFalso) Executar(_ context.Context, _, usuarioID string, rotulos []string) (usecase.ResultadoBloqueio, error) {
 	b.usuarioVisto = usuarioID
 	b.rotulosVisto = rotulos
-	b.valorVisto = valorTotal
 	return b.resultado, b.err
 }
 
@@ -107,7 +105,7 @@ func TestBloqueioUsaOSubDoTokenComoUsuario(t *testing.T) {
 	}}
 	api := apiDeTeste(b, &mapaFalso{})
 
-	corpo := `{"poltronas_ids":["A1","A2"],"usuario_id":"outra-pessoa"}`
+	corpo := `{"poltronas_ids":["A1","A2"]}`
 	w := executar(t, api, http.MethodPost, "/api/v1/sessoes/s1/bloqueios", corpo, tokenValido(t))
 
 	if w.Code != http.StatusCreated {
@@ -171,6 +169,10 @@ func TestErrosDeDominioViramOStatusEquivalente(t *testing.T) {
 		{"sessão não provisionada", shared.ErrSessaoNaoProvisionada, http.StatusUnprocessableEntity, tipoSessaoNaoProvisionada},
 		{"poltrona inexistente", shared.ErrPoltronaInexistente, http.StatusUnprocessableEntity, tipoPoltronaInexistente},
 		{"sessão desconhecida", shared.ErrSessaoDesconhecida, http.StatusNotFound, tipoSessaoDesconhecida},
+		{"sessão não encontrada", shared.ErrSessaoNaoEncontrada, http.StatusNotFound, tipoSessaoNaoEncontrada},
+		{"sessão não reservável", shared.ErrSessaoNaoReservavel, http.StatusUnprocessableEntity, tipoSessaoNaoReservavel},
+		{"catálogo indisponível", shared.ErrCatalogoIndisponivel, http.StatusServiceUnavailable, tipoCatalogoIndisponivel},
+		{"resposta inválida do catálogo", shared.ErrRespostaInvalidaDoCatalogo, http.StatusBadGateway, tipoRespostaInvalida},
 		{"dependência indisponível", shared.ErrDependenciaIndisponivel, http.StatusServiceUnavailable, tipoDependencia},
 		{"falha não prevista", errors.New("qualquer outra"), http.StatusInternalServerError, tipoInterno},
 	}
@@ -225,6 +227,22 @@ func TestCorpoNaoJSONRecusa400(t *testing.T) {
 
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, esperado 400", w.Code)
+	}
+}
+
+func TestCorpoComCampoDesconhecidoRecusa400(t *testing.T) {
+	b := &bloqueioFalso{}
+	api := apiDeTeste(b, &mapaFalso{})
+
+	for _, campo := range []string{`"valor_total":"1.00"`, `"usuario_id":"outra-pessoa"`} {
+		w := executar(t, api, http.MethodPost, "/api/v1/sessoes/s1/bloqueios",
+			`{"poltronas_ids":["A1"],`+campo+`}`, tokenValido(t))
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("%s: status = %d, esperado 400", campo, w.Code)
+		}
+	}
+	if b.usuarioVisto != "" {
+		t.Error("o caso de uso foi chamado com corpo inválido")
 	}
 }
 

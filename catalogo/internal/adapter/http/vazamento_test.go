@@ -17,8 +17,7 @@ func TestNenhumaRespostaVazaDetalheInterno(t *testing.T) {
 		errors.New(`ERROR: relation "sessoes" does not exist (SQLSTATE 42P01)`),
 		errors.New(`failed to connect to host=db-prod-01.interno port=5432: dial tcp 10.0.3.12:5432: connect: connection refused`),
 		errors.New(`rpc error: code = Unavailable desc = connection error: desc = "transport: Error while dialing dial tcp 10.0.4.7:50051: connect: connection refused"`),
-		fmt.Errorf("%w: rpc error: code = DeadlineExceeded desc = context deadline exceeded", shared.ErrEstoqueIndisponivel),
-		fmt.Errorf("%w: circuit breaker estoque.bloqueio is open", shared.ErrEstoqueIndisponivel),
+		fmt.Errorf("%w: dial tcp 10.0.4.7:5432: i/o timeout", shared.ErrBancoIndisponivel),
 		fmt.Errorf("consultando filmes: %w", errors.New(`pq: syntax error at or near "SELCT"`)),
 	}
 
@@ -29,7 +28,7 @@ func TestNenhumaRespostaVazaDetalheInterno(t *testing.T) {
 
 	for _, err := range errosRealistas {
 		w := httptest.NewRecorder()
-		r := httptest.NewRequest(http.MethodPost, "/api/v1/sessoes/x/reservar", nil)
+		r := httptest.NewRequest(http.MethodPost, "/api/v1/sessoes/x", nil)
 		EscreverErroDeDominio(w, r, err, "sessao")
 
 		var p Problem

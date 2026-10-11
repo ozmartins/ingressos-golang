@@ -3,21 +3,19 @@ info:
   title: Servico-Estoque — API
   version: "1.0.0"
   description: |
-    Superfície REST do Servico-Estoque, com as mesmas duas operações que o
-    serviço oferece em gRPC: bloquear poltronas de
-    uma sessão e consultar o mapa de poltronas. As duas superfícies chamam os
-    mesmos casos de uso, então valem as mesmas regras de domínio.
+    API REST do Servico-Estoque: reservar (bloquear) poltronas de uma sessão e
+    consultar o mapa de poltronas.
 
-    Diferenças deliberadas em relação ao gRPC, e o porquê de cada uma:
-
-    - **Identidade.** O gRPC é máquina-a-máquina, autenticado por mTLS, e recebe
-      o `usuario_id` no corpo porque quem chama (o Servico-Catalogo) já validou
-      o token. Aqui o chamador é o cliente final: a identidade vem da claim
-      `sub` de um JWT do Keycloak, e não do corpo, onde seria autodeclarada.
-    - **Poltronas indisponíveis.** Em gRPC isso é `OK` com `sucesso=false`; em
-      HTTP é `409`, porque o status é a categoria do desfecho.
-    - **Prazo da reserva.** `expira_em` é RFC 3339, e não o epoch em segundos do
-      proto: o cliente HTTP não tem o schema para saber a unidade.
+    - **Identidade.** Vem da claim `sub` de um JWT do Keycloak, e não do corpo,
+      onde seria autodeclarada.
+    - **Preço e status da sessão.** Quem tem autoridade sobre eles é o
+      Servico-Catalogo. Ao receber um bloqueio, este serviço consulta a sessão
+      no catálogo, recusa se ela não aceita reserva (não está `AGENDADA` ou já
+      começou) e calcula o `valor_total` como `preco_base × quantidade de
+      poltronas`. O cliente nunca informa valor.
+    - **Poltronas indisponíveis.** `409`, porque o status é a categoria do
+      desfecho.
+    - **Prazo da reserva.** `expira_em` é RFC 3339.
 
 servers:
   # Relativo de propósito: a página de /docs resolve contra a própria origem,
@@ -52,22 +50,9 @@ components:
   schemas:
     SolicitacaoBloqueio:
       type: object
-      required: [poltronas_ids, valor_total]
+      required: [poltronas_ids]
+      additionalProperties: false
       properties:
-        valor_total:
-          type: string
-          pattern: '^[0-9]+(\.[0-9]{1,2})?$'
-          description: |
-            Valor a cobrar pela reserva, como texto decimal — não número, porque
-            nenhum ponto flutuante binário representa centavo sem erro e este
-            valor vira cobrança. Precisa ser maior que zero.
-
-            **Ressalva desta superfície:** quem tem autoridade sobre o preço é o
-            `Servico-Catalogo`, dono do cadastro da sessão, e é ele que abre a
-            reserva em produção — pelo gRPC, informando o valor que calculou. No
-            REST o chamador é o cliente final, que aqui declara o próprio valor;
-            é superfície de operação e de teste, não o caminho de compra.
-          example: "84.00"
         poltronas_ids:
           type: array
           description: |
@@ -133,8 +118,7 @@ components:
       description: |
         Erro no formato da RFC 9457. O `type` é o contrato estável que o cliente
         inspeciona; `title` e `detail` são texto humano e podem mudar de redação.
-        Cada `type` corresponde a uma razão já publicada no contrato gRPC — a
-        superfície HTTP não cria categorias novas.
+        O último segmento do `type` é a categoria estável do erro.
       required: [type, title, status]
       properties:
         type:
@@ -206,7 +190,7 @@ paths:
         "400":
           description: |
             Lista vazia, rótulos repetidos, rótulo fora do formato, corpo não
-            é JSON válido, ou quantidade acima do limite por bloqueio — neste
+            é JSON válido (ou traz campo desconhecido), ou quantidade acima do limite por bloqueio — neste
             caso `metadata.limite` traz o teto.
           content:
             application/problem+json:
@@ -220,10 +204,23 @@ paths:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/Problem"
+        "404":
+          description: Sessão não encontrada no catálogo (`sessao-nao-encontrada`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
         "422":
           description: |
-            Sessão sem matriz de poltronas provisionada, ou rótulo inexistente
-            na sessão informada.
+            Sessão que não aceita reserva (`sessao-nao-reservavel`), sessão sem
+            matriz de poltronas provisionada, ou rótulo inexistente na sessão
+            informada.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "502":
+          description: O catálogo respondeu de forma inesperada (`resposta-invalida-do-parceiro`).
           content:
             application/problem+json:
               schema:

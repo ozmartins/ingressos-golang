@@ -24,6 +24,10 @@ const (
 	tipoSessaoDesconhecida    = "sessao-desconhecida"
 	tipoPoltronasIndisponivel = "poltronas-indisponiveis"
 	tipoDependencia           = "dependencia-indisponivel"
+	tipoSessaoNaoEncontrada   = "sessao-nao-encontrada"
+	tipoSessaoNaoReservavel   = "sessao-nao-reservavel"
+	tipoCatalogoIndisponivel  = "catalogo-indisponivel"
+	tipoRespostaInvalida      = "resposta-invalida-do-parceiro"
 	tipoInterno               = "erro-interno"
 )
 
@@ -80,6 +84,24 @@ func responderErroDeDominio(w http.ResponseWriter, r *http.Request, err error, l
 	case errors.Is(err, shared.ErrSessaoDesconhecida):
 		escreverProblem(w, r, http.StatusNotFound, tipoSessaoDesconhecida,
 			"Sessão desconhecida", "sessão desconhecida", nil)
+
+	case errors.Is(err, shared.ErrSessaoNaoEncontrada):
+		escreverProblem(w, r, http.StatusNotFound, tipoSessaoNaoEncontrada,
+			"Sessão não encontrada", "sessão não encontrada", nil)
+
+	case errors.Is(err, shared.ErrSessaoNaoReservavel):
+		escreverProblem(w, r, http.StatusUnprocessableEntity, tipoSessaoNaoReservavel,
+			"Sessão não aceita reservas", err.Error(), nil)
+
+	case errors.Is(err, shared.ErrCatalogoIndisponivel):
+		escreverProblem(w, r, http.StatusServiceUnavailable, tipoCatalogoIndisponivel,
+			"Serviço temporariamente indisponível",
+			"serviço temporariamente indisponível; tente novamente em instantes", nil)
+
+	case errors.Is(err, shared.ErrRespostaInvalidaDoCatalogo):
+		escreverProblem(w, r, http.StatusBadGateway, tipoRespostaInvalida,
+			"Resposta inválida do serviço parceiro",
+			"não foi possível confirmar a sessão junto ao catálogo", nil)
 
 	case errors.Is(err, shared.ErrDependenciaIndisponivel):
 		escreverProblem(w, r, http.StatusServiceUnavailable, tipoDependencia,

@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/catalogo"
-	"github.com/oseias/ingressos-golang/catalogo/internal/domain/reserva"
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/shared"
 )
 
@@ -276,17 +275,4 @@ func (d sessaoEntradaDTO) paraDadosSessao() (catalogo.DadosSessao, error) {
 		dados.DataHoraInicio = inicio
 	}
 	return dados, nil
-}
-
-type solicitacaoReservaDTO struct {
-	PoltronasIDs []string `json:"poltronas_ids"`
-}
-
-type reservaConfirmadaDTO struct {
-	ReservaID string `json:"reserva_id"`
-	ExpiraEm  string `json:"expira_em"`
-}
-
-func paraReservaDTO(r reserva.ResultadoReserva) reservaConfirmadaDTO {
-	return reservaConfirmadaDTO{ReservaID: r.ReservaID, ExpiraEm: r.ExpiraEm.UTC().Format(time.RFC3339)}
 }

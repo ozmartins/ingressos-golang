@@ -16,7 +16,6 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 
 	adaptadoramqp "github.com/oseias/ingressos-golang/catalogo/internal/adapter/amqp"
-	"github.com/oseias/ingressos-golang/catalogo/internal/adapter/estoque"
 	adapterhttp "github.com/oseias/ingressos-golang/catalogo/internal/adapter/http"
 	"github.com/oseias/ingressos-golang/catalogo/internal/adapter/identidade"
 	"github.com/oseias/ingressos-golang/catalogo/internal/adapter/postgres"
@@ -73,23 +72,6 @@ func executar() error {
 		return err
 	}
 
-	clienteEstoque, err := estoque.NovoCliente(estoque.Opcoes{
-		Endereco:        cfg.EstoqueGRPCAddr,
-		Timeout:         cfg.EstoqueTimeout,
-		FalhasParaAbrir: cfg.BreakerFalhasConsecutivas,
-		IntervaloAberto: cfg.BreakerIntervaloAberto,
-		Metricas:        metricas,
-		CAFile:          cfg.EstoqueTLSCAFile,
-		CertFile:        cfg.EstoqueTLSCertFile,
-		KeyFile:         cfg.EstoqueTLSKeyFile,
-	})
-
-	if err != nil {
-		return err
-	}
-
-	defer func() { _ = clienteEstoque.Fechar() }()
-
 	broker, err := adaptadoramqp.Conectar(cfg.RabbitMQURL)
 
 	if err != nil {
@@ -142,11 +124,6 @@ func executar() error {
 			},
 			RemoverSessao: usecase.RemoverSessao{
 				Repo: sessoes, Agora: time.Now, TraceContextDe: contextoDeRastreamento,
-			},
-			ReservarPoltronas: usecase.ReservarPoltronas{
-				Sessoes: sessoes,
-				Estoque: clienteEstoque,
-				Agora:   time.Now,
 			},
 			Limites: adapterhttp.LimitesPaginacao{
 				Padrao: cfg.PaginacaoTamanhoPadrao,

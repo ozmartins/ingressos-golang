@@ -3,8 +3,9 @@ info:
   title: Servico-Catalogo API
   version: 1.0.0
   description: |
-    API pública de navegação do catálogo de cinema e ponte síncrona para a reserva
-    de poltronas no Servico-Estoque.
+    API pública de navegação e cadastro do catálogo de cinema. A reserva de
+    poltronas é do Servico-Estoque, que consulta a sessão (`GET /sessoes/{id}`)
+    por aqui para saber preço e status.
 
     Duas escolhas que valem para toda a API:
       1. Coleções respondem com envelope de paginação, não com array nu.
@@ -19,7 +20,6 @@ tags:
   - name: Cinemas
   - name: Salas
   - name: Sessões
-  - name: Reservas
   - name: Operacional
 
 paths:
@@ -381,35 +381,6 @@ paths:
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
 
-  /sessoes/{id}/reservar:
-    post:
-      tags: [Reservas]
-      security:
-        - clientCredentials: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/SolicitacaoReserva' }
-      responses:
-        '201':
-          description: Poltronas reservadas
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ReservaConfirmada' }
-        '400': { $ref: '#/components/responses/EntradaInvalida' }
-        '401': { $ref: '#/components/responses/NaoAutenticado' }
-        '404': { $ref: '#/components/responses/NaoEncontrado' }
-        '409': { $ref: '#/components/responses/Conflito' }
-        '422': { $ref: '#/components/responses/SessaoNaoReservavel' }
-        '502': { $ref: '#/components/responses/RespostaInvalidaDoParceiro' }
-        '503': { $ref: '#/components/responses/IndisponibilidadeTemporaria' }
-
   /health:
     # A sonda de saúde vive na raiz, fora do prefixo versionado: quem a consome é
     # o orquestrador, não o cliente da API, e ela não segue o ciclo de vida da v1.
@@ -738,27 +709,6 @@ components:
         itens: { type: array, items: { $ref: '#/components/schemas/SessaoNaGrade' } }
         pagina: { $ref: '#/components/schemas/Paginacao' }
 
-    SolicitacaoReserva:
-      type: object
-      required: [poltronas_ids]
-      properties:
-        poltronas_ids:
-          type: array
-          minItems: 1
-          uniqueItems: true
-          items: { type: string }
-          example: ['A1', 'A2']
-
-    ReservaConfirmada:
-      type: object
-      required: [reserva_id, expira_em]
-      properties:
-        reserva_id: { type: string, format: uuid }
-        expira_em:
-          type: string
-          format: date-time
-          description: Instante de expiração devolvido pelo Servico-Estoque
-
     Problem:
       type: object
       description: RFC 9457
@@ -797,23 +747,8 @@ components:
           schema: { $ref: '#/components/schemas/Problem' }
     Conflito:
       description: |
-        Conflito com o estado atual: poltrona já tomada, número de sala repetido
-        ou sala ocupada no horário.
-      content:
-        application/problem+json:
-          schema: { $ref: '#/components/schemas/Problem' }
-    SessaoNaoReservavel:
-      description: Sessão existe mas não aceita reservas (já iniciada, finalizada ou cancelada)
-      content:
-        application/problem+json:
-          schema: { $ref: '#/components/schemas/Problem' }
-    RespostaInvalidaDoParceiro:
-      description: Servico-Estoque respondeu sucesso sem os dados obrigatórios da reserva
-      content:
-        application/problem+json:
-          schema: { $ref: '#/components/schemas/Problem' }
-    IndisponibilidadeTemporaria:
-      description: Servico-Estoque indisponível, tempo excedido ou em recusa rápida
+        Conflito com o estado atual: número de sala repetido ou sala ocupada no
+        horário.
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }

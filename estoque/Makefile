@@ -1,7 +1,7 @@
 GO ?= go
 PKG := ./...
 
-.PHONY: build test test-integration lint proto migrate-up migrate-down run certs \
+.PHONY: build test test-integration lint migrate-up migrate-down run \
         publicar-sessao publicar-pagamento
 
 build:
@@ -16,9 +16,6 @@ test-integration:
 lint:
 	golangci-lint run
 
-proto:
-	buf generate
-
 # A tabela de controle do migrate (`schema_migrations`) fica no schema do
 # serviço, fixada pelo `search_path`, e não em `public`: o banco `cinema` é
 # compartilhado pelos quatro serviços, e em `public` os quatro disputariam a
@@ -31,9 +28,6 @@ migrate-up:
 
 migrate-down:
 	migrate -path migrations -database "$(MIGRATE_URL)" down 1
-
-certs:
-	./scripts/gerar-certs.sh
 
 run: build
 	./bin/estoque

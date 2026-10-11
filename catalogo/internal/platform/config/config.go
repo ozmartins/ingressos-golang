@@ -9,8 +9,6 @@ import (
 	"time"
 )
 
-const TimeoutEstoqueMaximo = 2 * time.Second
-
 type Config struct {
 	HTTPPort string
 
@@ -19,19 +17,9 @@ type Config struct {
 	KeycloakIssuerURL string
 	KeycloakAudience  string
 
-	EstoqueGRPCAddr string
-	EstoqueTimeout  time.Duration
-
-	EstoqueTLSCAFile   string
-	EstoqueTLSCertFile string
-	EstoqueTLSKeyFile  string
-
 	RabbitMQURL     string
 	OutboxIntervalo time.Duration
 	OutboxLote      int
-
-	BreakerFalhasConsecutivas uint32
-	BreakerIntervaloAberto    time.Duration
 
 	PaginacaoTamanhoPadrao int
 	PaginacaoTamanhoMaximo int
@@ -53,14 +41,10 @@ func Carregar() (Config, error) {
 		DatabaseURL:       os.Getenv("DATABASE_URL"),
 		KeycloakIssuerURL: os.Getenv("KEYCLOAK_ISSUER_URL"),
 		KeycloakAudience:  os.Getenv("KEYCLOAK_AUDIENCE"),
-		EstoqueGRPCAddr:   os.Getenv("ESTOQUE_GRPC_ADDR"),
 		RabbitMQURL:       os.Getenv("RABBITMQ_URL"),
 
-		EstoqueTLSCAFile:   os.Getenv("ESTOQUE_TLS_CA_FILE"),
-		EstoqueTLSCertFile: os.Getenv("ESTOQUE_TLS_CERT_FILE"),
-		EstoqueTLSKeyFile:  os.Getenv("ESTOQUE_TLS_KEY_FILE"),
-		OTLPEndpoint:       os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
-		LogLevel:           comPadrao("LOG_LEVEL", "info"),
+		OTLPEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+		LogLevel:     comPadrao("LOG_LEVEL", "info"),
 	}
 
 	for _, obrigatorio := range []struct {
@@ -70,43 +54,11 @@ func Carregar() (Config, error) {
 		{"DATABASE_URL", c.DatabaseURL},
 		{"KEYCLOAK_ISSUER_URL", c.KeycloakIssuerURL},
 		{"KEYCLOAK_AUDIENCE", c.KeycloakAudience},
-		{"ESTOQUE_GRPC_ADDR", c.EstoqueGRPCAddr},
 		{"RABBITMQ_URL", c.RabbitMQURL},
-		{"ESTOQUE_TLS_CA_FILE", c.EstoqueTLSCAFile},
-		{"ESTOQUE_TLS_CERT_FILE", c.EstoqueTLSCertFile},
-		{"ESTOQUE_TLS_KEY_FILE", c.EstoqueTLSKeyFile},
 	} {
 		if strings.TrimSpace(obrigatorio.valor) == "" {
 			falhas = append(falhas, erroCampo{obrigatorio.campo, "obrigatória e ausente"})
 		}
-	}
-
-	timeout, err := duracao("ESTOQUE_TIMEOUT", 2*time.Second)
-	switch {
-	case err != nil:
-		falhas = append(falhas, erroCampo{"ESTOQUE_TIMEOUT", err.Error()})
-	case timeout <= 0:
-		falhas = append(falhas, erroCampo{"ESTOQUE_TIMEOUT", "deve ser maior que zero"})
-	case timeout > TimeoutEstoqueMaximo:
-		falhas = append(falhas, erroCampo{"ESTOQUE_TIMEOUT", fmt.Sprintf("acima do teto de %s exigido pela especificação", TimeoutEstoqueMaximo)})
-	default:
-		c.EstoqueTimeout = timeout
-	}
-
-	if v, err := inteiro("BREAKER_FALHAS_CONSECUTIVAS", 5); err != nil {
-		falhas = append(falhas, erroCampo{"BREAKER_FALHAS_CONSECUTIVAS", err.Error()})
-	} else if v < 1 {
-		falhas = append(falhas, erroCampo{"BREAKER_FALHAS_CONSECUTIVAS", "deve ser maior ou igual a 1"})
-	} else {
-		c.BreakerFalhasConsecutivas = uint32(v)
-	}
-
-	if v, err := duracao("BREAKER_INTERVALO_ABERTO", 30*time.Second); err != nil {
-		falhas = append(falhas, erroCampo{"BREAKER_INTERVALO_ABERTO", err.Error()})
-	} else if v <= 0 {
-		falhas = append(falhas, erroCampo{"BREAKER_INTERVALO_ABERTO", "deve ser maior que zero"})
-	} else {
-		c.BreakerIntervaloAberto = v
 	}
 
 	if v, err := duracao("OUTBOX_INTERVALO", time.Second); err != nil {

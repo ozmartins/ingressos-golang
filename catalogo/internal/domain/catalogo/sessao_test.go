@@ -8,35 +8,6 @@ import (
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/shared"
 )
 
-func TestAceitaReserva(t *testing.T) {
-	agora := time.Date(2026, 9, 1, 20, 0, 0, 0, time.UTC)
-	futuro := agora.Add(2 * time.Hour)
-	passado := agora.Add(-2 * time.Hour)
-
-	casos := []struct {
-		nome     string
-		status   StatusSessao
-		inicio   time.Time
-		esperado bool
-	}{
-		{"agendada e futura", SessaoAgendada, futuro, true},
-		{"agendada mas já começou", SessaoAgendada, passado, false},
-		{"agendada começando exatamente agora", SessaoAgendada, agora, false},
-		{"em andamento", SessaoEmAndamento, passado, false},
-		{"em andamento com início futuro (dado inconsistente)", SessaoEmAndamento, futuro, false},
-		{"finalizada", SessaoFinalizada, passado, false},
-		{"cancelada", SessaoCancelada, futuro, false},
-	}
-	for _, c := range casos {
-		t.Run(c.nome, func(t *testing.T) {
-			s := Sessao{Status: c.status, DataHoraInicio: c.inicio}
-			if got := s.AceitaReserva(agora); got != c.esperado {
-				t.Fatalf("esperava %v, obteve %v", c.esperado, got)
-			}
-		})
-	}
-}
-
 func TestParseStatusFilme(t *testing.T) {
 	for _, v := range []string{"EM_CARTAZ", "BREVE", "FORA_DE_CARTAZ"} {
 		if _, err := ParseStatusFilme(v); err != nil {

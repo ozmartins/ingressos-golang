@@ -15,9 +15,9 @@ linters:
       rules:
         # Regras padrão úteis, exceto `exported`.
         #
-        # Este código comenta onde o comentário explica uma decisão — por que a
-        # reserva não retenta, por que o preço não é float, por que a leitura não
-        # tem cache. Exigir doc em todo símbolo exportado produziria linhas como
+        # Este código comenta onde o comentário explica uma decisão — por que o
+        # preço não é float, por que a leitura não tem cache. Exigir doc em todo
+        # símbolo exportado produziria linhas como
         # "// NovoCliente cria um novo cliente", que diluem os comentários que de
         # fato carregam informação.
         - name: blank-imports

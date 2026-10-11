@@ -65,10 +65,6 @@ type Sessao struct {
 	Status         StatusSessao
 }
 
-func (s Sessao) AceitaReserva(agora time.Time) bool {
-	return s.Status == SessaoAgendada && s.DataHoraInicio.After(agora)
-}
-
 func (s Sessao) FimPrevisto(duracaoMinutos int) time.Time {
 	return s.DataHoraInicio.Add(time.Duration(duracaoMinutos) * time.Minute)
 }

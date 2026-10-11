@@ -19,3 +19,13 @@ var (
 
 	ErrDependenciaIndisponivel = errors.New("dependência indisponível")
 )
+
+var (
+	ErrSessaoNaoEncontrada = errors.New("sessão não encontrada no catálogo")
+
+	ErrSessaoNaoReservavel = errors.New("sessão não aceita reservas")
+
+	ErrCatalogoIndisponivel = errors.New("catálogo indisponível")
+
+	ErrRespostaInvalidaDoCatalogo = errors.New("resposta inválida do catálogo")
+)

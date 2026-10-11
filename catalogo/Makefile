@@ -1,7 +1,7 @@
 GO ?= go
 PKG := ./...
 
-.PHONY: build test test-integration lint proto migrate-up migrate-down run
+.PHONY: build test test-integration lint migrate-up migrate-down run
 
 build:
 	$(GO) build -o bin/catalogo ./cmd/catalogo
@@ -14,9 +14,6 @@ test-integration:
 
 lint:
 	golangci-lint run
-
-proto:
-	buf generate
 
 # A tabela de controle do migrate (`schema_migrations`) fica no schema do
 # serviço, fixada pelo `search_path`, e não em `public`: o banco `cinema` é

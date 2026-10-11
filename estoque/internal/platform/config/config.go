@@ -9,19 +9,11 @@ import (
 	"time"
 )
 
-type ModoTLS string
-
-const (
-	TLSExigido   ModoTLS = "require"
-	TLSDesligado ModoTLS = "off"
-)
-
 type Config struct {
 	DatabaseURL string
 	RedisURL    string
 	RabbitMQURL string
 
-	GRPCAddr  string
 	AdminAddr string
 	HTTPAddr  string
 
@@ -29,10 +21,10 @@ type Config struct {
 	JWTIssuer   string
 	JWTAudience string
 
-	TLSCertFile     string
-	TLSKeyFile      string
-	TLSClientCAFile string
-	TLSClientAuth   ModoTLS
+	CatalogoURL      string
+	CatalogoTimeout  time.Duration
+	BreakerFalhas    int
+	BreakerIntervalo time.Duration
 
 	ReservaTTL                 time.Duration
 	PoltronasMaxPorBloqueio    int
@@ -99,7 +91,6 @@ func Carregar() (*Config, error) {
 		RedisURL:    c.comPadrao("REDIS_URL", ""),
 		RabbitMQURL: c.obrigatoria("RABBITMQ_URL"),
 
-		GRPCAddr:  c.comPadrao("GRPC_ADDR", ":50051"),
 		AdminAddr: c.comPadrao("ADMIN_ADDR", ":8090"),
 		HTTPAddr:  c.comPadrao("HTTP_ADDR", ":8085"),
 
@@ -107,10 +98,10 @@ func Carregar() (*Config, error) {
 		JWTIssuer:   c.obrigatoria("JWT_ISSUER"),
 		JWTAudience: c.obrigatoria("JWT_AUDIENCE"),
 
-		TLSCertFile:     c.comPadrao("TLS_CERT_FILE", ""),
-		TLSKeyFile:      c.comPadrao("TLS_KEY_FILE", ""),
-		TLSClientCAFile: c.comPadrao("TLS_CLIENT_CA_FILE", ""),
-		TLSClientAuth:   ModoTLS(c.comPadrao("TLS_CLIENT_AUTH", string(TLSExigido))),
+		CatalogoURL:      c.obrigatoria("CATALOGO_URL"),
+		CatalogoTimeout:  c.duracao("CATALOGO_TIMEOUT", "2s"),
+		BreakerFalhas:    c.inteiro("BREAKER_FALHAS_CONSECUTIVAS", "5"),
+		BreakerIntervalo: c.duracao("BREAKER_INTERVALO_ABERTO", "30s"),
 
 		ReservaTTL:                 c.duracao("RESERVA_TTL", "10m"),
 		PoltronasMaxPorBloqueio:    c.inteiro("POLTRONAS_MAX_POR_BLOQUEIO", "10"),
@@ -120,22 +111,6 @@ func Carregar() (*Config, error) {
 
 		OTLPEndpoint: c.comPadrao("OTEL_EXPORTER_OTLP_ENDPOINT", ""),
 		LogLevel:     c.comPadrao("LOG_LEVEL", "info"),
-	}
-
-	switch cfg.TLSClientAuth {
-	case TLSExigido:
-		if cfg.TLSCertFile == "" {
-			c.falta("TLS_CERT_FILE", "obrigatório quando TLS_CLIENT_AUTH=require")
-		}
-		if cfg.TLSKeyFile == "" {
-			c.falta("TLS_KEY_FILE", "obrigatório quando TLS_CLIENT_AUTH=require")
-		}
-		if cfg.TLSClientCAFile == "" {
-			c.falta("TLS_CLIENT_CA_FILE", "obrigatório quando TLS_CLIENT_AUTH=require")
-		}
-	case TLSDesligado:
-	default:
-		c.falta("TLS_CLIENT_AUTH", fmt.Sprintf("valor não reconhecido (%q); use require ou off", cfg.TLSClientAuth))
 	}
 
 	if len(c.erros) > 0 {

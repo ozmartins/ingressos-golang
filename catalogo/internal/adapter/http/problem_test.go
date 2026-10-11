@@ -36,15 +36,8 @@ func TestTodasAsCategoriasDoContrato(t *testing.T) {
 		{catSalaNaoEncontrada, http.StatusNotFound},
 		{catFilmeNaoEncontrado, http.StatusNotFound},
 		{catSessaoNaoEncontrada, http.StatusNotFound},
-		{catSessaoNaoReservavel, http.StatusUnprocessableEntity},
 		{catConflito, http.StatusConflict},
-		{catPoltronasIndisp, http.StatusConflict},
-		{catReservaRecusada, http.StatusBadRequest},
-		{catPoltronaInexistente, http.StatusUnprocessableEntity},
-		{catSessaoSemPoltronas, http.StatusUnprocessableEntity},
-		{catEstoqueIndisponivel, http.StatusServiceUnavailable},
 		{catBancoIndisponivel, http.StatusServiceUnavailable},
-		{catRespostaInvalida, http.StatusBadGateway},
 		{catErroInterno, http.StatusInternalServerError},
 	}
 	if len(casos) != len(categorias) {
@@ -93,15 +86,7 @@ func TestErroDeDominioMapeiaParaCategoria(t *testing.T) {
 		{fmt.Errorf("%w: page inválida", shared.ErrValidacao), "", catParametroInvalido, 400},
 		{shared.ErrNaoEncontrado, "cinema", catCinemaNaoEncontrado, 404},
 		{shared.ErrNaoEncontrado, "sessao", catSessaoNaoEncontrada, 404},
-		{shared.ErrSessaoNaoReservavel, "", catSessaoNaoReservavel, 422},
-		{shared.ErrPoltronasIndisponiveis, "", catPoltronasIndisp, 409},
-		{shared.ErrPoltronaInexistente, "", catPoltronaInexistente, 422},
-		{shared.ErrSessaoSemPoltronas, "", catSessaoSemPoltronas, 422},
-		{fmt.Errorf("%w: no máximo 10 poltronas por reserva", shared.ErrSolicitacaoRecusadaPeloEstoque), "", catReservaRecusada, 400},
-		{shared.ErrEstoqueComDefeito, "", catRespostaInvalida, 502},
-		{shared.ErrEstoqueIndisponivel, "", catEstoqueIndisponivel, 503},
 		{fmt.Errorf("lendo filme: %w", fmt.Errorf("%w: dial tcp 10.0.0.5:5432: connection refused", shared.ErrBancoIndisponivel)), "filme", catBancoIndisponivel, 503},
-		{shared.ErrRespostaInvalidaDoParceiro, "", catRespostaInvalida, 502},
 		{errors.New("qualquer coisa inesperada"), "", catErroInterno, 500},
 	}
 	for _, c := range casos {

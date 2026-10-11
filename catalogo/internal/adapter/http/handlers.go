@@ -9,36 +9,33 @@ import (
 	"strings"
 	"time"
 
-	"github.com/oseias/ingressos-golang/catalogo/internal/adapter/http/middleware"
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/catalogo"
-	"github.com/oseias/ingressos-golang/catalogo/internal/domain/reserva"
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/shared"
 	"github.com/oseias/ingressos-golang/catalogo/internal/usecase"
 )
 
 type Handlers struct {
-	ListarFilmes      usecase.ListarFilmes
-	BuscarFilme       usecase.BuscarFilme
-	CriarFilme        usecase.CriarFilme
-	AtualizarFilme    usecase.AtualizarFilme
-	RemoverFilme      usecase.RemoverFilme
-	ListarCinemas     usecase.ListarCinemas
-	BuscarCinema      usecase.BuscarCinema
-	CriarCinema       usecase.CriarCinema
-	AtualizarCinema   usecase.AtualizarCinema
-	RemoverCinema     usecase.RemoverCinema
-	ListarSalas       usecase.ListarSalas
-	BuscarSala        usecase.BuscarSala
-	CriarSala         usecase.CriarSala
-	AtualizarSala     usecase.AtualizarSala
-	RemoverSala       usecase.RemoverSala
-	ConsultarSessoes  usecase.ConsultarSessoes
-	BuscarSessao      usecase.BuscarSessao
-	CriarSessao       usecase.CriarSessao
-	AtualizarSessao   usecase.AtualizarSessao
-	RemoverSessao     usecase.RemoverSessao
-	ReservarPoltronas usecase.ReservarPoltronas
-	Limites           LimitesPaginacao
+	ListarFilmes     usecase.ListarFilmes
+	BuscarFilme      usecase.BuscarFilme
+	CriarFilme       usecase.CriarFilme
+	AtualizarFilme   usecase.AtualizarFilme
+	RemoverFilme     usecase.RemoverFilme
+	ListarCinemas    usecase.ListarCinemas
+	BuscarCinema     usecase.BuscarCinema
+	CriarCinema      usecase.CriarCinema
+	AtualizarCinema  usecase.AtualizarCinema
+	RemoverCinema    usecase.RemoverCinema
+	ListarSalas      usecase.ListarSalas
+	BuscarSala       usecase.BuscarSala
+	CriarSala        usecase.CriarSala
+	AtualizarSala    usecase.AtualizarSala
+	RemoverSala      usecase.RemoverSala
+	ConsultarSessoes usecase.ConsultarSessoes
+	BuscarSessao     usecase.BuscarSessao
+	CriarSessao      usecase.CriarSessao
+	AtualizarSessao  usecase.AtualizarSessao
+	RemoverSessao    usecase.RemoverSessao
+	Limites          LimitesPaginacao
 }
 
 func escreverJSON(w http.ResponseWriter, r *http.Request, codigo int, corpo any) {
@@ -492,39 +489,6 @@ func escreverErroDeEscritaDeSessao(w http.ResponseWriter, r *http.Request, err e
 		return
 	}
 	EscreverErroDeDominio(w, r, err, "sessao")
-}
-
-func (h Handlers) PostReservar(w http.ResponseWriter, r *http.Request) {
-	sessaoID := r.PathValue("id")
-	if err := validarUUID(sessaoID, "id"); err != nil {
-		EscreverErroDeDominio(w, r, err, "")
-		return
-	}
-
-	var corpo solicitacaoReservaDTO
-	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64*1024))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&corpo); err != nil {
-		EscreverProblem(w, r, catCorpoInvalido, "Corpo da requisição não é um JSON válido para esta operação.")
-		return
-	}
-
-	solicitacao := reserva.SolicitacaoReserva{
-		SessaoID:     sessaoID,
-		PoltronasIDs: corpo.PoltronasIDs,
-		UsuarioID:    middleware.UsuarioDoContexto(r.Context()),
-	}
-
-	resultado, err := h.ReservarPoltronas.Executar(r.Context(), solicitacao)
-	if err != nil {
-		if errors.Is(err, shared.ErrValidacao) {
-			EscreverProblem(w, r, catCorpoInvalido, mensagemLimpa(err))
-			return
-		}
-		EscreverErroDeDominio(w, r, err, "sessao")
-		return
-	}
-	escreverJSON(w, r, http.StatusCreated, paraReservaDTO(resultado))
 }
 
 func validarUUID(v, campo string) error {

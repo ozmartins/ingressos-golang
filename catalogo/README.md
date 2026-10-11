@@ -1,9 +1,10 @@
 # Servico-Catalogo
 
 Ponto de entrada para clientes navegarem pelo catálogo de filmes, cinemas, salas
-e sessões, e para iniciarem a reserva de poltronas. Expõe uma API REST pública,
-atua como cliente gRPC do `Servico-Estoque` no momento da reserva — por um canal
-mTLS — e anuncia no RabbitMQ a sessão criada, com a planta da sala.
+e sessões. Expõe uma API REST pública e anuncia no RabbitMQ a sessão criada, com
+a planta da sala. A reserva de poltronas não é daqui: é do `Servico-Estoque`,
+que consulta a sessão neste serviço (`GET /api/v1/sessoes/{id}`) para saber
+preço e status.
 
 Regras que valem para quem for mexer no código: a entrega de um fato é ao menos
 uma vez, e nunca exatamente uma; nada de complexidade além da necessária; domínio e
@@ -26,17 +27,6 @@ Quem já leu `ers-catalogo.md` precisa saber destas duas mudanças deliberadas:
    recurso tem os quatro verbos (ver abaixo). O `DELETE` é lógico — o filme
    passa a `FORA_DE_CARTAZ` — porque as sessões gravadas referenciam o filme e
    apagá-lo romperia a grade.
-
-## A dependência externa é gRPC, não REST
-
-Conforme a ERS (seção 5), o único serviço chamado pelo catálogo é o
-`Servico-Estoque`, por gRPC com mTLS (contrato em `proto/estoque/estoque.proto`).
-Os cuidados que se esperam de um cliente de serviço externo estão no lugar
-equivalente: timeout por `context` (`ESTOQUE_TIMEOUT`, teto de 2s), circuit
-breaker, e tradução do código de status gRPC em erro de negócio ou de
-indisponibilidade (`internal/adapter/estoque/categorias.go`). Não há `http.Client`
-nem corpo de resposta a fechar; o único tráfego HTTP de saída é a descoberta do
-emissor Keycloak, feita pela biblioteca `go-oidc`.
 
 ## O fato `sessao.criada`
 
@@ -61,62 +51,20 @@ broker confirmar. Disso decorrem três coisas que quem integra precisa saber:
 O contexto de rastreamento da requisição viaja nos cabeçalhos da mensagem, de
 modo que o span de quem consome não nasça órfão.
 
-## O canal com o estoque
+## A reserva mora no estoque
 
-A reserva é a única chamada síncrona que este serviço faz, e ela vai ao
-`Servico-Estoque` por gRPC sobre **mTLS**: o estoque exige certificado de
-cliente, e é por ele que sabe quem está chamando — o `usuario_id` vai no corpo
-justamente porque a identidade do serviço vem do certificado, não do payload.
+Este serviço não reserva nada e não chama nenhum outro serviço de forma
+síncrona; o único tráfego HTTP de saída é a descoberta do emissor Keycloak,
+feita pela biblioteca `go-oidc`. Quem reserva é o `Servico-Estoque`
+(`POST /api/v1/sessoes/{id}/bloqueios`), que:
 
-O material é de desenvolvimento e sai de `make certs` no estoque, que emite um
-par de cliente com `CN=servico-catalogo` assinado pela mesma CA do servidor. O
-diretório `estoque/certs/` **não é versionado**, então gerar os certificados é
-pré-requisito para subir o catálogo — não só o estoque.
+- lê aqui a sessão (`preco_base`, `status`, `data_hora_inicio`) — rota pública;
+- recusa a reserva se a sessão não está `AGENDADA` ou já começou;
+- calcula `valor_total` como `preco_base × número de poltronas`.
 
-Sem as três variáveis de certificado o processo recusa subir, como qualquer outra
-configuração obrigatória. Não há modo em texto claro.
-
-### A culpa fica onde é
-
-O estoque distingue, no contrato de erros dele, o que **decidiu negar** do que
-**nele falhou**, e o catálogo preserva essa distinção em vez de achatar tudo em
-"estoque indisponível":
-
-| O que aconteceu | Resposta |
-|---|---|
-| A poltrona está tomada | `409 poltronas-indisponiveis` |
-| Rótulo fora do formato, ou mais poltronas que o limite | `400 reserva-recusada` |
-| A poltrona não existe na sessão | `422 poltrona-inexistente` |
-| A sessão ainda não tem matriz de poltronas | `422 sessao-sem-poltronas` |
-| Estoque fora do ar, timeout, ou disjuntor aberto | `503 estoque-indisponivel` |
-| Defeito interno do estoque | `502 resposta-invalida-do-parceiro` |
-
-Isso ficou escondido enquanto o catálogo falava com um dublê que nunca devolvia
-erro de gRPC: todas essas situações chegavam como `503`, mandando o cliente
-tentar de novo quando o defeito estava na própria solicitação.
-
-O `502` para defeito do estoque não é escolha de estilo: o contrato dele diz que
-repetir um `INTERNAL` não tem por que dar certo, e o `503` — "tente novamente em
-instantes" — prometeria o contrário.
-
-A tradução olha a `reason` do `ErrorInfo`, nunca o texto da mensagem, porque só a
-primeira é parte do contrato.
-
-**E recusa não abre o disjuntor.** A recusa rápida existe para poupar parceiro
-doente; entrada inválida repetida não é doença do parceiro. Sem essa distinção,
-cinco solicitações malformadas seguidas abriam o circuito e tiravam a reserva do
-ar para todos, por conta de um cliente só.
-
-## O preço da reserva sai daqui
-
-`POST /sessoes/{id}/reservar` não recebe preço: o corpo pede poltronas, e o
-serviço calcula `valor_total` como o `preco_base` da sessão vezes o número de
-poltronas — a mesma escolha feita com `capacidade_total`, e pelo mesmo motivo. O
-valor segue ao estoque na solicitação de bloqueio e chega a quem cobra pelo fato
-`reserva.criada`.
-
-Este serviço é a autoridade do preço porque é o dono do cadastro da sessão.
-Recalculá-lo em qualquer outro lugar duplicaria a regra.
+Este serviço continua sendo a autoridade do preço, por ser o dono do cadastro
+da sessão; o estoque só o lê. O ciclo de vida da sessão chega ao estoque por
+fatos (`sessao.criada`, `sessao.cancelada`), não por chamada.
 
 ## Superfície da API
 
@@ -138,7 +86,6 @@ Recalculá-lo em qualquer outro lugar duplicaria a regra.
 | `PUT` | `/api/v1/salas/{id}` | Bearer |
 | `DELETE` | `/api/v1/salas/{id}` | Bearer |
 | `GET` | `/api/v1/sessoes` | pública |
-| `POST` | `/api/v1/sessoes/{id}/reservar` | Bearer |
 | `GET` | `/health` | pública |
 
 Sobre a escrita de filmes: o identificador é gerado pelo serviço e volta no
@@ -181,7 +128,7 @@ planta desativa a sala e cadastra outra: o número volta a ficar livre.
 
 O compose da raiz do repositório sobe o catálogo com tudo de que ele depende —
 Keycloak (com o realm `cinema` já importado de `keycloak/realm-cinema.json`), o
-estoque simulado, o PostgreSQL e as migrações. Os quatro serviços dividem uma
+PostgreSQL e as migrações. Os quatro serviços dividem uma
 instância e um banco (`cinema`), cada um dono do seu schema; os papéis e schemas
 nascem em `../infra/postgres/init/`, aplicado no primeiro boot do volume. Os
 dados ficam no volume `postgres-dados` e sobrevivem a `docker compose down` —
@@ -220,7 +167,7 @@ O contrato não é gerado a partir do código: ele é escrito à mão em
 e servido como está. `make test` falha se o contrato descrever uma rota que o roteador não registra (ou o
 contrário).
 
-As rotas protegidas (a escrita de filmes e `POST /sessoes/{id}/reservar`)
+As rotas protegidas (a escrita de filmes, cinemas, salas e sessões)
 aceitam duas credenciais, ambas validadas do mesmo jeito: assinatura RS256
 conferida contra o JWKS do realm, mais `iss`, `aud` e expiração.
 
@@ -262,16 +209,11 @@ verificação. O console de admin continua em `http://localhost:8081` (admin/adm
 ### Rodando o serviço fora do contêiner
 
 ```bash
-(cd ../estoque && make certs)   # material de desenvolvimento; não é versionado
-docker compose -f ../docker-compose.yml up -d keycloak estoque rabbitmq migrate-catalogo
+docker compose -f ../docker-compose.yml up -d keycloak rabbitmq migrate-catalogo
 echo "127.0.0.1 keycloak" | sudo tee -a /etc/hosts   # uma vez, pelo emissor fixo
 export DATABASE_URL="postgres://catalogo:catalogo@localhost:5434/cinema?sslmode=disable"   # precisa da query string: `make migrate-up` anexa `&search_path=catalogo`
 export KEYCLOAK_ISSUER_URL="http://keycloak:8081/realms/cinema"
 export KEYCLOAK_AUDIENCE="cinema-app"
-export ESTOQUE_GRPC_ADDR="localhost:50051"
-export ESTOQUE_TLS_CA_FILE="../estoque/certs/ca.pem"
-export ESTOQUE_TLS_CERT_FILE="../estoque/certs/cliente.pem"
-export ESTOQUE_TLS_KEY_FILE="../estoque/certs/cliente-key.pem"
 export RABBITMQ_URL="amqp://guest:guest@localhost:5672/"
 export HTTP_PORT=8082
 make run
@@ -284,12 +226,8 @@ A imagem sobe apenas com variáveis de ambiente, sem arquivo de configuração:
 ```bash
 docker build -t servico-catalogo .
 docker run --rm -p 8080:8080 \
-  -v "$PWD/../estoque/certs:/certs:ro" \
   -e DATABASE_URL="..." -e KEYCLOAK_ISSUER_URL="..." \
-  -e KEYCLOAK_AUDIENCE="cinema-app" -e ESTOQUE_GRPC_ADDR="estoque:50051" \
-  -e ESTOQUE_TLS_CA_FILE="/certs/ca.pem" \
-  -e ESTOQUE_TLS_CERT_FILE="/certs/cliente.pem" \
-  -e ESTOQUE_TLS_KEY_FILE="/certs/cliente-key.pem" \
+  -e KEYCLOAK_AUDIENCE="cinema-app" \
   -e RABBITMQ_URL="amqp://guest:guest@rabbitmq:5672/" \
   servico-catalogo
 curl -s localhost:8080/health
@@ -305,10 +243,6 @@ malformada, e a mensagem lista todas as pendências de uma vez:
 | `DATABASE_URL` | Conexão com o PostgreSQL (o `search_path` é fixado no código, no schema `catalogo`) |
 | `KEYCLOAK_ISSUER_URL` | Emissor OIDC das credenciais |
 | `KEYCLOAK_AUDIENCE` | Audiência esperada no token |
-| `ESTOQUE_GRPC_ADDR` | Endereço gRPC do `Servico-Estoque` |
-| `ESTOQUE_TLS_CA_FILE` | CA que assina o certificado do estoque |
-| `ESTOQUE_TLS_CERT_FILE` | Certificado de cliente apresentado ao estoque |
-| `ESTOQUE_TLS_KEY_FILE` | Chave do certificado de cliente |
 | `RABBITMQ_URL` | Broker onde o fato `sessao.criada` é publicado |
 
 Opcionais, com padrão:
@@ -316,9 +250,6 @@ Opcionais, com padrão:
 | Variável | Padrão | Descrição |
 |---|---|---|
 | `HTTP_PORT` | `8080` | Porta do servidor |
-| `ESTOQUE_TIMEOUT` | `2s` | Espera máxima pelo estoque; valores acima de 2s são recusados |
-| `BREAKER_FALHAS_CONSECUTIVAS` | `5` | Falhas seguidas até entrar em recusa rápida |
-| `BREAKER_INTERVALO_ABERTO` | `30s` | Tempo em recusa rápida antes de tentar de novo |
 | `PAGINACAO_TAMANHO_PADRAO` | `20` | Tamanho de página quando não informado |
 | `PAGINACAO_TAMANHO_MAXIMO` | `100` | Teto de `page_size`; acima disso a requisição é recusada |
 | `OUTBOX_INTERVALO` | `1s` | De quanto em quanto tempo a caixa de saída é drenada |
@@ -335,7 +266,7 @@ cmd/            composição — o único lugar onde o núcleo encontra a infrae
 internal/
   domain/       entidades e regras; não importa nada de infraestrutura
   usecase/      casos de uso e as portas que eles exigem
-  adapter/      http (entrada), postgres, estoque, amqp, identidade (saída)
+  adapter/      http (entrada), postgres, amqp, identidade (saída)
   platform/     configuração, observabilidade, saúde
 ```
 
@@ -351,11 +282,8 @@ make test-integration  # PostgreSQL real via Testcontainers (requer Docker)
 make lint
 ```
 
-Os testes de integração sobem um PostgreSQL em contêiner e um `Servico-Estoque`
-simulado em memória. Provam, entre outras coisas: que uma recusa local nunca
-contata o estoque; que 50 solicitações paralelas pelas mesmas poltronas resultam
-em exatamente uma confirmação; que o contexto de rastreamento recebido chega ao
-estoque; que as listagens usam os índices esperados; e que o anúncio da sessão e a
+Os testes de integração sobem um PostgreSQL em contêiner. Provam, entre outras
+coisas, que as listagens usam os índices esperados e que o anúncio da sessão e a
 própria sessão são gravados de forma indivisível — uma sessão recusada não deixa
 fato na caixa, e um fato cuja publicação falha volta na drenagem seguinte.
 

@@ -29,20 +29,8 @@ func init() {
 	))
 }
 
-const (
-	DesfechoSucesso                = "sucesso"
-	DesfechoIndisponivel           = "indisponivel"
-	DesfechoTimeout                = "timeout"
-	DesfechoRecusaRapida           = "recusa_rapida"
-	DesfechoPoltronasIndisponiveis = "poltronas_indisponiveis"
-	DesfechoRecusadoPeloEstoque    = "recusado_pelo_estoque"
-)
-
 type Metricas struct {
-	EstoqueDuracao metric.Float64Histogram
-	EstoqueTotal   metric.Int64Counter
-	BreakerEstado  metric.Int64Gauge
-	HTTPDuracao    metric.Float64Histogram
+	HTTPDuracao metric.Float64Histogram
 }
 
 type Encerrar func(context.Context) error
@@ -139,28 +127,7 @@ func NovasMetricas() (*Metricas, error) {
 	if err != nil {
 		return nil, err
 	}
-	estoqueDur, err := meter.Float64Histogram("estoque.bloqueio.duration",
-		metric.WithDescription("Duração das chamadas de bloqueio ao Servico-Estoque"),
-		metric.WithUnit("s"))
-	if err != nil {
-		return nil, err
-	}
-	estoqueTotal, err := meter.Int64Counter("estoque.bloqueio.total",
-		metric.WithDescription("Chamadas de bloqueio por desfecho"))
-	if err != nil {
-		return nil, err
-	}
-	breaker, err := meter.Int64Gauge("estoque.breaker.state",
-		metric.WithDescription("Estado da recusa rápida: 0 fechado, 1 semiaberto, 2 aberto"))
-	if err != nil {
-		return nil, err
-	}
-	return &Metricas{
-		HTTPDuracao:    httpDur,
-		EstoqueDuracao: estoqueDur,
-		EstoqueTotal:   estoqueTotal,
-		BreakerEstado:  breaker,
-	}, nil
+	return &Metricas{HTTPDuracao: httpDur}, nil
 }
 
 func RotuloDesfecho(desfecho string) attribute.KeyValue {

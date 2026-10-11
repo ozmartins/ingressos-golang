@@ -12,23 +12,16 @@ Catálogo (HTTP, porta 8082)
   http://localhost:8082/api/v1/cinemas
   http://localhost:8082/api/v1/cinemas/{id}/salas
   http://localhost:8082/api/v1/sessoes
-  http://localhost:8082/api/v1/sessoes/{id}/reservar   (POST, protegida)
 
 Estoque (REST, porta 8085)
   http://localhost:8085/docs                     Swagger UI
   http://localhost:8085/openapi.yaml             Especificação OpenAPI
-  http://localhost:8085/api/v1/sessoes/{sessao_id}/bloqueios   (POST)
+  http://localhost:8085/api/v1/sessoes/{sessao_id}/bloqueios   (POST, protegida: reserva as poltronas)
   http://localhost:8085/api/v1/sessoes/{sessao_id}/poltronas   (GET)
 
 Estoque (administração/health, porta 8090)
   http://localhost:8090/health/live
   http://localhost:8090/health/ready
-
-Estoque (gRPC, porta 50051, mTLS obrigatório)
-  localhost:50051
-
-Estoque simulado (gRPC em texto claro, porta 50052)
-  localhost:50052
 
 Pagamento (HTTP, porta 8083)
   http://localhost:8083/docs                     Swagger UI

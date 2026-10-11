@@ -8,8 +8,8 @@ PostgreSQL, Redis, RabbitMQ e Keycloak, orquestrados por um único
 
 | Serviço | Papel | Superfícies |
 |---|---|---|
-| [`catalogo/`](catalogo/README.md) | Navegação por filmes, cinemas, salas e sessões; inicia a reserva | REST (JWT), cliente gRPC do estoque |
-| [`estoque/`](estoque/README.md) | Dono da disponibilidade das poltronas; bloqueia e confirma assentos | gRPC (mTLS), REST (JWT), consumidor/produtor AMQP |
+| [`catalogo/`](catalogo/README.md) | Navegação e cadastro de filmes, cinemas, salas e sessões; dono do preço da sessão | REST (JWT), produtor AMQP |
+| [`estoque/`](estoque/README.md) | Dono da disponibilidade das poltronas; reserva (consultando preço e status da sessão no catálogo), confirma e libera assentos | REST (JWT), cliente REST do catálogo, consumidor/produtor AMQP |
 | [`pagamento/`](pagamento/README.md) | Cobra de forma assíncrona a reserva criada | REST (JWT), consumidor/produtor AMQP |
 | [`notificacao/`](notificacao/README.md) | Emite o ingresso digital e valida na portaria | REST (JWT e `X-API-Key`), consumidor AMQP |
 
@@ -38,7 +38,7 @@ feito por schema e por papel:
   (`internal/adapter/postgres`) quanto nas migrations (a tabela
   `schema_migrations` também fica no schema do serviço).
 - Nenhuma query ou migration referencia o schema de outro serviço. A troca de
-  dados entre serviços acontece só por gRPC/REST e por mensagens AMQP.
+  dados entre serviços acontece só por REST e por mensagens AMQP.
 - Separar em bancos físicos distintos exigiria apenas trocar a `DATABASE_URL` de
   cada serviço no `docker-compose.yml`; o código não muda.
 

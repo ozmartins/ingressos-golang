@@ -74,8 +74,6 @@ var rotas = []Rota{
 		handler: simples(func(d Dependencias) http.HandlerFunc { return d.Handlers.PutSessao })},
 	{Metodo: "DELETE", Caminho: "/api/v1/sessoes/{id}", Documentada: true, Protegida: true,
 		handler: simples(func(d Dependencias) http.HandlerFunc { return d.Handlers.DeleteSessao })},
-	{Metodo: "POST", Caminho: "/api/v1/sessoes/{id}/reservar", Documentada: true, Protegida: true,
-		handler: simples(func(d Dependencias) http.HandlerFunc { return d.Handlers.PostReservar })},
 	{Metodo: "GET", Caminho: "/health", Documentada: true,
 		handler: simples(func(d Dependencias) http.HandlerFunc { return d.Saude })},
 

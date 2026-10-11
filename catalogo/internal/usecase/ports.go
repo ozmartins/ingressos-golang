@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/catalogo"
-	"github.com/oseias/ingressos-golang/catalogo/internal/domain/reserva"
 	"github.com/oseias/ingressos-golang/catalogo/internal/domain/shared"
 )
 
@@ -74,8 +73,4 @@ type SessaoRepository interface {
 	Atualizar(ctx context.Context, s catalogo.Sessao, fato FatoPendente) error
 	Cancelar(ctx context.Context, sessaoID string, fato FatoPendente) error
 	SalaOcupada(ctx context.Context, salaID string, inicio, fim time.Time, excetoID string) (bool, error)
-}
-
-type EstoqueGateway interface {
-	BloquearPoltronas(ctx context.Context, s reserva.SolicitacaoReserva) (reserva.ResultadoReserva, error)
 }

@@ -25,10 +25,10 @@ func TestCobrancaPontaAPonta(t *testing.T) {
 		t.Fatalf("transação mal gravada: %+v", tr)
 	}
 	if !tr.ResultadoAnunciado {
-		t.Fatal("resultado devia estar marcado como anunciado (FR-014)")
+		t.Fatal("resultado devia estar marcado como anunciado")
 	}
 	if tr.AtualizadoEm.Equal(tr.CriadoEm) {
-		t.Fatal("atualizado_em devia avançar a cada escrita (FR-023)")
+		t.Fatal("atualizado_em devia avançar a cada escrita")
 	}
 
 	fatos := a.fatosEspiados(t)
@@ -41,7 +41,7 @@ func TestCobrancaPontaAPonta(t *testing.T) {
 	}
 	for _, campo := range []string{"transacao_id", "reserva_id", "usuario_id", "valor_total", "pago_em", "versao", "ocorrido_em"} {
 		if _, ok := f[campo]; !ok {
-			t.Fatalf("campo %q ausente (contracts/eventos.md §2)", campo)
+			t.Fatalf("campo %q ausente", campo)
 		}
 	}
 	if f["reserva_id"] != reserva {

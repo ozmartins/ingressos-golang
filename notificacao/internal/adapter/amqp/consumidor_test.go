@@ -164,7 +164,7 @@ func TestDesfechosDoConsumo(t *testing.T) {
 		c, _ := montar(t, semLog())
 		c.Caso.Notificador = notificadorFalso{falhar: true}
 		if g := c.Classificar(ctx, anuncioJSON(), false); g != Confirmar {
-			t.Errorf("gesto = %v, queria Confirmar: falha de aviso NÃO pode reprocessar (FR-025)", g)
+			t.Errorf("gesto = %v, queria Confirmar: falha de aviso NÃO pode reprocessar", g)
 		}
 	})
 }
@@ -209,7 +209,7 @@ func TestLogNaoVazaCodigoDeAcesso(t *testing.T) {
 				t.Fatal("ingresso sem código; o teste não exerce o que alega")
 			}
 			if strings.Contains(buf.String(), emitido.CodigoQR) {
-				t.Errorf("o código de acesso vazou para o log (FR-021):\n%s", buf.String())
+				t.Errorf("o código de acesso vazou para o log:\n%s", buf.String())
 			}
 			if !strings.Contains(buf.String(), emitido.ID) {
 				t.Error("o log deveria identificar a operação pelo ingresso_id")

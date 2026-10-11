@@ -163,7 +163,7 @@ func TestAprovarRegistraCodigoEInstante(t *testing.T) {
 		t.Fatalf("código do adquirente não gravado: %q", tr.CodigoTransacaoGateway)
 	}
 	if tr.PagoEm == nil || !tr.PagoEm.Equal(agora) {
-		t.Fatal("instante do pagamento não gravado (FR-012)")
+		t.Fatal("instante do pagamento não gravado")
 	}
 }
 
@@ -207,7 +207,7 @@ func TestAnuncioPendenteSoEnquantoNaoAnunciado(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !tr.AnuncioPendente() {
-		t.Fatal("PAGO não anunciado devia ter anúncio pendente (FR-014)")
+		t.Fatal("PAGO não anunciado devia ter anúncio pendente")
 	}
 	if err := tr.MarcarAnunciado(agora); err != nil {
 		t.Fatal(err)
@@ -239,7 +239,7 @@ func TestExpiracao(t *testing.T) {
 
 func TestFormaReconhecida(t *testing.T) {
 	if !FormaReconhecida(PIX) || !FormaReconhecida(CartaoCredito) {
-		t.Fatal("PIX e CARTAO_CREDITO devem ser reconhecidos (FR-004)")
+		t.Fatal("PIX e CARTAO_CREDITO devem ser reconhecidos")
 	}
 	for _, f := range []FormaPagamento{"", "BOLETO", "pix", "CRIPTO"} {
 		if FormaReconhecida(f) {

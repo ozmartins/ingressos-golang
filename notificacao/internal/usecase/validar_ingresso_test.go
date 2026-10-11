@@ -71,7 +71,7 @@ func TestSegundaLeituraENegadaSemAlterarInstante(t *testing.T) {
 		t.Errorf("veredito = %v, queria Reuso", segunda.Veredito)
 	}
 	if !segunda.Ingresso.UtilizadoEm.Equal(*primeira.Ingresso.UtilizadoEm) {
-		t.Error("o instante de utilização original foi alterado (FR-008)")
+		t.Error("o instante de utilização original foi alterado")
 	}
 }
 
@@ -103,7 +103,7 @@ func TestAssinaturaInvalidaNaoConsultaOAcervo(t *testing.T) {
 		t.Errorf("veredito = %v, queria NaoEncontrado", r.Veredito)
 	}
 	if repo.chamouBuscar {
-		t.Error("o repositório foi consultado apesar de a assinatura ser inválida (FR-010)")
+		t.Error("o repositório foi consultado apesar de a assinatura ser inválida")
 	}
 }
 
@@ -154,6 +154,6 @@ func TestLeiturasSimultaneasAutorizamUmaSo(t *testing.T) {
 	wg.Wait()
 	close(autorizadas)
 	if got := len(autorizadas); got != 1 {
-		t.Errorf("%d autorizações, queria exatamente 1 (FR-011)", got)
+		t.Errorf("%d autorizações, queria exatamente 1", got)
 	}
 }

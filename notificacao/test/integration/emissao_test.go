@@ -44,7 +44,7 @@ func TestEntregasSimultaneasEmitemUmIngresso(t *testing.T) {
 		}
 	}
 	if got := a.contarIngressos(t); got != 1 {
-		t.Errorf("%d ingressos gravados, queria exatamente 1 (SC-001)", got)
+		t.Errorf("%d ingressos gravados, queria exatamente 1", got)
 	}
 
 	var avisos int
@@ -108,7 +108,7 @@ func TestAnuncioMalformadoVaiDiretoParaAQuarentena(t *testing.T) {
 		return a.contarFila(t, filaDLQ) == 1
 	})
 	if got := a.contarIngressos(t); got != 0 {
-		t.Errorf("%d ingressos emitidos a partir de anúncio malformado, queria 0 (SC-008)", got)
+		t.Errorf("%d ingressos emitidos a partir de anúncio malformado, queria 0", got)
 	}
 	if got := a.contarFila(t, fila); got != 0 {
 		t.Errorf("%d mensagens ainda na fila principal, queria 0", got)

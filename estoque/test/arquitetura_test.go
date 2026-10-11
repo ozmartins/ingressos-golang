@@ -48,7 +48,7 @@ func TestNucleoNaoImportaInfraestrutura(t *testing.T) {
 		for _, importado := range p.Imports {
 			for _, proibido := range proibidos {
 				if strings.HasPrefix(importado, proibido) {
-					t.Errorf("%s importa %s — o núcleo não pode depender de infraestrutura (constituição, princípio I)",
+					t.Errorf("%s importa %s — o núcleo não pode depender de infraestrutura",
 						p.ImportPath, importado)
 				}
 			}

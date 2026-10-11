@@ -57,10 +57,10 @@ func TestRajadaRespeitaTetoEMantemConsultasRapidas(t *testing.T) {
 	decorrido := time.Since(inicio)
 
 	if processadas != quantidade {
-		t.Fatalf("SC-004 violado: %d de %d intenções processadas em %s", processadas, quantidade, decorrido)
+		t.Fatalf("%d de %d intenções processadas em %s", processadas, quantidade, decorrido)
 	}
 	if n := consumidor.EmAndamento.Maximo(); n > teto {
-		t.Fatalf("FR-019 violado: %d cobranças simultâneas, teto é %d", n, teto)
+		t.Fatalf("%d cobranças simultâneas, teto é %d", n, teto)
 	}
 	t.Logf("rajada: %d intenções em %s, pico de concorrência %d",
 		processadas, decorrido.Round(time.Millisecond), consumidor.EmAndamento.Maximo())
@@ -69,7 +69,7 @@ func TestRajadaRespeitaTetoEMantemConsultasRapidas(t *testing.T) {
 	p95 := latencias[int(float64(len(latencias))*0.95)]
 	t.Logf("consultas durante o pico: n=%d p95=%s", len(latencias), p95.Round(time.Millisecond))
 	if p95 > time.Second {
-		t.Fatalf("SC-005 violado: p95 das consultas foi %s durante o pico", p95)
+		t.Fatalf("p95 das consultas foi %s durante o pico", p95)
 	}
 }
 

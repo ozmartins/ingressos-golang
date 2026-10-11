@@ -63,7 +63,7 @@ func TestDesfechoIndeterminadoParaEmVerificacaoSemAnunciar(t *testing.T) {
 	}
 
 	if fatos := a.fatosEspiados(t); len(fatos) != 0 {
-		t.Fatalf("SC-009 violado: o estado indeterminado não pode anunciar nada, veio %v", fatos)
+		t.Fatalf("o estado indeterminado não pode anunciar nada, veio %v", fatos)
 	}
 	if n := adq.total(); n != 1 {
 		t.Fatalf("esperava exatamente uma tentativa, veio %d", n)
@@ -149,7 +149,7 @@ func TestPrazoDoAdquirenteRealParaEmVerificacao(t *testing.T) {
 
 	tr := a.esperarStatus(t, reserva, transacao.PendenteVerificacao, 60*time.Second)
 	if !tr.CobrancaEmitida {
-		t.Fatal("prazo estourado não pode liberar o direito de cobrar (FR-008)")
+		t.Fatal("prazo estourado não pode liberar o direito de cobrar")
 	}
 	if tr.ResultadoAnunciado {
 		t.Fatal("PENDENTE_VERIFICACAO nunca é anunciada")

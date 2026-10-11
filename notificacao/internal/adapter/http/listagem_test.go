@@ -56,7 +56,7 @@ func TestListagemNaoRevelaIngressoDeTerceiro(t *testing.T) {
 
 	_, corpo := a.get(t, rota, comToken(t, a, usuario1))
 	if bytes.Contains(corpo, []byte("ing-de-outra")) {
-		t.Error("ingresso de outra pessoa apareceu na listagem (FR-014)")
+		t.Error("ingresso de outra pessoa apareceu na listagem")
 	}
 
 	_, corpo2 := a.get(t, rota, comToken(t, a, usuario2))

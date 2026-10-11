@@ -73,7 +73,7 @@ func TestLeiturasSimultaneasAutorizamUmaSo(t *testing.T) {
 		}
 	}
 	if autorizadas != 1 {
-		t.Errorf("%d autorizações, queria exatamente 1 (SC-004)", autorizadas)
+		t.Errorf("%d autorizações, queria exatamente 1", autorizadas)
 	}
 	if reusos != n-1 {
 		t.Errorf("%d recusas por reuso, queria %d", reusos, n-1)
@@ -96,16 +96,16 @@ func TestBaixaNaoAlteraCamposImutaveis(t *testing.T) {
 		t.Fatalf("status = %q; a baixa não aconteceu, o teste não prova nada", depois.Status)
 	}
 	if depois.ReservaID != antes.ReservaID {
-		t.Errorf("reserva_id mudou: %q → %q (FR-020)", antes.ReservaID, depois.ReservaID)
+		t.Errorf("reserva_id mudou: %q → %q", antes.ReservaID, depois.ReservaID)
 	}
 	if depois.UsuarioID != antes.UsuarioID {
-		t.Errorf("usuario_id mudou: %q → %q (FR-020)", antes.UsuarioID, depois.UsuarioID)
+		t.Errorf("usuario_id mudou: %q → %q", antes.UsuarioID, depois.UsuarioID)
 	}
 	if depois.CodigoQR != antes.CodigoQR {
-		t.Errorf("codigo_qr mudou (FR-020)")
+		t.Errorf("codigo_qr mudou")
 	}
 	if !depois.CriadoEm.Equal(antes.CriadoEm) {
-		t.Errorf("criado_em mudou: %v → %v (FR-020)", antes.CriadoEm, depois.CriadoEm)
+		t.Errorf("criado_em mudou: %v → %v", antes.CriadoEm, depois.CriadoEm)
 	}
 }
 
@@ -125,7 +125,7 @@ func TestCodigoForjadoNaoEAceito(t *testing.T) {
 			t.Fatalf("validar %q: %v", c, err)
 		}
 		if r.Veredito != usecase.NaoEncontrado {
-			t.Errorf("código forjado %q recebeu veredito %v (SC-005)", c, r.Veredito)
+			t.Errorf("código forjado %q recebeu veredito %v", c, r.Veredito)
 		}
 	}
 

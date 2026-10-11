@@ -122,7 +122,7 @@ func TestValidarRecusaCredencial(t *testing.T) {
 		t.Fatalf("buscar: %v", err)
 	}
 	if depois.Status != ingresso.Valido {
-		t.Errorf("status = %q; requisição sem credencial não pode dar baixa (FR-012)", depois.Status)
+		t.Errorf("status = %q; requisição sem credencial não pode dar baixa", depois.Status)
 	}
 }
 
@@ -174,7 +174,7 @@ func TestValidacoesSimultaneasAutorizamUmaSo(t *testing.T) {
 		}
 	}
 	if autorizadas != 1 {
-		t.Errorf("%d autorizações, queria exatamente 1 (FR-011)", autorizadas)
+		t.Errorf("%d autorizações, queria exatamente 1", autorizadas)
 	}
 	if conflitos != n-1 {
 		t.Errorf("%d conflitos, queria %d", conflitos, n-1)

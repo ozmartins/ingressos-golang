@@ -115,7 +115,7 @@ func TestDesempenhoDasConsultasPaginadas(t *testing.T) {
 				p95 := medirP95(t, 40, consulta)
 				t.Logf("fator %2d | %-18s p95=%v", c.fator, nome, p95.Round(time.Microsecond))
 				if p95 > c.limite {
-					t.Errorf("%s: p95=%v acima do limite de %v (SC-003)", nome, p95, c.limite)
+					t.Errorf("%s: p95=%v acima do limite de %v", nome, p95, c.limite)
 				}
 			}
 		})

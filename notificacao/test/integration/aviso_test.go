@@ -33,7 +33,7 @@ func TestFalhaDoAvisoNaoImpedeEntradaNemReprocessa(t *testing.T) {
 		t.Fatal(err)
 	}
 	if lista[0].Status != ingresso.Valido {
-		t.Errorf("status = %q; a falha do aviso não pode invalidar o ingresso (FR-018)", lista[0].Status)
+		t.Errorf("status = %q; a falha do aviso não pode invalidar o ingresso", lista[0].Status)
 	}
 
 	var status, detalhes string
@@ -46,13 +46,13 @@ func TestFalhaDoAvisoNaoImpedeEntradaNemReprocessa(t *testing.T) {
 		t.Errorf("status do registro = %q, queria FALHA", status)
 	}
 	if detalhes == "" {
-		t.Error("registro de falha sem detalhe (FR-017)")
+		t.Error("registro de falha sem detalhe")
 	}
 
 	esperar(t, 10*time.Second, "a fila principal esvaziar", func() bool {
 		return a.contarFila(t, fila) == 0
 	})
 	if got := a.contarFila(t, filaDLQ); got != 0 {
-		t.Errorf("%d mensagens na quarentena; falha de aviso NÃO pode reprocessar (FR-025)", got)
+		t.Errorf("%d mensagens na quarentena; falha de aviso NÃO pode reprocessar", got)
 	}
 }

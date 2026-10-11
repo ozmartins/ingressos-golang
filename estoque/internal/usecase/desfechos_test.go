@@ -89,7 +89,7 @@ func TestConfirmarReservaDesconhecidaEhIgnoradaEAuditada(t *testing.T) {
 		t.Errorf("resultado = %s, esperado ignorada-inexistente", res)
 	}
 	if !log.avisou() {
-		t.Error("divergência devia ser registrada de forma auditável (FR-022)")
+		t.Error("divergência devia ser registrada de forma auditável")
 	}
 }
 

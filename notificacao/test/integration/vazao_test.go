@@ -48,7 +48,7 @@ func TestVeredictoDaPortariaSobPico(t *testing.T) {
 	p99 := percentil(duracoes, 0.99)
 	t.Logf("veredito da portaria sob %d leituras simultâneas: p99 = %s", leiturasDePico, p99)
 	if p99 > time.Second {
-		t.Errorf("p99 = %s, queria menos de 1s (SC-003)", p99)
+		t.Errorf("p99 = %s, queria menos de 1s", p99)
 	}
 }
 
@@ -79,6 +79,6 @@ func TestIngressoFicaConsultavelDentroDoPrazo(t *testing.T) {
 	p95 := percentil(duracoes, 0.95)
 	t.Logf("do anúncio ao ingresso consultável: p95 = %s", p95)
 	if p95 > 5*time.Second {
-		t.Errorf("p95 = %s, queria menos de 5s (SC-002)", p95)
+		t.Errorf("p95 = %s, queria menos de 5s", p95)
 	}
 }

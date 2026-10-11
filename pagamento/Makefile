@@ -1,7 +1,7 @@
 GO ?= go
 PKG := ./...
 
-.PHONY: build test test-integration lint migrate-up migrate-down run openapi-sync \
+.PHONY: build test test-integration lint migrate-up migrate-down run \
         publicar-reserva publicar-rajada espiar-evento
 
 build:
@@ -15,14 +15,6 @@ test-integration:
 
 lint:
 	golangci-lint run
-
-# O contrato versionado é a fonte da verdade; a cópia em internal/ existe só
-# porque go:embed não alcança diretórios acima do pacote. O teste de paridade
-# do pacote openapi falha quando as duas divergem.
-CONTRATO := specs/001-pagamento-assincrono/contracts/openapi.yaml
-
-openapi-sync:
-	cp $(CONTRATO) internal/adapter/http/openapi/openapi.yaml
 
 # A tabela de controle do migrate (`schema_migrations`) fica no schema do
 # serviço, fixada pelo `search_path`, e não em `public`: o banco `cinema` é
@@ -40,9 +32,9 @@ migrate-down:
 run: build
 	./bin/pagamento
 
-# Publicação manual de reserva.criada, para o roteiro de quickstart.md.
+# Publicação manual de reserva.criada.
 # Necessário porque o Servico-Estoque ainda não inclui valor_total nem
-# forma_pagamento no fato (research.md D1).
+# forma_pagamento no fato.
 RESERVA ?=
 VALOR ?= 84.00
 FORMA ?= PIX

@@ -100,7 +100,7 @@ func TestCancelarNaoAlteraCamposImutaveis(t *testing.T) {
 	}
 	if c.ReservaID != i.ReservaID || c.UsuarioID != i.UsuarioID ||
 		c.CodigoQR != i.CodigoQR || !c.CriadoEm.Equal(i.CriadoEm) {
-		t.Error("cancelamento alterou campo imutável (FR-020)")
+		t.Error("cancelamento alterou campo imutável")
 	}
 	if c.UtilizadoEm != nil {
 		t.Error("ingresso cancelado não pode ganhar instante de utilização")
@@ -131,7 +131,7 @@ func TestEstadoTerminalNaoTransiciona(t *testing.T) {
 				t.Errorf("estado mudou apesar do erro: %q → %q", base.Status, depois.Status)
 			}
 			if base.Status == Utilizado && !depois.UtilizadoEm.Equal(*base.UtilizadoEm) {
-				t.Error("instante de utilização original foi alterado (FR-008)")
+				t.Error("instante de utilização original foi alterado")
 			}
 		})
 		t.Run(nome+"/cancelar", func(t *testing.T) {

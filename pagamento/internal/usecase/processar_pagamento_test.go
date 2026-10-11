@@ -27,7 +27,7 @@ func TestCobrancaAprovada(t *testing.T) {
 		t.Fatalf("transação mal gravada: %+v", tr)
 	}
 	if !tr.ResultadoAnunciado {
-		t.Fatal("resultado devia estar marcado como anunciado (FR-014)")
+		t.Fatal("resultado devia estar marcado como anunciado")
 	}
 	if got := pub.rotas(); len(got) != 1 || got[0] != RoutingKeySucesso {
 		t.Fatalf("esperava um pagamento.sucesso, veio %v", got)
@@ -376,7 +376,7 @@ func TestFatoSucessoConformeContrato(t *testing.T) {
 	for _, campo := range []string{"evento", "versao", "ocorrido_em", "transacao_id",
 		"reserva_id", "usuario_id", "valor_total", "pago_em"} {
 		if _, ok := m[campo]; !ok {
-			t.Fatalf("campo %q ausente no payload (contracts/eventos.md §2)", campo)
+			t.Fatalf("campo %q ausente no payload", campo)
 		}
 	}
 	if m["evento"] != "PAGAMENTO_SUCESSO" {

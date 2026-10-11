@@ -27,7 +27,7 @@ func TestVinteEntregasSimultaneasCobramUmaVez(t *testing.T) {
 	time.Sleep(5 * time.Second)
 
 	if n := adq.total(); n != 1 {
-		t.Fatalf("SC-002 violado: esperava exatamente 1 cobrança, veio %d", n)
+		t.Fatalf("esperava exatamente 1 cobrança, veio %d", n)
 	}
 
 	var linhas int

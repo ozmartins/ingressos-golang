@@ -49,7 +49,7 @@ func TestListarDevolveTodosOsEstadosDaPessoa(t *testing.T) {
 	}
 	for _, i := range lista {
 		if i.UsuarioID != usuario1 {
-			t.Errorf("ingresso de terceiro na listagem: %q (FR-014)", i.UsuarioID)
+			t.Errorf("ingresso de terceiro na listagem: %q", i.UsuarioID)
 		}
 	}
 }

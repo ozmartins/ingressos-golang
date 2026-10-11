@@ -215,18 +215,18 @@ func TestFalhaDoAvisoNaoDerrubaEmissaoNemReprocessa(t *testing.T) {
 	d, err := c.caso.Executar(context.Background(), anuncioValido())
 
 	if d != Confirmar {
-		t.Errorf("desfecho = %v, queria Confirmar: falha de aviso NÃO pode reprocessar a mensagem (FR-025)", d)
+		t.Errorf("desfecho = %v, queria Confirmar: falha de aviso NÃO pode reprocessar a mensagem", d)
 	}
 	if err != nil {
-		t.Errorf("erro = %v; a falha do aviso não pode ser propagada (FR-025)", err)
+		t.Errorf("erro = %v; a falha do aviso não pode ser propagada", err)
 	}
 
 	i, ok := c.repo.porReserva[reserva1]
 	if !ok {
-		t.Fatal("a falha do aviso desfez a emissão (FR-018)")
+		t.Fatal("a falha do aviso desfez a emissão")
 	}
 	if i.Status != ingresso.Valido {
-		t.Errorf("status = %q; o ingresso deve permanecer VALIDO (FR-018)", i.Status)
+		t.Errorf("status = %q; o ingresso deve permanecer VALIDO", i.Status)
 	}
 
 	regs := c.avi.todos()
@@ -237,13 +237,13 @@ func TestFalhaDoAvisoNaoDerrubaEmissaoNemReprocessa(t *testing.T) {
 		t.Errorf("desfecho = %q, queria FALHA", regs[0].Desfecho)
 	}
 	if regs[0].Detalhes == "" {
-		t.Error("registro de falha sem detalhe (FR-017)")
+		t.Error("registro de falha sem detalhe")
 	}
 	if !strings.Contains(regs[0].Detalhes, "recusou") {
 		t.Errorf("o detalhe não conta o que aconteceu: %q", regs[0].Detalhes)
 	}
 	if !regs[0].PendenteDeReenvio() {
-		t.Error("registro de falha não é identificável como pendente de reenvio (FR-018)")
+		t.Error("registro de falha não é identificável como pendente de reenvio")
 	}
 }
 

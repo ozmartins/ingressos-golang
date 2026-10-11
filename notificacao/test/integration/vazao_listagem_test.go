@@ -48,7 +48,7 @@ func TestListagemDe200IngressosRespondeDentroDoPrazo(t *testing.T) {
 	p95 := percentil(duracoes, 0.95)
 	t.Logf("listagem de %d ingressos: p95 = %s", historicoAlvo, p95)
 	if p95 > 2*time.Second {
-		t.Errorf("p95 = %s, queria menos de 2s (SC-009)", p95)
+		t.Errorf("p95 = %s, queria menos de 2s", p95)
 	}
 }
 

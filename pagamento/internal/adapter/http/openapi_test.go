@@ -3,28 +3,21 @@ package http
 import (
 	"encoding/json"
 	"net/http"
-	"os"
-	"path/filepath"
 	"reflect"
 	"sort"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/oseias/ingressos-golang/pagamento/internal/adapter/http/openapi"
 	"github.com/oseias/ingressos-golang/pagamento/internal/domain/transacao"
 	"gopkg.in/yaml.v3"
 )
 
-const caminhoContrato = "../../../specs/001-pagamento-assincrono/contracts/openapi.yaml"
-
 func carregarContrato(t *testing.T) map[string]any {
 	t.Helper()
-	b, err := os.ReadFile(filepath.Clean(caminhoContrato))
-	if err != nil {
-		t.Fatalf("contrato não encontrado — a API não pode divergir dele: %v", err)
-	}
 	var doc map[string]any
-	if err := yaml.Unmarshal(b, &doc); err != nil {
+	if err := yaml.Unmarshal(openapi.Especificacao, &doc); err != nil {
 		t.Fatal(err)
 	}
 	return doc

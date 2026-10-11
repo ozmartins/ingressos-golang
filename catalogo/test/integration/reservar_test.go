@@ -289,7 +289,7 @@ func TestEstoqueLentoDevolve503DentroDoOrcamento(t *testing.T) {
 		t.Fatalf("esperava 503, obteve %d (%s)", codigo, corpo)
 	}
 	if decorrido > 2500*time.Millisecond {
-		t.Fatalf("resposta levou %s; SC-004 exige desfecho conclusivo em menos de 2,5s", decorrido)
+		t.Fatalf("resposta levou %s; o requisito exige desfecho conclusivo em menos de 2,5s", decorrido)
 	}
 
 	var p struct {

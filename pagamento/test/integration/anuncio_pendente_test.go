@@ -64,7 +64,7 @@ func TestReentregaPublicaResultadoPendenteSemRecobrar(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !depois.ResultadoAnunciado {
-		t.Fatal("SC-003 violado: o resultado gravado nunca foi anunciado")
+		t.Fatal("o resultado gravado nunca foi anunciado")
 	}
 	if depois.CodigoTransacaoGateway != "gw-antes-da-queda" {
 		t.Fatalf("a transação foi sobrescrita: %q", depois.CodigoTransacaoGateway)

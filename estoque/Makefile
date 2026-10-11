@@ -1,8 +1,8 @@
 GO ?= go
 PKG := ./...
 
-.PHONY: build test test-integration lint proto migrate-up migrate-down run certs openapi-sync \
-        publicar-sessao publicar-pagamento contrato-sync
+.PHONY: build test test-integration lint proto migrate-up migrate-down run certs \
+        publicar-sessao publicar-pagamento
 
 build:
 	$(GO) build -o bin/estoque ./cmd/estoque
@@ -16,29 +16,8 @@ test-integration:
 lint:
 	golangci-lint run
 
-# O .proto versionado em specs/ é a ORIGEM da cópia em proto/, que é o que o
-# gerador consome; o alvo abaixo mantém as duas em sincronia. Origem não é fonte
-# da verdade: quem descreve o comportamento do serviço é o código (constituição,
-# princípio IX). Divergência entre os dois vira pergunta, não conserto unilateral
-# (princípio X).
-# Nomes distintos de propósito: o corpo de uma regra é expandido na execução,
-# então duas variáveis homônimas fariam a primeira regra usar o valor da última
-# definição — `make contrato-sync` copiaria o openapi.yaml sobre o .proto.
-CONTRATO_PROTO := specs/001-estoque-bloqueio-poltronas/contracts/estoque.proto
-
-contrato-sync:
-	cp $(CONTRATO_PROTO) proto/estoque.proto
-
-proto: contrato-sync
+proto:
 	buf generate
-
-# O contrato versionado é a fonte da verdade; a cópia em internal/ existe só
-# porque go:embed não alcança diretórios acima do pacote. O teste de paridade
-# do pacote openapi falha quando as duas divergem.
-CONTRATO_OPENAPI := specs/001-estoque-bloqueio-poltronas/contracts/openapi.yaml
-
-openapi-sync:
-	cp $(CONTRATO_OPENAPI) internal/adapter/http/openapi/openapi.yaml
 
 # A tabela de controle do migrate (`schema_migrations`) fica no schema do
 # serviço, fixada pelo `search_path`, e não em `public`: o banco `cinema` é
@@ -59,7 +38,7 @@ certs:
 run: build
 	./bin/estoque
 
-# Publicação manual de fatos, para o roteiro de quickstart.md.
+# Publicação manual de fatos.
 SESSAO ?= f781a9b2-11e2-4f81-a901-8890bc123456
 FILEIRAS ?= A,B
 ASSENTOS ?= 10

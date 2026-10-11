@@ -212,7 +212,7 @@ func TestListarFilmesSemFiltroAplicaRecortePublico(t *testing.T) {
 	}
 	for _, s := range repo.publicosRecebido {
 		if s == catalogo.StatusForaDeCartaz {
-			t.Fatal("FORA_DE_CARTAZ não pode entrar no recorte público (FR-008)")
+			t.Fatal("FORA_DE_CARTAZ não pode entrar no recorte público")
 		}
 	}
 }

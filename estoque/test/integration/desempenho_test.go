@@ -56,7 +56,7 @@ func TestDesempenhoDoBloqueio(t *testing.T) {
 	t.Logf("bloqueio: n=%d mediana=%v p99=%v", len(amostras), mediana, p99)
 
 	if p99 > 100*time.Millisecond {
-		t.Errorf("p99 do bloqueio = %v, orçamento é 100ms (SC-001)", p99)
+		t.Errorf("p99 do bloqueio = %v, orçamento é 100ms", p99)
 	}
 }
 
@@ -95,6 +95,6 @@ func TestDesempenhoDaConsulta(t *testing.T) {
 	t.Logf("consulta do mapa (500 lugares): mediana=%v p99=%v", percentil(amostras, 0.50), p99)
 
 	if p99 > 200*time.Millisecond {
-		t.Errorf("p99 da consulta = %v, orçamento é 200ms (SC-013)", p99)
+		t.Errorf("p99 da consulta = %v, orçamento é 200ms", p99)
 	}
 }

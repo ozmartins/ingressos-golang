@@ -42,7 +42,7 @@ func TestIdaEVolta(t *testing.T) {
 func TestCodigosDeIngressosDiferentesSaoDistintos(t *testing.T) {
 	a := assinador(t, "segredo-de-teste")
 	if a.Gerar("ing-1") == a.Gerar("ing-2") {
-		t.Error("ingressos diferentes geraram o mesmo código (FR-005)")
+		t.Error("ingressos diferentes geraram o mesmo código")
 	}
 }
 

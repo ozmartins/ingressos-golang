@@ -1,24 +1,6 @@
 package openapi
 
-import (
-	"os"
-	"testing"
-)
-
-const caminhoContrato = "../../../../specs/001-emissao-ingressos/contracts/openapi.yaml"
-
-func TestCopiaEmbutidaEstaSincronizadaComOContrato(t *testing.T) {
-	origem, err := os.ReadFile(caminhoContrato)
-	if err != nil {
-		t.Fatalf("lendo o contrato de origem: %v", err)
-	}
-
-	if string(origem) != string(Especificacao) {
-		t.Errorf("a cópia embutida divergiu do contrato em %s.\n"+
-			"O contrato é a fonte da verdade; para ressincronizar: make openapi-sync",
-			caminhoContrato)
-	}
-}
+import "testing"
 
 func TestEspecificacaoNaoEstaVazia(t *testing.T) {
 	if len(Especificacao) == 0 {

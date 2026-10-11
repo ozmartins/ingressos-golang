@@ -2,26 +2,19 @@ package http
 
 import (
 	"net/http"
-	"os"
-	"path/filepath"
 	"sort"
 	"testing"
 	"time"
 
+	"github.com/oseias/ingressos-golang/notificacao/internal/adapter/http/openapi"
 	"github.com/oseias/ingressos-golang/notificacao/internal/domain/ingresso"
 	"gopkg.in/yaml.v3"
 )
 
-const caminhoContrato = "../../../specs/001-emissao-ingressos/contracts/openapi.yaml"
-
 func carregarContrato(t *testing.T) map[string]any {
 	t.Helper()
-	b, err := os.ReadFile(filepath.Clean(caminhoContrato))
-	if err != nil {
-		t.Fatalf("contrato não encontrado — a API não pode divergir dele: %v", err)
-	}
 	var doc map[string]any
-	if err := yaml.Unmarshal(b, &doc); err != nil {
+	if err := yaml.Unmarshal(openapi.Especificacao, &doc); err != nil {
 		t.Fatal(err)
 	}
 	return doc

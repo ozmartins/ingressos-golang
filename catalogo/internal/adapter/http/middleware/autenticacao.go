@@ -26,16 +26,20 @@ func Autenticacao(v VerificadorDeCredencial, aoRecusar func(http.ResponseWriter,
 	return func(prox http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			token, ok := tokenDoCabecalho(r)
+
 			if !ok {
 				aoRecusar(w, r, "Credencial ausente ou malformada.")
 				return
 			}
+
 			id, err := v.Verificar(r.Context(), token)
+
 			if err != nil {
 				slog.WarnContext(r.Context(), "credencial recusada", slog.Any("erro", err))
 				aoRecusar(w, r, "Credencial inválida ou expirada.")
 				return
 			}
+
 			ctx := context.WithValue(r.Context(), chaveUsuario, id.UsuarioID)
 			prox.ServeHTTP(w, r.WithContext(ctx))
 		})

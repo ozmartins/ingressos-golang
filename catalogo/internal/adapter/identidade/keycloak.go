@@ -13,8 +13,6 @@ import (
 
 var ErrCredencialInvalida = errors.New("credencial inválida")
 
-// caminhoJWKS é o endpoint de chaves públicas de um realm do Keycloak, relativo
-// ao emissor.
 const caminhoJWKS = "/protocol/openid-connect/certs"
 
 type Verificador struct {
@@ -23,7 +21,6 @@ type Verificador struct {
 	audiencia string
 }
 
-// NovoVerificador carrega as chaves públicas do realm (emissor + caminhoJWKS).
 func NovoVerificador(emissor, audiencia string) (*Verificador, error) {
 	jwksURL := strings.TrimRight(emissor, "/") + caminhoJWKS
 	k, err := keyfunc.NewDefault([]string{jwksURL})

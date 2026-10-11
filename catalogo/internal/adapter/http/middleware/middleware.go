@@ -18,6 +18,7 @@ func Telemetria(prox http.Handler) http.Handler {
 			if p := r.Pattern; p != "" {
 				return p
 			}
+
 			return r.Method + " " + r.URL.Path
 		}),
 	)
@@ -37,6 +38,7 @@ func (g *gravadorComStatus) Write(b []byte) (int, error) {
 	if g.status == 0 {
 		g.status = http.StatusOK
 	}
+
 	return g.ResponseWriter.Write(b)
 }
 
@@ -81,6 +83,7 @@ func Recuperacao(prox http.Handler) http.Handler {
 				_, _ = w.Write([]byte(`{"type":"https://cinema.example/errors/erro-interno","title":"Erro interno","status":500,"detail":"Erro interno. Consulte o suporte informando o identificador desta requisição."}`))
 			}
 		}()
+
 		prox.ServeHTTP(w, r)
 	})
 }
@@ -89,5 +92,6 @@ func Encadear(h http.Handler, camadas ...func(http.Handler) http.Handler) http.H
 	for i := len(camadas) - 1; i >= 0; i-- {
 		h = camadas[i](h)
 	}
+
 	return h
 }

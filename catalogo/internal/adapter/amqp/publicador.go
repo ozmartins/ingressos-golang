@@ -26,17 +26,22 @@ type Publicador struct {
 
 func (p *Publicador) Iniciar(ctx context.Context) {
 	intervalo := p.Intervalo
+
 	if intervalo <= 0 {
 		intervalo = intervaloPadrao
 	}
+
 	lote := p.Lote
+
 	if lote <= 0 {
 		lote = lotePadrao
 	}
 
 	go func() {
 		tique := time.NewTicker(intervalo)
+
 		defer tique.Stop()
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -54,6 +59,7 @@ func (p *Publicador) drenar(ctx context.Context, lote int) {
 		falhas        int
 		primeiraFalha error
 	)
+
 	n, err := p.Caixa.Drenar(ctx, lote, func(fato postgres.FatoNaCaixa) error {
 		if err := p.publicar(ctx, fato); err != nil {
 			falhas++
@@ -62,16 +68,20 @@ func (p *Publicador) drenar(ctx context.Context, lote int) {
 			}
 			return err
 		}
+
 		return nil
 	})
+
 	if err != nil {
 		p.Log.Warn("falha ao drenar a caixa de saída", slog.Any("erro", err))
 		return
 	}
+
 	if falhas > 0 {
 		p.Log.Warn("fatos não publicados; serão reenviados",
 			slog.Int("quantidade", falhas), slog.Any("erro", primeiraFalha))
 	}
+
 	if n > 0 {
 		p.Log.Info("fatos publicados", slog.Int("quantidade", n))
 	}
@@ -79,16 +89,19 @@ func (p *Publicador) drenar(ctx context.Context, lote int) {
 
 func (p *Publicador) publicar(ctx context.Context, fato postgres.FatoNaCaixa) error {
 	canal, confirmacoes, err := p.Conexao.canalDePublicacao()
+
 	if err != nil {
 		return err
 	}
 
 	cabecalhos := amqp.Table{}
+
 	for chave, valor := range fato.TraceContext {
 		cabecalhos[chave] = valor
 	}
 
 	ctxPublicacao, cancelar := context.WithTimeout(ctx, timeoutPublicar)
+
 	defer cancelar()
 
 	err = canal.PublishWithContext(ctxPublicacao,
@@ -101,6 +114,7 @@ func (p *Publicador) publicar(ctx context.Context, fato postgres.FatoNaCaixa) er
 			Headers:      cabecalhos,
 			Body:         fato.Payload,
 		})
+
 	if err != nil {
 		return err
 	}

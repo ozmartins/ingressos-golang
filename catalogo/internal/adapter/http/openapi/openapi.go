@@ -7,7 +7,6 @@ import (
 	"net/http"
 )
 
-//go:embed openapi.yaml
 var Especificacao []byte
 
 const versaoSwaggerUI = "5.17.14"

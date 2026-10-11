@@ -42,6 +42,7 @@ func executar() error {
 	logger := observability.ConfigurarLogger(cfg.LogLevel)
 
 	ctx, pararSinais := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+
 	defer pararSinais()
 
 	metricas, encerrarTelemetria, err := observability.Iniciar(ctx, cfg.OTLPEndpoint)
@@ -93,6 +94,7 @@ func executar() error {
 		Intervalo: cfg.OutboxIntervalo,
 		Lote:      cfg.OutboxLote,
 	}
+
 	publicador.Iniciar(ctx)
 
 	router := adapterhttp.NovoRouter(adapterhttp.Dependencias{
@@ -158,15 +160,19 @@ func executar() error {
 	}
 
 	ctxDesligamento, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+
 	defer cancel()
+
 	return servidor.Shutdown(ctxDesligamento)
 }
 
 func contextoDeRastreamento(ctx context.Context) map[string]string {
 	portador := propagation.MapCarrier{}
 	otel.GetTextMapPropagator().Inject(ctx, portador)
+
 	if len(portador) == 0 {
 		return nil
 	}
+
 	return portador
 }

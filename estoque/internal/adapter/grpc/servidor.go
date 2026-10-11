@@ -64,7 +64,7 @@ func NovoServidor(opts Opcoes) (*Servidor, error) {
 	} else {
 		opts.Obs.Log.Warn("canal síncrono sem autenticação de serviço",
 			"modo", string(opts.Config.TLSClientAuth),
-			"aviso", "aceitável apenas em desenvolvimento (FR-037)")
+			"aviso", "aceitável apenas em desenvolvimento")
 	}
 
 	s.grpc = grpc.NewServer(servidorOpts...)

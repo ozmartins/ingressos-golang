@@ -1,5 +1,5 @@
 -- Tabela única do Servico-Pagamento. DDL da ERS, mais resultado_anunciado,
--- pago_em e o estado PENDENTE_VERIFICACAO — justificados em data-model.md §1.
+-- pago_em e o estado PENDENTE_VERIFICACAO.
 --
 -- O pagamento é dono do seu próprio schema: nada dele vive em `public`. A
 -- tabela é qualificada porque esta migração roda pelo CLI do golang-migrate,

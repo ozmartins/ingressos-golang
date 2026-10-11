@@ -44,7 +44,7 @@ linters:
 
     depguard:
       rules:
-        # Princípio I da constituição: dependências apontam para dentro.
+        # Dependências apontam para dentro.
         # O núcleo não conhece adaptadores nem infraestrutura.
         nucleo-sem-adaptadores:
           files:
@@ -52,9 +52,9 @@ linters:
             - "**/internal/usecase/**"
           deny:
             - pkg: "github.com/oseias/ingressos-golang/catalogo/internal/adapter"
-              desc: "domain/usecase não podem importar adaptadores (constituição, princípio I)"
+              desc: "domain/usecase não podem importar adaptadores"
             - pkg: "github.com/oseias/ingressos-golang/catalogo/internal/platform"
-              desc: "domain/usecase não podem importar infraestrutura de plataforma (constituição, princípio I)"
+              desc: "domain/usecase não podem importar infraestrutura de plataforma"
             - pkg: "github.com/jackc/pgx"
               desc: "driver de banco é detalhe de adaptador"
             - pkg: "gorm.io"

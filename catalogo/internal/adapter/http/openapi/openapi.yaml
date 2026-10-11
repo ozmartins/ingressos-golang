@@ -420,8 +420,13 @@ paths:
         saiu. A planta anunciada é a que a sala tinha agora; redesenhar a sala
         depois não reemite o fato.
 
-        O contrato do fato está em
-        [`contracts/eventos.md`](https://github.com/ozmartins/ingressos-golang/blob/master/catalogo/specs/001-catalogo-sessoes-reserva/contracts/eventos.md).
+        O fato vai para o exchange `cinema.eventos` (tipo `topic`, durável) com a
+        routing key `sessao.criada`. A entrega é ao menos uma vez, e a chave de
+        idempotência é o `sessao_id`, repetido no `message_id`. O corpo traz
+        `evento` (`SESSAO_CRIADA`), `versao` (`1`), `ocorrido_em` (RFC 3339 em UTC,
+        o instante da criação), `sessao_id`, `sala_id` e `poltronas`: a planta
+        expandida, nunca vazia, em que cada item tem `fileira`, `numero` e `tipo`
+        (`NORMAL`, `PCD` ou `NAMORADEIRA`), ordenada por fileira e número.
       security:
         - clientCredentials: []
       requestBody:

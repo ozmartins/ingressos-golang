@@ -15,8 +15,7 @@ evento nenhum**.
 | Listar meus ingressos | `GET /api/v1/ingressos/meus-ingressos` | aplicativo do cliente (JWT) |
 | Validar na entrada | `POST /api/v1/ingressos/validar` | catraca da portaria (`X-API-Key`) |
 
-Contrato completo em
-[`specs/001-emissao-ingressos/contracts/openapi.yaml`](specs/001-emissao-ingressos/contracts/openapi.yaml).
+Contrato completo em `internal/adapter/http/openapi/openapi.yaml`, servido em `/openapi.yaml`.
 
 ## Três decisões que explicam o código
 
@@ -32,9 +31,6 @@ Contrato completo em
 3. **A falha do aviso morre onde acontece.** O erro do notificador é capturado e
    nunca propagado: o ingresso continua válido e a mensagem é confirmada. Uma
    falha de e-mail não pode virar reprocessamento.
-
-O raciocínio completo, com as alternativas rejeitadas, está em
-[`research.md`](specs/001-emissao-ingressos/research.md).
 
 ## Variáveis de ambiente
 
@@ -93,12 +89,8 @@ O contrato é servido pelo próprio serviço: `/openapi.yaml` devolve o document
 `/docs` abre o Swagger UI sobre ele — http://localhost:8084/docs no compose. Nenhum dos dois exige credencial:
 pedir token para ler o contrato barraria justamente quem ainda vai integrar.
 
-O contrato versionado em `specs/001-emissao-ingressos/contracts/openapi.yaml` é a fonte da verdade; a cópia embutida no
-binário é gerada por `make openapi-sync`, e um teste de paridade falha quando as
-duas divergem.
-
-Roteiro completo de validação ponta a ponta, com oito cenários, em
-[`quickstart.md`](specs/001-emissao-ingressos/quickstart.md).
+O contrato fica em `internal/adapter/http/openapi/openapi.yaml`, embutido no binário
+com `go:embed` e servido como está.
 
 ## Testar
 
@@ -108,8 +100,7 @@ make test-integration  # Testcontainers: concorrência, quarentena, medições
 make lint
 ```
 
-Domínio e operações expostas têm teste obrigatório, por exigência do princípio II
-da constituição do workspace. Percentual de linhas cobertas não é portão em
+Domínio e operações expostas têm teste obrigatório. Percentual de linhas cobertas não é portão em
 lugar nenhum deste serviço.
 
 ## Uma regra que o código guarda em silêncio

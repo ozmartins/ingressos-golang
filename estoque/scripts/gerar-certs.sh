@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Gera CA de DESENVOLVIMENTO e os pares servidor/cliente usados pelo mTLS do
 # canal gRPC. Nada aqui serve para produção: em produção o material vem do
-# ambiente (constituição, princípio II; FR-040).
+# ambiente.
 set -euo pipefail
 
 DIR="${1:-certs}"
@@ -33,8 +33,7 @@ gerar_par cliente servico-catalogo
 # Estes arquivos são montados dentro do contêiner, que roda como usuário não-root
 # (uid 65532 na imagem distroless) e não é dono deles. Sem modo legível por
 # outros, o serviço não sobe. Isto vale APENAS para o material descartável de
-# desenvolvimento: em produção a chave vem do ambiente, com dono e modo próprios
-# (constituição, princípio II).
+# desenvolvimento: em produção a chave vem do ambiente, com dono e modo próprios.
 chmod 0644 ./*.pem
 
 echo "certificados de desenvolvimento gerados em $DIR"

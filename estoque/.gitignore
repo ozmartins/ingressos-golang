@@ -5,7 +5,7 @@ bin/
 *.out
 vendor/
 
-# Material criptográfico de desenvolvimento — nunca versionado (constituição, II)
+# Material criptográfico de desenvolvimento — nunca versionado
 certs/
 
 # Ambiente e segredos

@@ -10,7 +10,7 @@ linters:
   settings:
     depguard:
       rules:
-        # Princípio I da constituição: o núcleo não importa infraestrutura.
+        # O núcleo não importa infraestrutura.
         # Verificação mecânica, não revisão humana.
         nucleo-nao-importa-adaptador:
           files:
@@ -18,9 +18,9 @@ linters:
             - "**/internal/usecase/**"
           deny:
             - pkg: github.com/oseias/ingressos-golang/estoque/internal/adapter
-              desc: "domain e usecase não podem importar adaptadores (constituição, princípio I)"
+              desc: "domain e usecase não podem importar adaptadores"
             - pkg: github.com/oseias/ingressos-golang/estoque/internal/platform
-              desc: "domain e usecase não podem importar a camada de plataforma (constituição, princípio I)"
+              desc: "domain e usecase não podem importar a camada de plataforma"
             - pkg: github.com/jackc/pgx
               desc: "driver de banco pertence aos adaptadores"
             - pkg: github.com/rabbitmq/amqp091-go

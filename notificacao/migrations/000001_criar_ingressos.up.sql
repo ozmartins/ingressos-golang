@@ -1,5 +1,5 @@
 -- Duas tabelas do Servico-Notificacao. DDL da ERS, mais as restrições CHECK que
--- trazem invariantes do domínio para dentro do banco (data-model.md §1 e §3).
+-- trazem invariantes do domínio para dentro do banco.
 --
 -- A notificação é dona do seu próprio schema: nada dela vive em `public`. Cada
 -- objeto é qualificado porque esta migração roda pelo CLI do golang-migrate,
@@ -20,13 +20,13 @@ CREATE TABLE notificacao.ingressos_emitidos (
     criado_em    TIMESTAMPTZ  NOT NULL DEFAULT now(),
 
     CONSTRAINT status_valido CHECK (status IN ('VALIDO','UTILIZADO','CANCELADO')),
-    -- FR-007 e FR-008 como igualdade nos dois sentidos: impede tanto a baixa
+    -- Igualdade nos dois sentidos: impede tanto a baixa
     -- sem carimbo quanto o carimbo sem baixa.
     CONSTRAINT utilizado_em_so_quando_utilizado CHECK
         ((status = 'UTILIZADO') = (utilizado_em IS NOT NULL))
 );
 
--- Único índice além das chaves: serve à listagem por pessoa (research.md D8).
+-- Único índice além das chaves: serve à listagem por pessoa.
 CREATE INDEX ingressos_por_pessoa ON notificacao.ingressos_emitidos (usuario_id, criado_em DESC);
 
 CREATE TABLE notificacao.registros_notificacao (

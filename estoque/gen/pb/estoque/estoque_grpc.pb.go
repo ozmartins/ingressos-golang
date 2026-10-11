@@ -2,11 +2,11 @@
 //
 // Compatibilidade: as mensagens `SolicitacaoBloqueio` e `RespostaBloqueio`
 // reproduzem, campo a campo e número a número, a cópia consumida pelo
-// Servico-Catalogo (specs/001-catalogo-sessoes-reserva/contracts/estoque.proto).
+// Servico-Catalogo (catalogo/proto/estoque/estoque.proto).
 // As adições desta versão são estritamente aditivas — um cliente compilado com
 // a versão anterior continua funcionando sem recompilar:
-//   - novo RPC `ConsultarMapaPoltronas` (FR-029..FR-031)
-//   - novo campo `motivo` = 5 em `RespostaBloqueio` (FR-046)
+//   - novo RPC `ConsultarMapaPoltronas`
+//   - novo campo `motivo` = 5 em `RespostaBloqueio`
 //   - novo campo `valor_total` = 4 em `SolicitacaoBloqueio`
 //
 // Geração: buf generate (ver buf.gen.yaml na raiz do serviço)

@@ -1,8 +1,8 @@
 // Contrato gRPC do Servico-Estoque, consumido por este serviço como CLIENTE.
-// Fonte: ers-catalogo.md, seção 5. Copiado sem alterações — este serviço não
+// Cópia do contrato do estoque (estoque/proto/estoque.proto), sem alterações — este serviço não
 // é dono deste contrato e não pode evoluí-lo unilateralmente.
 //
-// Geração: protoc --go_out=gen/pb --go-grpc_out=gen/pb contracts/estoque.proto
+// Geração: protoc --go_out=gen/pb --go-grpc_out=gen/pb estoque/estoque.proto
 
 syntax = "proto3";
 

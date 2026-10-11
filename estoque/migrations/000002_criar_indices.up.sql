@@ -1,4 +1,4 @@
--- Carrega o mapa completo da sessão (FR-029).
+-- Carrega o mapa completo da sessão.
 CREATE INDEX idx_poltronas_sessao ON estoque.poltronas (sessao_id);
 
 -- Índice parcial que sustenta a varredura de expiração sem varrer reservas

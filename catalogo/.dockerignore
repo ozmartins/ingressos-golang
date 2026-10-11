@@ -3,8 +3,6 @@
 Dockerfile
 .dockerignore
 docker-compose.yml
-specs/
-.specify/
 .claude/
 *.md
 !README.md

@@ -2,11 +2,11 @@
 //
 // Compatibilidade: as mensagens `SolicitacaoBloqueio` e `RespostaBloqueio`
 // reproduzem, campo a campo e número a número, a cópia consumida pelo
-// Servico-Catalogo (specs/001-catalogo-sessoes-reserva/contracts/estoque.proto).
+// Servico-Catalogo (catalogo/proto/estoque/estoque.proto).
 // As adições desta versão são estritamente aditivas — um cliente compilado com
 // a versão anterior continua funcionando sem recompilar:
-//   - novo RPC `ConsultarMapaPoltronas` (FR-029..FR-031)
-//   - novo campo `motivo` = 5 em `RespostaBloqueio` (FR-046)
+//   - novo RPC `ConsultarMapaPoltronas`
+//   - novo campo `motivo` = 5 em `RespostaBloqueio`
 //   - novo campo `valor_total` = 4 em `SolicitacaoBloqueio`
 //
 // Geração: buf generate (ver buf.gen.yaml na raiz do serviço)
@@ -267,7 +267,7 @@ type RespostaBloqueio struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// false SOMENTE quando alguma poltrona solicitada não está livre.
 	// Entrada inválida e falha temporária são sinalizadas por status gRPC,
-	// nunca por sucesso=false — ver contracts/erros.md.
+	// nunca por sucesso=false.
 	Sucesso       bool        `protobuf:"varint,1,opt,name=sucesso,proto3" json:"sucesso,omitempty"`
 	ReservaId     string      `protobuf:"bytes,2,opt,name=reserva_id,json=reservaId,proto3" json:"reserva_id,omitempty"`    // UUID v4; vazio quando sucesso=false
 	Mensagem      string      `protobuf:"bytes,3,opt,name=mensagem,proto3" json:"mensagem,omitempty"`                       // texto humano, livre para mudar de redação

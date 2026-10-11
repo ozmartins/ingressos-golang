@@ -5,16 +5,9 @@ e sessões, e para iniciarem a reserva de poltronas. Expõe uma API REST públic
 atua como cliente gRPC do `Servico-Estoque` no momento da reserva — por um canal
 mTLS — e anuncia no RabbitMQ a sessão criada, com a planta da sala.
 
-Especificação, plano e tarefas: [`specs/001-catalogo-sessoes-reserva/`](specs/001-catalogo-sessoes-reserva/).
-Princípios que governam o código: [`.specify/memory/constitution.md`](.specify/memory/constitution.md).
-
-Cinco dessas regras valem também para quem só vai ler ou mexer no código: a entrega
-de um fato é ao menos uma vez, e nunca exatamente uma (VI); nada de complexidade
-além da necessária ou pedida (VII); domínio e operações expostas têm teste
-automatizado (VIII); **o código é a fonte da verdade, não a spec** (IX) — os
-documentos acima são instrumentos de projeto, e afirmação sobre comportamento atual
-se verifica no código; e divergência entre código e spec é pergunta ao mantenedor,
-não decisão de quem encontrou (X).
+Regras que valem para quem for mexer no código: a entrega de um fato é ao menos
+uma vez, e nunca exatamente uma; nada de complexidade além da necessária; domínio e
+operações expostas têm teste automatizado.
 
 ## Duas divergências em relação à ERS original
 
@@ -44,9 +37,6 @@ breaker, e tradução do código de status gRPC em erro de negócio ou de
 indisponibilidade (`internal/adapter/estoque/categorias.go`). Não há `http.Client`
 nem corpo de resposta a fechar; o único tráfego HTTP de saída é a descoberta do
 emissor Keycloak, feita pela biblioteca `go-oidc`.
-
-O catálogo de erros está em [`specs/001-catalogo-sessoes-reserva/contracts/errors.md`](specs/001-catalogo-sessoes-reserva/contracts/errors.md),
-e o contrato do fato publicado em [`contracts/eventos.md`](specs/001-catalogo-sessoes-reserva/contracts/eventos.md).
 
 ## O fato `sessao.criada`
 
@@ -226,10 +216,8 @@ controle do golang-migrate (`schema_migrations`) mora no mesmo schema: em
 | Contrato OpenAPI 3.1 | `http://localhost:8082/openapi.yaml` |
 
 O contrato não é gerado a partir do código: ele é escrito à mão em
-`specs/001-catalogo-sessoes-reserva/contracts/openapi.yaml`, embutido no binário
-com `go:embed` e servido como está. Depois de editá-lo, rode `make openapi-sync`
-para atualizar a cópia de runtime — `make test` falha se as duas divergirem, e
-falha também se o contrato descrever uma rota que o roteador não registra (ou o
+`internal/adapter/http/openapi/openapi.yaml`, embutido no binário com `go:embed`
+e servido como está. `make test` falha se o contrato descrever uma rota que o roteador não registra (ou o
 contrário).
 
 As rotas protegidas (a escrita de filmes e `POST /sessoes/{id}/reservar`)
@@ -288,9 +276,6 @@ export RABBITMQ_URL="amqp://guest:guest@localhost:5672/"
 export HTTP_PORT=8082
 make run
 ```
-
-O roteiro completo de validação está em
-[`specs/001-catalogo-sessoes-reserva/quickstart.md`](specs/001-catalogo-sessoes-reserva/quickstart.md).
 
 ### Como contêiner avulso
 

@@ -1,4 +1,4 @@
--- Esquema do Servico-Estoque. Fonte: data-model.md.
+-- Esquema do Servico-Estoque.
 -- As três primeiras tabelas vêm da ERS; as duas últimas sustentam requisitos
 -- que a ERS enuncia mas não modela (entrega confiável do fato e idempotência).
 --
@@ -39,7 +39,7 @@ CREATE TABLE estoque.reservas (
     CONSTRAINT ck_reserva_status CHECK (status IN ('PENDENTE', 'CONFIRMADA', 'EXPIRADA', 'CANCELADA')),
     CONSTRAINT ck_reserva_prazo  CHECK (expira_em > criado_em),
     -- Uma reserva pendente nunca tem instante de finalização, e uma finalizada
-    -- sempre tem. Invariante de FR-011 expressa de forma declarativa.
+    -- sempre tem. Invariante expressa de forma declarativa.
     CONSTRAINT ck_reserva_finalizacao CHECK ((status = 'PENDENTE') = (finalizado_em IS NULL))
 );
 
@@ -50,21 +50,21 @@ CREATE TABLE estoque.reserva_poltronas (
 );
 
 -- Caixa de saída: o fato é gravado na mesma transação que o produziu e
--- publicado depois, fora do caminho da requisição (FR-018, SC-005).
+-- publicado depois, fora do caminho da requisição.
 CREATE TABLE estoque.outbox_eventos (
     id            BIGSERIAL   PRIMARY KEY,
     message_id    VARCHAR(64) NOT NULL UNIQUE,
     routing_key   VARCHAR(120) NOT NULL,
     payload       JSONB       NOT NULL,
     -- Contexto W3C capturado na concessão: o publicador roda fora da requisição
-    -- e sem isso o span nasceria órfão (FR-044, SC-009).
+    -- e sem isso o span nasceria órfão.
     trace_context JSONB,
     criado_em     TIMESTAMPTZ NOT NULL DEFAULT now(),
     publicado_em  TIMESTAMPTZ,
     tentativas    INT         NOT NULL DEFAULT 0
 );
 
--- Idempotência do consumo (FR-021, FR-034).
+-- Idempotência do consumo.
 CREATE TABLE estoque.mensagens_processadas (
     fila          VARCHAR(120) NOT NULL,
     message_id    VARCHAR(64)  NOT NULL,

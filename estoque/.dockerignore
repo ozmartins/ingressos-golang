@@ -2,7 +2,6 @@
 .github/
 bin/
 certs/
-specs/
 test/
 *.md
 .env

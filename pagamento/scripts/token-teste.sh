@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Gera um JWT HS256 assinado com a chave de teste, para o roteiro de quickstart.md.
+# Gera um JWT HS256 assinado com a chave de teste.
 # NÃO serve para nenhum ambiente real: o serviço em produção valida por JWKS
 # contra o Keycloak, e não aceita esta chave.
 set -euo pipefail

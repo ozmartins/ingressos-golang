@@ -2,8 +2,6 @@
 .gitignore
 bin/
 vendor/
-specs/
-.specify/
 test/
 *.md
 Dockerfile

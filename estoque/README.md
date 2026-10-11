@@ -14,28 +14,6 @@ decide se um assento pode ser vendido.
 - Publica `reserva.criada` a cada bloqueio concedido.
 - Invalida sozinho as reservas não pagas em 10 minutos.
 
-## Como isso foi construído
-
-A especificação, o plano, o modelo de dados, os contratos e a lista de tarefas
-estão em [`specs/001-estoque-bloqueio-poltronas/`](specs/001-estoque-bloqueio-poltronas/),
-produzidos pelo fluxo spec-kit (`specify` → `clarify` → `plan` → `tasks` →
-`analyze` → `implement`). As regras que governam o projeto estão em
-[`.specify/memory/constitution.md`](.specify/memory/constitution.md) — o plano
-tem uma seção de verificação contra cada princípio.
-
-Quatro dessas regras valem também para quem só vai ler ou mexer no código: nada de
-complexidade além da necessária ou pedida (VII); domínio e operações expostas têm
-teste automatizado (VIII); **o código é a fonte da verdade, não a spec** (IX) — os
-documentos acima são instrumentos de projeto, e afirmação sobre comportamento atual
-se verifica no código; e divergência entre código e spec é pergunta ao mantenedor,
-não decisão de quem encontrou (X).
-
-Leia primeiro, nesta ordem: [`spec.md`](specs/001-estoque-bloqueio-poltronas/spec.md)
-(o quê e por quê), [`research.md`](specs/001-estoque-bloqueio-poltronas/research.md)
-(as decisões técnicas e o que foi rejeitado),
-[`data-model.md`](specs/001-estoque-bloqueio-poltronas/data-model.md)
-(o protocolo transacional do bloqueio).
-
 ## As três decisões que moldam o desenho
 
 1. **A exclusividade mora no PostgreSQL.** O bloqueio trava as linhas das
@@ -73,8 +51,7 @@ O `usuario_id` **não** é lido do corpo na superfície REST: se fosse, qualquer
 chamador reservaria em nome de outra pessoa. Um teste trava essa regressão.
 
 Os erros seguem a RFC 9457 (`application/problem+json`). Cada `type` corresponde
-a uma razão já publicada em [`contracts/erros.md`](specs/001-estoque-bloqueio-poltronas/contracts/erros.md),
-com o status HTTP equivalente ao código gRPC: `InvalidArgument`→400,
+a uma razão de recusa, com o status HTTP equivalente ao código gRPC: `InvalidArgument`→400,
 `FailedPrecondition`→422, `NotFound`→404, `Unavailable`→503, `Internal`→500.
 
 ## Documentação da API
@@ -83,10 +60,8 @@ com o status HTTP equivalente ao código gRPC: `InvalidArgument`→400,
 (http://localhost:8085/docs no compose). Nenhum dos dois exige credencial: pedir
 token para ler o contrato barraria justamente quem ainda vai integrar.
 
-O contrato versionado em `specs/001-estoque-bloqueio-poltronas/contracts/openapi.yaml`
-é a fonte da verdade; a cópia embutida no binário é gerada por `make openapi-sync`,
-e um teste de paridade falha quando as duas divergem. O contrato gRPC continua
-sendo o `.proto` no mesmo diretório.
+O contrato fica em `internal/adapter/http/openapi/openapi.yaml`, embutido no binário
+com `go:embed` e servido como está. O contrato gRPC é o `proto/estoque.proto`.
 
 ## Subir localmente
 
@@ -102,10 +77,6 @@ pool de conexões. Para inspecionar o banco com `psql`, aponte o `search_path`
 antes (`SET search_path TO estoque;`) ou qualifique as tabelas. A tabela de
 controle do golang-migrate (`schema_migrations`) mora no mesmo schema: em
 `public` os quatro serviços disputariam uma só.
-
-O roteiro completo de validação — provisionar sessão, bloquear, confirmar,
-liberar, expirar — está em
-[`quickstart.md`](specs/001-estoque-bloqueio-poltronas/quickstart.md).
 
 Portas no host: gRPC `50051`, administração `8090`, PostgreSQL `55433`,
 Redis `56379`, AMQP `55672`, RabbitMQ management `15673`. As portas das
@@ -168,9 +139,7 @@ verificado por teste (`test/arquitetura_test.go`) e pelo linter, não por revis�
 ## Pendências de integração
 
 - O `Servico-Catalogo` publica `sessao.criada` desde que passou a guardar a planta
-  das salas, e o contrato em
-  [`contracts/eventos.md`](specs/001-estoque-bloqueio-poltronas/contracts/eventos.md)
-  foi adotado por ele sem alteração. O ciclo de vida está fechado: ele também
+  das salas, e o contrato do fato foi adotado por ele sem alteração. O ciclo de vida está fechado: ele também
   publica `sessao.cancelada`, que este serviço consome para soltar as reservas
   pendentes, e `sessao.alterada`, que não afetamos porque a sala de uma sessão
   não pode mudar do lado dele.

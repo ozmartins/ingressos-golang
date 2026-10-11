@@ -5,8 +5,6 @@ Processa de forma assíncrona as cobranças do sistema de cinema. Consome o fato
 em `pagamento.sucesso` ou `pagamento.falhou`. Expõe duas operações síncronas: a
 escolha da forma de pagamento de uma reserva e a consulta do andamento dela.
 
-Especificação, plano e decisões: [`specs/001-pagamento-assincrono/`](specs/001-pagamento-assincrono/).
-
 ## Reserva e cobrança são separadas
 
 Reservar uma poltrona e escolher como pagar são decisões distintas, e o fluxo as
@@ -24,8 +22,7 @@ trata assim:
 
 Até 2026-09-06 este serviço exigia `forma_pagamento` dentro do fato, e o estoque
 nunca a enviou — porque ninguém no sistema a pedia. O resultado é que **todo**
-anúncio vindo dele era inválido e ia para a fila morta. O histórico da decisão
-está na caixa de `contracts/eventos.md` §1.
+anúncio vindo dele era inválido e ia para a fila morta. Por isso o campo deixou de ser exigido do fato.
 
 ## Como subir
 
@@ -52,11 +49,8 @@ O contrato é servido pelo próprio serviço: `/openapi.yaml` devolve o document
 `/docs` abre o Swagger UI sobre ele — http://localhost:8083/docs no compose. Nenhum dos dois exige credencial:
 pedir token para ler o contrato barraria justamente quem ainda vai integrar.
 
-O contrato versionado em `specs/001-pagamento-assincrono/contracts/openapi.yaml` é a fonte da verdade; a cópia embutida no
-binário é gerada por `make openapi-sync`, e um teste de paridade falha quando as
-duas divergem.
-
-Roteiro completo de validação: [`specs/001-pagamento-assincrono/quickstart.md`](specs/001-pagamento-assincrono/quickstart.md).
+O contrato fica em `internal/adapter/http/openapi/openapi.yaml`, embutido no binário
+com `go:embed` e servido como está.
 
 ## Configuração
 
@@ -73,9 +67,9 @@ malformada impede o processo de subir.
 | `HTTP_PORT` | não | `8080` | porta da API |
 | `AMQP_EXCHANGE` | não | `cinema.eventos` | exchange do barramento |
 | `AMQP_FILA_RESERVA_CRIADA` | não | `pagamento.reserva-criada` | fila consumida |
-| `AMQP_PREFETCH` | não | `10` | teto de cobranças simultâneas (FR-019) |
-| `AMQP_LIMITE_ENTREGAS` | não | `3` | tentativas antes da quarentena (FR-021) |
-| `ADQUIRENTE_TIMEOUT` | não | `10s` | prazo de resposta do adquirente (FR-022) |
+| `AMQP_PREFETCH` | não | `10` | teto de cobranças simultâneas |
+| `AMQP_LIMITE_ENTREGAS` | não | `3` | tentativas antes da quarentena |
+| `ADQUIRENTE_TIMEOUT` | não | `10s` | prazo de resposta do adquirente |
 | `VARREDURA_INTERVALO` | não | `2s` | intervalo da varredura; é o atraso entre a escolha da forma e o início da cobrança |
 | `VARREDURA_LOTE` | não | `50` | transações examinadas por varredura |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | não | — | destino de métricas e rastros |
@@ -86,7 +80,7 @@ malformada impede o processo de subir.
 Arquitetura hexagonal. `internal/domain` e `internal/usecase` não importam
 adaptador; a composição acontece só em `cmd/pagamento/main.go`.
 
-Quatro decisões moldam o resto (detalhes em `research.md`):
+Cinco decisões moldam o resto:
 
 1. **A cobrança única mora na restrição `UNIQUE (reserva_id)`**, exercida por
    `INSERT ... ON CONFLICT DO NOTHING RETURNING`. Não há tabela de mensagens
@@ -101,7 +95,7 @@ Quatro decisões moldam o resto (detalhes em `research.md`):
    e o que ficou indeterminado é a cobrança, sinalizada pelo estado da transação.
 4. **O direito de cobrar é reivindicado atomicamente** no banco antes de falar com
    o adquirente, e devolvido se ele responder com erro. É o que permite a uma
-   falha transitória se completar (FR-020) sem jamais recobrar (FR-008).
+   falha transitória se completar sem jamais recobrar.
 5. **A cobrança mora numa varredura, não no consumo do fato.** Quem paga escolheu
    a forma e não precisa esperar o adquirente; e o que retoma trabalho perdido —
    cobrança interrompida, anúncio que não saiu, espera vencida — passa a ser um

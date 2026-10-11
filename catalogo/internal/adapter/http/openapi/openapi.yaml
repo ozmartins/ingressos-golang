@@ -16,32 +16,16 @@ servers:
 # na sequência em que o usuário percorre o catálogo, e operação por último.
 tags:
   - name: Filmes
-    description: Catálogo de filmes em exibição.
   - name: Cinemas
-    description: Cadastro dos cinemas da rede.
   - name: Salas
-    description: |
-      Salas de exibição. Cada uma pertence a um cinema, informado no corpo e
-      disponível como filtro da listagem, e declara sua planta em fileiras — a
-      capacidade da sala é a soma delas, não um número à parte.
   - name: Sessões
-    description: |
-      Grade de sessões disponíveis para o espectador. Criar uma sessão também a
-      anuncia por mensageria, com a planta da sala — ver o `POST`.
   - name: Reservas
-    description: |
-      Reserva de poltronas de uma sessão — a escrita que parte do espectador,
-      e não da operação do catálogo.
   - name: Operacional
-    description: Endpoints consumidos pelo orquestrador, fora do prefixo versionado.
 
 paths:
   /filmes:
     get:
       tags: [Filmes]
-      summary: Lista filmes do catálogo
-      description: |
-        Sem o parâmetro `status`, retorna apenas filmes EM_CARTAZ e BREVE.
       security: []
       parameters:
         - $ref: '#/components/parameters/Page'
@@ -61,10 +45,6 @@ paths:
         '400': { $ref: '#/components/responses/EntradaInvalida' }
     post:
       tags: [Filmes]
-      summary: Cadastra um filme
-      description: |
-        O identificador é gerado pelo serviço e devolvido no corpo e no header
-        `Location`. Sem `status` no corpo, o filme nasce EM_CARTAZ.
       security:
         - clientCredentials: []
       requestBody:
@@ -93,10 +73,6 @@ paths:
         schema: { type: string, format: uuid }
     get:
       tags: [Filmes]
-      summary: Busca um filme pelo identificador
-      description: |
-        Devolve o filme em qualquer situação, inclusive FORA_DE_CARTAZ: o recorte
-        público vale apenas para a listagem.
       security: []
       responses:
         '200':
@@ -108,10 +84,6 @@ paths:
         '404': { $ref: '#/components/responses/NaoEncontrado' }
     put:
       tags: [Filmes]
-      summary: Substitui um filme
-      description: |
-        Substituição total: o corpo descreve o estado final do filme, e campo
-        opcional omitido volta a ficar ausente. Sem `status`, o filme fica EM_CARTAZ.
       security:
         - clientCredentials: []
       requestBody:
@@ -130,11 +102,6 @@ paths:
         '404': { $ref: '#/components/responses/NaoEncontrado' }
     delete:
       tags: [Filmes]
-      summary: Retira um filme do catálogo
-      description: |
-        Remoção lógica: o filme passa a FORA_DE_CARTAZ e some da listagem
-        pública, mas a linha permanece — as sessões já gravadas o referenciam.
-        Segue disponível em `GET /filmes/{id}` e no filtro por status.
       security:
         - clientCredentials: []
       responses:
@@ -146,9 +113,6 @@ paths:
   /cinemas:
     get:
       tags: [Cinemas]
-      summary: Lista cinemas
-      description: |
-        Sem o parâmetro `ativo`, retorna apenas os cinemas ativos.
       security: []
       parameters:
         - $ref: '#/components/parameters/Page'
@@ -166,10 +130,6 @@ paths:
         '400': { $ref: '#/components/responses/EntradaInvalida' }
     post:
       tags: [Cinemas]
-      summary: Cadastra um cinema
-      description: |
-        O identificador é gerado pelo serviço e devolvido no corpo e no header
-        `Location`. Sem `ativo` no corpo, o cinema nasce ativo.
       security:
         - clientCredentials: []
       requestBody:
@@ -198,10 +158,6 @@ paths:
         schema: { type: string, format: uuid }
     get:
       tags: [Cinemas]
-      summary: Busca um cinema pelo identificador
-      description: |
-        Devolve o cinema em qualquer situação, inclusive inativo: o recorte
-        público vale apenas para a listagem.
       security: []
       responses:
         '200':
@@ -213,10 +169,6 @@ paths:
         '404': { $ref: '#/components/responses/NaoEncontrado' }
     put:
       tags: [Cinemas]
-      summary: Substitui um cinema
-      description: |
-        Substituição total: o corpo descreve o estado final do cinema, e campo
-        opcional omitido volta ao padrão. Sem `ativo`, o cinema fica ativo.
       security:
         - clientCredentials: []
       requestBody:
@@ -235,11 +187,6 @@ paths:
         '404': { $ref: '#/components/responses/NaoEncontrado' }
     delete:
       tags: [Cinemas]
-      summary: Retira um cinema da rede
-      description: |
-        Remoção lógica: o cinema passa a inativo e some da listagem pública, mas
-        a linha permanece — as salas o referenciam, e as sessões referenciam as
-        salas. Segue disponível em `GET /cinemas/{id}` e no filtro `ativo=false`.
       security:
         - clientCredentials: []
       responses:
@@ -251,11 +198,6 @@ paths:
   /salas:
     get:
       tags: [Salas]
-      summary: Lista as salas
-      description: |
-        Sem `cinema_id`, percorre as salas da rede inteira; com ele, recorta as
-        de um cinema — que precisa existir. Sem o parâmetro `ativo`, retorna as
-        salas em qualquer situação.
       security: []
       parameters:
         - $ref: '#/components/parameters/Page'
@@ -278,11 +220,6 @@ paths:
         '404': { $ref: '#/components/responses/NaoEncontrado' }
     post:
       tags: [Salas]
-      summary: Cadastra uma sala
-      description: |
-        O identificador é gerado pelo serviço e devolvido no corpo e no header
-        `Location`. O `cinema_id` vem do corpo e precisa existir. Sem `ativo`, a
-        sala nasce ativa, e uma fileira sem `tipo` nasce `NORMAL`.
       security:
         - clientCredentials: []
       requestBody:
@@ -313,9 +250,6 @@ paths:
         schema: { type: string, format: uuid }
     get:
       tags: [Salas]
-      summary: Busca uma sala pelo identificador
-      description: |
-        Devolve a sala em qualquer situação, inclusive inativa.
       security: []
       responses:
         '200':
@@ -327,22 +261,6 @@ paths:
         '404': { $ref: '#/components/responses/NaoEncontrado' }
     put:
       tags: [Salas]
-      summary: Substitui uma sala
-      description: |
-        Substituição total: o corpo descreve o estado final da sala, e campo
-        opcional omitido volta ao padrão. Dois campos ficam de fora dessa
-        substituição, porque são do cadastro da sala e não do estado que ela
-        redesenha — omitidos, permanecem; informados, precisam repetir o atual, e
-        divergir responde 409:
-
-        - o `cinema_id`, porque a sala não muda de cinema;
-        - as `fileiras`, porque as sessões já anunciadas desta sala carregam a
-          matriz de poltronas que valia quando foram criadas. Redesenhar a planta
-          deixaria essas matrizes descrevendo assentos que não existem mais, e
-          uma poltrona vendida numa fileira removida não teria para onde ir.
-
-        Quem precisa de outra planta desativa a sala e cadastra outra: o `DELETE`
-        é lógico e o número volta a ficar livre para a sala que a substituir.
       security:
         - clientCredentials: []
       requestBody:
@@ -362,11 +280,6 @@ paths:
         '409': { $ref: '#/components/responses/Conflito' }
     delete:
       tags: [Salas]
-      summary: Retira uma sala do cinema
-      description: |
-        Remoção lógica: a sala passa a inativa e some da listagem, mas a linha
-        permanece — as sessões a referenciam. O número volta a ficar livre para
-        a sala que a substituir.
       security:
         - clientCredentials: []
       responses:
@@ -378,10 +291,6 @@ paths:
   /sessoes:
     get:
       tags: [Sessões]
-      summary: Consulta a grade de sessões
-      description: |
-        Retorna apenas sessões AGENDADA ou EM_ANDAMENTO.
-        Filtros podem ser combinados.
       security: []
       parameters:
         - $ref: '#/components/parameters/Page'
@@ -394,7 +303,6 @@ paths:
           schema: { type: string, format: uuid }
         - name: data
           in: query
-          description: Data no formato YYYY-MM-DD
           schema: { type: string, format: date }
       responses:
         '200':
@@ -405,28 +313,6 @@ paths:
         '400': { $ref: '#/components/responses/EntradaInvalida' }
     post:
       tags: [Sessões]
-      summary: Publica uma sessão na grade
-      description: |
-        O identificador é gerado pelo serviço e devolvido no corpo e no header
-        `Location`. O filme e a sala precisam existir, e a sala precisa estar
-        livre no intervalo que vai do início até o fim do filme: uma sala
-        projeta um filme de cada vez.
-
-        Criar a sessão também publica o fato `sessao.criada`, com a planta da
-        sala expandida assento a assento — é dela que o serviço de estoque
-        provisiona a matriz de poltronas. O fato é gravado na mesma transação
-        que a sessão, mas **a resposta não espera pela publicação**: um `201`
-        significa que a sessão existe e que o anúncio sairá, não que ele já
-        saiu. A planta anunciada é a que a sala tinha agora; redesenhar a sala
-        depois não reemite o fato.
-
-        O fato vai para o exchange `cinema.eventos` (tipo `topic`, durável) com a
-        routing key `sessao.criada`. A entrega é ao menos uma vez, e a chave de
-        idempotência é o `sessao_id`, repetido no `message_id`. O corpo traz
-        `evento` (`SESSAO_CRIADA`), `versao` (`1`), `ocorrido_em` (RFC 3339 em UTC,
-        o instante da criação), `sessao_id`, `sala_id` e `poltronas`: a planta
-        expandida, nunca vazia, em que cada item tem `fileira`, `numero` e `tipo`
-        (`NORMAL`, `PCD` ou `NAMORADEIRA`), ordenada por fileira e número.
       security:
         - clientCredentials: []
       requestBody:
@@ -457,10 +343,6 @@ paths:
         schema: { type: string, format: uuid }
     get:
       tags: [Sessões]
-      summary: Busca uma sessão pelo identificador
-      description: |
-        Devolve a sessão em qualquer status, inclusive cancelada: o recorte da
-        grade vale apenas para a consulta paginada.
       security: []
       responses:
         '200':
@@ -472,23 +354,6 @@ paths:
         '404': { $ref: '#/components/responses/NaoEncontrado' }
     put:
       tags: [Sessões]
-      summary: Substitui uma sessão
-      description: |
-        Substituição total: o corpo descreve o estado final da sessão, e campo
-        opcional omitido volta ao padrão. A checagem de ocupação da sala ignora
-        a própria sessão.
-
-        **A sala não muda.** Ela é do cadastro da sessão, não do estado que a
-        substituição redesenha: omitida, permanece a atual; informada, precisa
-        repetir a atual — outra sala responde `409`. Trocar a sala apagaria o
-        chão sob quem já reservou, porque os assentos vendidos deixariam de
-        existir. Quem precisa de outra sala cancela a sessão e cria outra. É a
-        mesma regra que o `cinema_id` de uma sala já segue.
-
-        **Emite o fato `sessao.alterada`**, com o estado final. Ele nunca
-        invalida a matriz de poltronas de quem a provisionou, justamente porque a
-        sala não pode mudar. Como em `POST /sessoes`, o `200` não espera pela
-        publicação.
       security:
         - clientCredentials: []
       requestBody:
@@ -508,16 +373,6 @@ paths:
         '409': { $ref: '#/components/responses/Conflito' }
     delete:
       tags: [Sessões]
-      summary: Retira uma sessão da grade
-      description: |
-        Remoção lógica: a sessão passa a CANCELADA e sai da grade, mas a linha
-        permanece — as reservas já feitas apontam para ela. Segue disponível em
-        `GET /sessoes/{id}`.
-
-        **Emite o fato `sessao.cancelada`**, e é ele que solta o estado preso à
-        sessão: no serviço de estoque, as reservas pendentes das poltronas dela,
-        cujo prazo continuaria correndo. As reservas já pagas não são desfeitas —
-        reembolso não é uma operação deste sistema.
       security:
         - clientCredentials: []
       responses:
@@ -529,20 +384,6 @@ paths:
   /sessoes/{id}/reservar:
     post:
       tags: [Reservas]
-      summary: Solicita o bloqueio de poltronas para uma sessão
-      description: |
-        Encaminha a solicitação ao Servico-Estoque via gRPC, com timeout de 2s e
-        sem retentativa. O usuário é identificado pela claim `sub` do token.
-
-        As recusas que o estoque decide chegam com a culpa no lugar certo, e não
-        como indisponibilidade: `400 reserva-recusada` para entrada que ele
-        rejeitou (rótulo fora do formato, mais poltronas que o limite — o
-        `detail` traz o limite), `422 poltrona-inexistente` quando a poltrona não
-        existe na sessão, e `422 sessao-sem-poltronas` quando a matriz dela ainda
-        não foi provisionada. O `409` continua sendo só "a poltrona está tomada".
-
-        O `503` é falha de canal ou do parceiro, sobre a qual repetir faz
-        sentido; o `502` é defeito do estoque, que repetir não resolve.
       security:
         - clientCredentials: []
       parameters:
@@ -576,7 +417,6 @@ paths:
       - url: /
     get:
       tags: [Operacional]
-      summary: Indicador de saúde para o orquestrador
       security: []
       responses:
         '200':
@@ -617,16 +457,12 @@ components:
       name: page
       in: query
       required: false
-      schema: { type: integer, minimum: 1, default: 1 }
+      schema: { type: integer, minimum: 1 }
     PageSize:
       name: page_size
       in: query
       required: false
-      description: |
-        Teto configurável por ambiente (`PAGINACAO_TAMANHO_MAXIMO`, padrão 100).
-        Acima do teto vigente a requisição é recusada com 400 e
-        `type: .../parametro-invalido`, cujo `detail` informa o máximo aceito.
-      schema: { type: integer, minimum: 1, default: 20 }
+      schema: { type: integer, minimum: 1 }
 
   schemas:
     Paginacao:

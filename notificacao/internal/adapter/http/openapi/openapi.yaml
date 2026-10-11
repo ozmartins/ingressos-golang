@@ -19,21 +19,13 @@ servers:
 
 tags:
   - name: cliente
-    description: operações da pessoa dona do ingresso
   - name: portaria
-    description: operações do dispositivo de validação do cinema
   - name: saude
-    description: sondas de vivacidade e prontidão
 
 paths:
   /api/v1/ingressos/meus-ingressos:
     get:
       tags: [cliente]
-      summary: Lista os ingressos da pessoa autenticada
-      description: |
-        Devolve todos os ingressos da pessoa, sem paginação, ordenados do mais recente
-        para o mais antigo. O recorte é sempre pelo `sub` do token: não há
-        parâmetro capaz de alcançar ingresso de terceiro.
       operationId: listarMeusIngressos
       security:
         - clientCredentials: []
@@ -41,9 +33,6 @@ paths:
         - name: status
           in: query
           required: false
-          description: |
-            Filtro opcional por estado. Ausente significa todos os estados.
-            Valor não reconhecido é 400 — nunca tratado como ausência de filtro.
           schema:
             type: string
             enum: [VALIDO, UTILIZADO, CANCELADO]
@@ -81,13 +70,6 @@ paths:
   /api/v1/ingressos/validar:
     post:
       tags: [portaria]
-      summary: Valida o código na entrada da sala e dá baixa no ingresso
-      description: |
-        A autorização e a baixa acontecem no mesmo ato, por escrita condicionada: sob
-        leituras simultâneas do mesmo código, no máximo uma autoriza.
-
-        Código malformado, assinatura inválida e ingresso inexistente devolvem a mesma
-        resposta 404 — a indistinguibilidade é deliberada.
       operationId: validarIngresso
       security:
         - chavePortaria: []
@@ -155,7 +137,6 @@ paths:
   /health/live:
     get:
       tags: [saude]
-      summary: Vivacidade — o processo está de pé
       security: []
       responses:
         "200": { description: vivo }
@@ -163,7 +144,6 @@ paths:
   /health/ready:
     get:
       tags: [saude]
-      summary: Prontidão — banco e broker alcançáveis
       security: []
       responses:
         "200": { description: pronto }

@@ -12,20 +12,11 @@ servers:
   - url: /api/v1
 tags:
   - name: Pagamentos
-    description: |
-      Consulta e escolha da forma de pagamento de uma reserva.
   - name: Health
-    description: |
-      Sondas de infraestrutura, sem autenticação.
 paths:
   /pagamentos/reserva/{reserva_id}:
     get:
-      summary: Consulta o andamento do pagamento de uma reserva
       tags: [Pagamentos]
-      description: |
-        Devolve o estado atual da transação da reserva informada. Só a pessoa dona
-        da reserva obtém dados: para qualquer outra, a resposta é indistinguível
-        de reserva inexistente. Nenhum papel administrativo é reconhecido.
       operationId: consultarPagamentoPorReserva
       security:
         - clientCredentials: []
@@ -33,7 +24,6 @@ paths:
         - name: reserva_id
           in: path
           required: true
-          description: UUID v4 da reserva
           schema:
             type: string
             format: uuid
@@ -87,24 +77,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Erro" }
     post:
-      summary: Escolhe a forma de pagamento da reserva
       tags: [Pagamentos]
-      description: |
-        Reservar uma poltrona e escolher como pagar são decisões distintas: a
-        reserva cria a transação sabendo **quanto** cobrar, e é esta operação que
-        diz **como**. Até ela acontecer, a transação fica em `AGUARDANDO_FORMA`.
-
-        A resposta é `202`, não `200`: o pedido foi aceito e a cobrança acontece
-        **fora desta requisição** — quem paga não espera o adquirente responder.
-        O desfecho chega pelo `GET` desta mesma rota ou pela notificação.
-
-        Só a pessoa dona da reserva escolhe; para qualquer outra a resposta é
-        indistinguível de reserva inexistente.
-
-        Se o prazo da reserva venceu antes da escolha, nada é cobrado: a
-        transação é cancelada e a resposta é `409`. As poltronas já foram
-        liberadas do outro lado, e cobrar por elas seria cobrar por assento que
-        outra pessoa pode ter levado.
       operationId: escolherFormaDePagamento
       security:
         - clientCredentials: []
@@ -112,7 +85,6 @@ paths:
         - name: reserva_id
           in: path
           required: true
-          description: UUID v4 da reserva
           schema:
             type: string
             format: uuid
@@ -160,16 +132,13 @@ paths:
               schema: { $ref: "#/components/schemas/Erro" }
   /health/live:
     get:
-      summary: O processo está no ar
       tags: [Health]
       security: []
       responses:
         "200": { description: Processo vivo }
   /health/ready:
     get:
-      summary: O serviço é capaz de processar cobranças
       tags: [Health]
-      description: Verifica armazenamento e canal de eventos.
       security: []
       responses:
         "200": { description: Pronto }

@@ -46,6 +46,13 @@ func montarPagina(caminhoSpec string) string {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Servico-Estoque — API</title>
   <link rel="stylesheet" href="` + base + `/swagger-ui.css">
+  <style>
+    /* Esconde a tabela de respostas documentadas; fica só a resposta real da
+       requisição executada em "Try it out". */
+    .responses-inner > table.responses-table,
+    .responses-inner > div > h4 { display: none; }
+    .responses-wrapper:not(:has(.live-responses-table)) { display: none; }
+  </style>
 </head>
 <body>
   <div id="swagger-ui"></div>

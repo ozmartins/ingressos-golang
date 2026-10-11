@@ -28,7 +28,6 @@ servers:
 
 tags:
   - name: poltronas
-    description: Bloqueio e consulta de poltronas de uma sessão
 
 components:
   securitySchemes:
@@ -184,11 +183,6 @@ paths:
   /api/v1/sessoes/{sessao_id}/bloqueios:
     post:
       tags: [poltronas]
-      summary: Bloqueia poltronas de uma sessão
-      description: |
-        Bloqueia atomicamente um conjunto de poltronas, criando uma reserva
-        pendente. Tudo-ou-nada: se qualquer poltrona pedida não estiver livre,
-        nenhuma muda de estado e a resposta é 409.
       operationId: bloquearPoltronas
       parameters:
         - name: sessao_id
@@ -242,10 +236,6 @@ paths:
   /api/v1/sessoes/{sessao_id}/poltronas:
     get:
       tags: [poltronas]
-      summary: Consulta o mapa de poltronas de uma sessão
-      description: |
-        Devolve o mapa completo de poltronas com o estado corrente de cada uma.
-        Operação de leitura: não altera nenhum estado.
       operationId: consultarMapaPoltronas
       parameters:
         - name: sessao_id

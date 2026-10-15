@@ -2,14 +2,12 @@ package usecase
 
 import (
 	"context"
-	"log/slog"
 )
 
 type VarrerCobrancas struct {
 	Repo     Repositorio
 	Cobranca ProcessarPagamento
 	Relogio  Relogio
-	Log      *slog.Logger
 
 	Lote int
 }
@@ -37,10 +35,7 @@ func (uc VarrerCobrancas) republicarAnunciosPendentes(ctx context.Context, lote 
 		return err
 	}
 	for _, t := range pendentes {
-		if _, err := uc.Cobranca.anunciar(ctx, t); err != nil {
-			uc.Log.Warn("falha ao republicar desfecho; será retomado",
-				"transacao_id", t.ID, "erro", err)
-		}
+		_, _ = uc.Cobranca.anunciar(ctx, t)
 	}
 	return nil
 }
@@ -51,12 +46,7 @@ func (uc VarrerCobrancas) desistirDasVencidas(ctx context.Context, lote int) err
 		return err
 	}
 	for _, t := range canceladas {
-		uc.Log.Info("espera vencida sem escolha de forma; transação cancelada",
-			"reserva_id", t.ReservaID, "transacao_id", t.ID)
-		if _, err := uc.Cobranca.anunciar(ctx, t); err != nil {
-			uc.Log.Warn("falha ao anunciar cancelamento; será retomado",
-				"transacao_id", t.ID, "erro", err)
-		}
+		_, _ = uc.Cobranca.anunciar(ctx, t)
 	}
 	return nil
 }
@@ -67,13 +57,7 @@ func (uc VarrerCobrancas) cobrarAsEscolhidas(ctx context.Context, lote int) erro
 		return err
 	}
 	for _, t := range pendentes {
-		desfecho, err := uc.Cobranca.Cobrar(ctx, t)
-		if err != nil {
-			uc.Log.Warn("cobrança não concluída; será retomada",
-				"transacao_id", t.ID, "desfecho", desfecho, "erro", err)
-			continue
-		}
-		uc.Log.Info("cobrança concluída", "transacao_id", t.ID, "reserva_id", t.ReservaID)
+		_, _ = uc.Cobranca.Cobrar(ctx, t)
 	}
 	return nil
 }

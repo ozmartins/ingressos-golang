@@ -3,24 +3,19 @@ package amqp
 import (
 	"context"
 	"encoding/json"
-	"log/slog"
+
 	"sync"
 	"time"
 
-	"github.com/oseias/ingressos-golang/pagamento/internal/platform/observability"
 	"github.com/oseias/ingressos-golang/pagamento/internal/usecase"
 	amqp "github.com/rabbitmq/amqp091-go"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/propagation"
 )
 
 type Consumidor struct {
-	Canal      *amqp.Channel
-	Fila       string
-	Prefetch   int
-	Caso       usecase.RegistrarIntencao
-	Log        *slog.Logger
-	Propagador propagation.TextMapPropagator
+	Canal    *amqp.Channel
+	Fila     string
+	Prefetch int
+	Caso     usecase.RegistrarIntencao
 
 	EmAndamento *Medidor
 }
@@ -80,55 +75,26 @@ func (c *Consumidor) tratar(ctx context.Context, d amqp.Delivery) {
 		defer c.EmAndamento.sair()
 	}
 
-	if c.Propagador != nil {
-		ctx = c.Propagador.Extract(ctx, portadorAMQP(d.Headers))
-	}
-
 	var i usecase.Intencao
 	if err := json.Unmarshal(d.Body, &i); err != nil {
-		c.Log.Error("anúncio ilegível, indo para a quarentena", "erro", err)
-		if err := d.Nack(false, false); err != nil {
-			c.Log.Error("falha ao enviar anúncio ilegível para a quarentena", "erro", err)
-		}
+		_ = d.Nack(false, false)
+
 		return
 	}
 
-	ctx, span := observability.Tracer().Start(ctx, "processar_pagamento")
-	defer span.End()
-	span.SetAttributes(attribute.String("reserva_id", i.ReservaID))
-
-	log := c.Log.With("reserva_id", i.ReservaID)
-	inicio := time.Now()
-	desfecho, err := c.Caso.Executar(ctx, i)
-	log = log.With("duracao_ms", time.Since(inicio).Milliseconds())
-	if tr, e := c.Caso.Repo.BuscarPorReserva(ctx, i.ReservaID); e == nil {
-		log = log.With("transacao_id", tr.ID, "status", string(tr.Status))
-		span.SetAttributes(
-			attribute.String("transacao_id", tr.ID),
-			attribute.String("status", string(tr.Status)),
-		)
-	}
+	desfecho, _ := c.Caso.Executar(ctx, i)
 
 	switch desfecho {
 	case usecase.Confirmar:
-		if err := d.Ack(false); err != nil {
-			log.Error("falha ao confirmar entrega", "erro", err)
-		} else {
-			log.Info("intenção registrada; aguardando a escolha da forma de pagamento")
-		}
+		_ = d.Ack(false)
 	case usecase.Quarentena:
-		log.Warn("intenção encaminhada para a quarentena", "erro", err)
-		if err := d.Nack(false, false); err != nil {
-			log.Error("falha ao enviar para a quarentena", "erro", err)
-		}
+		_ = d.Nack(false, false)
+
 	default:
-		log.Warn("intenção devolvida para nova tentativa", "erro", err)
 		select {
 		case <-time.After(200 * time.Millisecond):
 		case <-ctx.Done():
 		}
-		if err := d.Nack(false, true); err != nil {
-			log.Error("falha ao devolver para nova tentativa", "erro", err)
-		}
+		_ = d.Nack(false, true)
 	}
 }

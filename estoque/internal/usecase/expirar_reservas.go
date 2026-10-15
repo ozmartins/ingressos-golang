@@ -6,7 +6,6 @@ type ExpirarReservas struct {
 	Reservas RepositorioReservas
 	Prazo    IndiceDePrazo
 	Relogio  Relogio
-	Log      Registrador
 
 	LotePorVarredura int
 }
@@ -23,15 +22,10 @@ func (uc ExpirarReservas) Varrer(ctx context.Context) (int, error) {
 	}
 	for _, id := range ids {
 		if uc.Prazo != nil {
-			if err := uc.Prazo.Liberar(ctx, id); err != nil {
-				uc.Log.Warn("não foi possível limpar o índice de prazo",
-					"reserva_id", id, "erro", err.Error())
-			}
+			_ = uc.Prazo.Liberar(ctx, id)
 		}
 	}
-	if len(ids) > 0 {
-		uc.Log.Info("reservas expiradas pela varredura", "quantidade", len(ids))
-	}
+
 	return len(ids), nil
 }
 
@@ -40,8 +34,6 @@ func (uc ExpirarReservas) ExpirarUma(ctx context.Context, reservaID string) (Res
 	if err != nil {
 		return resultado, err
 	}
-	if resultado == TransicaoAplicada {
-		uc.Log.Info("reserva expirada pelo índice de prazo", "reserva_id", reservaID)
-	}
+
 	return resultado, nil
 }

@@ -13,32 +13,32 @@ import (
 const filaSucesso = "estoque.pagamento-sucesso"
 const filaFalhou = "estoque.pagamento-falhou"
 
-func cenario(t *testing.T) (*estoqueFalso, *prazoFalso, *logFalso, string) {
+func cenario(t *testing.T) (*estoqueFalso, *prazoFalso, string) {
 	t.Helper()
 	estoque := novoEstoqueFalso()
 	estoque.provisionar(sessao, "A1", "A2", "A3")
-	prazo, log := novoPrazoFalso(), &logFalso{}
+	prazo := novoPrazoFalso()
 
-	resultado, err := montarBloqueio(estoque, prazo, log).
+	resultado, err := montarBloqueio(estoque, prazo).
 		Executar(context.Background(), sessao, usuario, []string{"A1", "A2"}, valorDeTeste)
 	if err != nil || !resultado.Concedido {
 		t.Fatalf("cenário exige bloqueio concedido: %v", err)
 	}
-	return estoque, prazo, log, resultado.Reserva.ID
+	return estoque, prazo, resultado.Reserva.ID
 }
 
-func confirmador(e *estoqueFalso, p *prazoFalso, l *logFalso) ConfirmarReserva {
-	return ConfirmarReserva{Reservas: e, Prazo: p, Relogio: shared.NovoRelogioFixo(agora), Log: l}
+func confirmador(e *estoqueFalso, p *prazoFalso) ConfirmarReserva {
+	return ConfirmarReserva{Reservas: e, Prazo: p, Relogio: shared.NovoRelogioFixo(agora)}
 }
 
-func cancelador(e *estoqueFalso, p *prazoFalso, l *logFalso) CancelarReserva {
-	return CancelarReserva{Reservas: e, Prazo: p, Relogio: shared.NovoRelogioFixo(agora), Log: l}
+func cancelador(e *estoqueFalso, p *prazoFalso) CancelarReserva {
+	return CancelarReserva{Reservas: e, Prazo: p, Relogio: shared.NovoRelogioFixo(agora)}
 }
 
 func TestConfirmarTornaPosseDefinitiva(t *testing.T) {
-	estoque, prazo, log, reservaID := cenario(t)
+	estoque, prazo, reservaID := cenario(t)
 
-	res, err := confirmador(estoque, prazo, log).Executar(context.Background(), filaSucesso, reservaID, reservaID)
+	res, err := confirmador(estoque, prazo).Executar(context.Background(), filaSucesso, reservaID, reservaID)
 	if err != nil {
 		t.Fatalf("erro inesperado: %v", err)
 	}
@@ -59,8 +59,8 @@ func TestConfirmarTornaPosseDefinitiva(t *testing.T) {
 }
 
 func TestConfirmarEhIdempotente(t *testing.T) {
-	estoque, prazo, log, reservaID := cenario(t)
-	uc := confirmador(estoque, prazo, log)
+	estoque, prazo, reservaID := cenario(t)
+	uc := confirmador(estoque, prazo)
 
 	if _, err := uc.Executar(context.Background(), filaSucesso, reservaID, reservaID); err != nil {
 		t.Fatalf("erro inesperado: %v", err)
@@ -77,10 +77,10 @@ func TestConfirmarEhIdempotente(t *testing.T) {
 	}
 }
 
-func TestConfirmarReservaDesconhecidaEhIgnoradaEAuditada(t *testing.T) {
-	estoque, prazo, log, _ := cenario(t)
+func TestConfirmarReservaDesconhecidaEhIgnorada(t *testing.T) {
+	estoque, prazo, _ := cenario(t)
 
-	res, err := confirmador(estoque, prazo, log).
+	res, err := confirmador(estoque, prazo).
 		Executar(context.Background(), filaSucesso, "msg-1", "reserva-que-nao-existe")
 	if err != nil {
 		t.Fatalf("reserva desconhecida não pode virar erro: %v", err)
@@ -88,15 +88,12 @@ func TestConfirmarReservaDesconhecidaEhIgnoradaEAuditada(t *testing.T) {
 	if res != TransicaoIgnoradaInexistente {
 		t.Errorf("resultado = %s, esperado ignorada-inexistente", res)
 	}
-	if !log.avisou() {
-		t.Error("divergência devia ser registrada de forma auditável")
-	}
 }
 
 func TestCancelarDevolvePoltronasAoEstoque(t *testing.T) {
-	estoque, prazo, log, reservaID := cenario(t)
+	estoque, prazo, reservaID := cenario(t)
 
-	res, err := cancelador(estoque, prazo, log).Executar(context.Background(), filaFalhou, reservaID, reservaID)
+	res, err := cancelador(estoque, prazo).Executar(context.Background(), filaFalhou, reservaID, reservaID)
 	if err != nil {
 		t.Fatalf("erro inesperado: %v", err)
 	}
@@ -115,7 +112,7 @@ func TestCancelarDevolvePoltronasAoEstoque(t *testing.T) {
 		t.Error("índice de prazo devia ser liberado após o cancelamento")
 	}
 
-	novo, err := montarBloqueio(estoque, prazo, log).
+	novo, err := montarBloqueio(estoque, prazo).
 		Executar(context.Background(), sessao, "outra-pessoa", []string{"A1"}, valorDeTeste)
 	if err != nil || !novo.Concedido {
 		t.Fatalf("poltrona liberada devia ser bloqueável de novo: %v", err)
@@ -124,12 +121,12 @@ func TestCancelarDevolvePoltronasAoEstoque(t *testing.T) {
 
 func TestPrimeiroDesfechoPrevalece(t *testing.T) {
 	t.Run("confirmada depois recusada", func(t *testing.T) {
-		estoque, prazo, log, reservaID := cenario(t)
+		estoque, prazo, reservaID := cenario(t)
 
-		if _, err := confirmador(estoque, prazo, log).Executar(context.Background(), filaSucesso, "m1", reservaID); err != nil {
+		if _, err := confirmador(estoque, prazo).Executar(context.Background(), filaSucesso, "m1", reservaID); err != nil {
 			t.Fatalf("erro inesperado: %v", err)
 		}
-		res, err := cancelador(estoque, prazo, log).Executar(context.Background(), filaFalhou, "m2", reservaID)
+		res, err := cancelador(estoque, prazo).Executar(context.Background(), filaFalhou, "m2", reservaID)
 		if err != nil {
 			t.Fatalf("erro inesperado: %v", err)
 		}
@@ -139,18 +136,15 @@ func TestPrimeiroDesfechoPrevalece(t *testing.T) {
 		if got := estoque.statusDe(sessao, "A1"); got != poltrona.Ocupada {
 			t.Errorf("A1 = %s, esperado OCUPADA", got)
 		}
-		if !log.avisou() {
-			t.Error("divergência devia ser registrada")
-		}
 	})
 
 	t.Run("cancelada depois aprovada", func(t *testing.T) {
-		estoque, prazo, log, reservaID := cenario(t)
+		estoque, prazo, reservaID := cenario(t)
 
-		if _, err := cancelador(estoque, prazo, log).Executar(context.Background(), filaFalhou, "m1", reservaID); err != nil {
+		if _, err := cancelador(estoque, prazo).Executar(context.Background(), filaFalhou, "m1", reservaID); err != nil {
 			t.Fatalf("erro inesperado: %v", err)
 		}
-		res, err := confirmador(estoque, prazo, log).Executar(context.Background(), filaSucesso, "m2", reservaID)
+		res, err := confirmador(estoque, prazo).Executar(context.Background(), filaSucesso, "m2", reservaID)
 		if err != nil {
 			t.Fatalf("erro inesperado: %v", err)
 		}
@@ -184,9 +178,9 @@ func TestLerDesfechoPagamento(t *testing.T) {
 }
 
 func TestExpirarLiberaReservasVencidas(t *testing.T) {
-	estoque, prazo, log, reservaID := cenario(t)
+	estoque, prazo, reservaID := cenario(t)
 	relogio := shared.NovoRelogioFixo(agora)
-	uc := ExpirarReservas{Reservas: estoque, Prazo: prazo, Relogio: relogio, Log: log, LotePorVarredura: 100}
+	uc := ExpirarReservas{Reservas: estoque, Prazo: prazo, Relogio: relogio, LotePorVarredura: 100}
 
 	relogio.Avancar(9 * time.Minute)
 	if n, err := uc.Varrer(context.Background()); err != nil || n != 0 {
@@ -215,16 +209,16 @@ func TestExpirarLiberaReservasVencidas(t *testing.T) {
 }
 
 func TestReservaConfirmadaNuncaExpira(t *testing.T) {
-	estoque, prazo, log, reservaID := cenario(t)
+	estoque, prazo, reservaID := cenario(t)
 	relogio := shared.NovoRelogioFixo(agora)
 
-	if _, err := (ConfirmarReserva{Reservas: estoque, Prazo: prazo, Relogio: relogio, Log: log}).
+	if _, err := (ConfirmarReserva{Reservas: estoque, Prazo: prazo, Relogio: relogio}).
 		Executar(context.Background(), filaSucesso, "m1", reservaID); err != nil {
 		t.Fatalf("erro inesperado: %v", err)
 	}
 
 	relogio.Avancar(24 * time.Hour)
-	uc := ExpirarReservas{Reservas: estoque, Prazo: prazo, Relogio: relogio, Log: log}
+	uc := ExpirarReservas{Reservas: estoque, Prazo: prazo, Relogio: relogio}
 	if n, err := uc.Varrer(context.Background()); err != nil || n != 0 {
 		t.Fatalf("reserva confirmada não pode expirar: n=%d err=%v", n, err)
 	}
@@ -234,9 +228,9 @@ func TestReservaConfirmadaNuncaExpira(t *testing.T) {
 }
 
 func TestExpirarUmaEhIdempotente(t *testing.T) {
-	estoque, prazo, log, reservaID := cenario(t)
+	estoque, prazo, reservaID := cenario(t)
 	relogio := shared.NovoRelogioFixo(agora.Add(11 * time.Minute))
-	uc := ExpirarReservas{Reservas: estoque, Prazo: prazo, Relogio: relogio, Log: log}
+	uc := ExpirarReservas{Reservas: estoque, Prazo: prazo, Relogio: relogio}
 
 	primeira, err := uc.ExpirarUma(context.Background(), reservaID)
 	if err != nil || primeira != TransicaoAplicada {

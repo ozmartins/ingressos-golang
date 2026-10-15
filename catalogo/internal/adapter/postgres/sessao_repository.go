@@ -3,7 +3,7 @@ package postgres
 import (
 	"context"
 	"fmt"
-	"log/slog"
+
 	"time"
 
 	"gorm.io/gorm"
@@ -100,11 +100,6 @@ func (r *SessaoRepository) avisarSobreSessoesOrfas(ctx context.Context, filtro u
 	var bruto int64
 	if err := r.banco.conn(ctx).Model(&sessaoRow{}).Where("status IN ?", statusVisiveis()).Count(&bruto).Error; err != nil {
 		return
-	}
-	if int(bruto) > totalResolvido {
-		slog.WarnContext(ctx, "sessões omitidas da grade por referência inválida",
-			slog.Int("omitidas", int(bruto)-totalResolvido),
-			slog.String("causa", "filme ou sala inexistente"))
 	}
 }
 

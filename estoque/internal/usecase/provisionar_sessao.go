@@ -41,7 +41,6 @@ func LerSessaoCriada(corpo []byte) (EventoSessaoCriada, error) {
 
 type ProvisionarSessao struct {
 	Poltronas RepositorioPoltronas
-	Log       Registrador
 }
 
 func (uc ProvisionarSessao) Executar(ctx context.Context, fila, messageID string, evento EventoSessaoCriada) (ResultadoTransicao, error) {
@@ -57,10 +56,8 @@ func (uc ProvisionarSessao) Executar(ctx context.Context, fila, messageID string
 
 	switch resultado {
 	case TransicaoAplicada:
-		uc.Log.Info("matriz de poltronas provisionada",
-			"sessao_id", evento.SessaoID, "poltronas", len(poltronas))
+
 	case TransicaoIgnoradaDuplicata:
-		uc.Log.Info("sessão já provisionada; reanúncio ignorado", "sessao_id", evento.SessaoID)
 	}
 	return resultado, nil
 }

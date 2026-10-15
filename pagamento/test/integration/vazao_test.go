@@ -6,7 +6,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
-	"log/slog"
+
 	"net/http"
 	"net/http/httptest"
 	"sort"
@@ -89,7 +89,6 @@ func medirConsultasDuranteOPico(t *testing.T, a *ambiente, reservas []string) []
 		Consulta:  usecase.ConsultarPagamento{Repo: a.Repo},
 		Auth:      adapthttp.NovoAutenticadorComChave(kf, iss, aud),
 		Prontidao: prontidao,
-		Log:       slog.New(slog.DiscardHandler),
 	}
 	rotas := api.Rotas()
 

@@ -67,11 +67,10 @@ const colunasSessaoDetalhada = `s.id, s.filme_id, f.titulo AS filme_titulo,
 	sa.tipo_tela, s.data_hora_inicio, s.idioma, s.preco_base`
 
 type outboxRow struct {
-	ID           int64  `gorm:"column:id;primaryKey;autoIncrement"`
-	MessageID    string `gorm:"column:message_id"`
-	RoutingKey   string `gorm:"column:routing_key"`
-	Payload      []byte `gorm:"column:payload;type:jsonb"`
-	TraceContext []byte `gorm:"column:trace_context;type:jsonb"`
+	ID         int64  `gorm:"column:id;primaryKey;autoIncrement"`
+	MessageID  string `gorm:"column:message_id"`
+	RoutingKey string `gorm:"column:routing_key"`
+	Payload    []byte `gorm:"column:payload;type:jsonb"`
 }
 
 func (outboxRow) TableName() string { return "outbox_eventos" }

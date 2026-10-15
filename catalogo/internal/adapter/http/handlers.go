@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
+
 	"net/http"
 	"strings"
 	"time"
@@ -41,9 +41,7 @@ type Handlers struct {
 func escreverJSON(w http.ResponseWriter, r *http.Request, codigo int, corpo any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(codigo)
-	if err := json.NewEncoder(w).Encode(corpo); err != nil {
-		slog.ErrorContext(r.Context(), "falha ao serializar resposta json", slog.Any("erro", err))
-	}
+	_ = json.NewEncoder(w).Encode(corpo)
 }
 
 func (h Handlers) GetFilmes(w http.ResponseWriter, r *http.Request) {

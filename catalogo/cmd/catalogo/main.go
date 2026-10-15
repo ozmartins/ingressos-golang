@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
+
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,8 +12,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/propagation"
 
 	adaptadoramqp "github.com/oseias/ingressos-golang/catalogo/internal/adapter/amqp"
 	adapterhttp "github.com/oseias/ingressos-golang/catalogo/internal/adapter/http"
@@ -21,7 +19,6 @@ import (
 	"github.com/oseias/ingressos-golang/catalogo/internal/adapter/postgres"
 	"github.com/oseias/ingressos-golang/catalogo/internal/platform/config"
 	"github.com/oseias/ingressos-golang/catalogo/internal/platform/health"
-	"github.com/oseias/ingressos-golang/catalogo/internal/platform/observability"
 	"github.com/oseias/ingressos-golang/catalogo/internal/usecase"
 )
 
@@ -39,25 +36,9 @@ func executar() error {
 		return err
 	}
 
-	logger := observability.ConfigurarLogger(cfg.LogLevel)
-
 	ctx, pararSinais := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 
 	defer pararSinais()
-
-	metricas, encerrarTelemetria, err := observability.Iniciar(ctx, cfg.OTLPEndpoint)
-
-	if err != nil {
-		return fmt.Errorf("iniciando telemetria: %w", err)
-	}
-
-	defer func() {
-		ctxEncerramento, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := encerrarTelemetria(ctxEncerramento); err != nil {
-			logger.Error("falha ao encerrar telemetria", slog.Any("erro", err))
-		}
-	}()
 
 	banco, err := postgres.Abrir(ctx, cfg.DatabaseURL)
 
@@ -88,9 +69,9 @@ func executar() error {
 	caixa := postgres.NovaCaixaDeSaida(banco)
 
 	publicador := &adaptadoramqp.Publicador{
-		Conexao:   broker,
-		Caixa:     caixa,
-		Log:       logger,
+		Conexao: broker,
+		Caixa:   caixa,
+
 		Intervalo: cfg.OutboxIntervalo,
 		Lote:      cfg.OutboxLote,
 	}
@@ -118,14 +99,14 @@ func executar() error {
 			BuscarSessao:     usecase.BuscarSessao{Repo: sessoes},
 			CriarSessao: usecase.CriarSessao{
 				Sessoes: sessoes, Filmes: filmes, Salas: salas, GerarID: uuid.NewString,
-				Agora: time.Now, TraceContextDe: contextoDeRastreamento,
+				Agora: time.Now,
 			},
 			AtualizarSessao: usecase.AtualizarSessao{
 				Sessoes: sessoes, Filmes: filmes, Salas: salas, GerarID: uuid.NewString,
-				Agora: time.Now, TraceContextDe: contextoDeRastreamento,
+				Agora: time.Now,
 			},
 			RemoverSessao: usecase.RemoverSessao{
-				Repo: sessoes, Agora: time.Now, TraceContextDe: contextoDeRastreamento,
+				Repo: sessoes, Agora: time.Now,
 			},
 			Limites: adapterhttp.LimitesPaginacao{
 				Padrao: cfg.PaginacaoTamanhoPadrao,
@@ -134,7 +115,6 @@ func executar() error {
 		},
 		Saude:       health.Handler(banco),
 		Verificador: verificador,
-		Metricas:    metricas,
 	})
 
 	servidor := &http.Server{
@@ -146,7 +126,6 @@ func executar() error {
 	erros := make(chan error, 1)
 
 	go func() {
-		logger.Info("servidor iniciado", slog.String("porta", cfg.HTTPPort))
 		if err := servidor.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			erros <- err
 		}
@@ -156,7 +135,6 @@ func executar() error {
 	case err := <-erros:
 		return err
 	case <-ctx.Done():
-		logger.Info("encerrando por sinal do sistema")
 	}
 
 	ctxDesligamento, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -164,15 +142,4 @@ func executar() error {
 	defer cancel()
 
 	return servidor.Shutdown(ctxDesligamento)
-}
-
-func contextoDeRastreamento(ctx context.Context) map[string]string {
-	portador := propagation.MapCarrier{}
-	otel.GetTextMapPropagator().Inject(ctx, portador)
-
-	if len(portador) == 0 {
-		return nil
-	}
-
-	return portador
 }

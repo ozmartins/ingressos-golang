@@ -3,7 +3,7 @@ package health
 import (
 	"context"
 	"encoding/json"
-	"log/slog"
+
 	"net/http"
 	"time"
 )
@@ -26,7 +26,6 @@ func Handler(banco Verificador) http.HandlerFunc {
 		codigo := http.StatusOK
 
 		if err := banco.Ping(ctx); err != nil {
-			slog.WarnContext(ctx, "verificação de saúde falhou", slog.Any("erro", err))
 			res.Status = "indisponivel"
 			res.Dependencias["banco"] = "indisponivel"
 			codigo = http.StatusServiceUnavailable

@@ -3,8 +3,7 @@ package usecase
 import (
 	"context"
 	"errors"
-	"io"
-	"log/slog"
+
 	"strings"
 	"sync"
 	"testing"
@@ -38,7 +37,6 @@ func montar(t *testing.T) cenario {
 		caso: EmitirIngresso{
 			Ingressos: repo, Avisos: avi, Notificador: notif,
 			Assinador: assinadorFalso{}, Relogio: relogioFixo{}, IDs: &idsSequenciais{},
-			Log: slog.New(slog.NewJSONHandler(io.Discard, nil)),
 		},
 		repo: repo, avi: avi, notif: notif,
 	}

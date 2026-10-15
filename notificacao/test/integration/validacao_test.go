@@ -33,7 +33,7 @@ func (a *ambiente) emitir(t *testing.T) ingresso.Ingresso {
 func (a *ambiente) validador() usecase.ValidarIngresso {
 	return usecase.ValidarIngresso{
 		Ingressos: a.Ingressos, Assinador: a.Assinador,
-		Relogio: sistema.Relogio{}, Log: a.Log,
+		Relogio: sistema.Relogio{},
 	}
 }
 

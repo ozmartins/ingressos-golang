@@ -6,9 +6,8 @@ import (
 )
 
 type RemoverSessao struct {
-	Repo           SessaoRepository
-	Agora          func() time.Time
-	TraceContextDe func(context.Context) map[string]string
+	Repo  SessaoRepository
+	Agora func() time.Time
 }
 
 func (uc RemoverSessao) Executar(ctx context.Context, sessaoID string) error {

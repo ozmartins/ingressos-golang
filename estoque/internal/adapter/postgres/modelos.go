@@ -47,13 +47,12 @@ type reservaPoltronaRow struct {
 func (reservaPoltronaRow) TableName() string { return "reserva_poltronas" }
 
 type outboxRow struct {
-	ID           int64      `gorm:"column:id;primaryKey;autoIncrement"`
-	MessageID    string     `gorm:"column:message_id"`
-	RoutingKey   string     `gorm:"column:routing_key"`
-	Payload      []byte     `gorm:"column:payload;type:jsonb"`
-	TraceContext []byte     `gorm:"column:trace_context;type:jsonb"`
-	PublicadoEm  *time.Time `gorm:"column:publicado_em"`
-	Tentativas   int        `gorm:"column:tentativas"`
+	ID          int64      `gorm:"column:id;primaryKey;autoIncrement"`
+	MessageID   string     `gorm:"column:message_id"`
+	RoutingKey  string     `gorm:"column:routing_key"`
+	Payload     []byte     `gorm:"column:payload;type:jsonb"`
+	PublicadoEm *time.Time `gorm:"column:publicado_em"`
+	Tentativas  int        `gorm:"column:tentativas"`
 }
 
 func (outboxRow) TableName() string { return "outbox_eventos" }

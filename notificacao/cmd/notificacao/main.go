@@ -18,7 +18,6 @@ import (
 	"github.com/oseias/ingressos-golang/notificacao/internal/adapter/sistema"
 	"github.com/oseias/ingressos-golang/notificacao/internal/platform/config"
 	"github.com/oseias/ingressos-golang/notificacao/internal/platform/health"
-	"github.com/oseias/ingressos-golang/notificacao/internal/platform/observability"
 	"github.com/oseias/ingressos-golang/notificacao/internal/usecase"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -35,8 +34,6 @@ func executar() error {
 	if err != nil {
 		return err
 	}
-	log := observability.Logger(cfg.NivelLog)
-	propagador := observability.Propagador()
 
 	ctx, parar := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer parar()
@@ -80,12 +77,11 @@ func executar() error {
 	emitir := usecase.EmitirIngresso{
 		Ingressos:   ingressos,
 		Avisos:      postgres.Avisos{DB: banco.DB()},
-		Notificador: simulado.Notificador{Falhar: cfg.NotificadorModo == config.NotificarFalhar, Log: log},
+		Notificador: simulado.Notificador{Falhar: cfg.NotificadorModo == config.NotificarFalhar},
 		PrazoAviso:  cfg.NotificadorTimeout,
 		Assinador:   assinador,
 		Relogio:     sistema.Relogio{},
 		IDs:         sistema.GeradorID{},
-		Log:         log,
 	}
 
 	auth, err := adapthttp.NovoAutenticador(cfg.JWKSURL, cfg.JWTIssuer, cfg.JWTAud)
@@ -108,8 +104,8 @@ func executar() error {
 
 	api := &adapthttp.API{
 		Listagem:  usecase.ListarIngressos{Ingressos: ingressos},
-		Validacao: usecase.ValidarIngresso{Ingressos: ingressos, Assinador: assinador, Relogio: sistema.Relogio{}, Log: log},
-		Auth:      auth, Chave: chave, Prontidao: prontidao, Log: log,
+		Validacao: usecase.ValidarIngresso{Ingressos: ingressos, Assinador: assinador, Relogio: sistema.Relogio{}},
+		Auth:      auth, Chave: chave, Prontidao: prontidao,
 	}
 
 	servidor := &http.Server{
@@ -120,18 +116,16 @@ func executar() error {
 
 	consumidor := &adaptamqp.Consumidor{
 		Canal: canal, Fila: cfg.AMQPFila, Prefetch: cfg.AMQPPrefetch,
-		Caso: emitir, Log: log, Propagador: propagador,
+		Caso: emitir,
 	}
 
 	erros := make(chan error, 2)
 	go func() {
-		log.Info("servidor no ar", "porta", cfg.PortaHTTP)
 		if err := servidor.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			erros <- fmt.Errorf("servidor http: %w", err)
 		}
 	}()
 	go func() {
-		log.Info("consumindo anúncios de pagamento", "fila", cfg.AMQPFila, "prefetch", cfg.AMQPPrefetch)
 		if err := consumidor.Consumir(ctx); err != nil && !errors.Is(err, context.Canceled) {
 			erros <- fmt.Errorf("consumidor amqp: %w", err)
 		}
@@ -141,7 +135,6 @@ func executar() error {
 	case err := <-erros:
 		return err
 	case <-ctx.Done():
-		log.Info("desligando")
 	}
 
 	desligar, cancelarDesligamento := context.WithTimeout(context.Background(), 15*time.Second)

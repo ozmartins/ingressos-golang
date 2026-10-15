@@ -10,9 +10,6 @@ import (
 	"syscall"
 	"time"
 
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/propagation"
-
 	adaptadoramqp "github.com/oseias/ingressos-golang/estoque/internal/adapter/amqp"
 	adaptadorcatalogo "github.com/oseias/ingressos-golang/estoque/internal/adapter/catalogo"
 	adaptadorhttp "github.com/oseias/ingressos-golang/estoque/internal/adapter/http"
@@ -21,7 +18,6 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/shared"
 	"github.com/oseias/ingressos-golang/estoque/internal/platform/config"
 	"github.com/oseias/ingressos-golang/estoque/internal/platform/health"
-	"github.com/oseias/ingressos-golang/estoque/internal/platform/observability"
 	"github.com/oseias/ingressos-golang/estoque/internal/usecase"
 )
 
@@ -41,16 +37,6 @@ func executar() error {
 	ctx, encerrar := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer encerrar()
 
-	obs, err := observability.Iniciar(ctx, cfg.LogLevel, cfg.OTLPEndpoint)
-	if err != nil {
-		return fmt.Errorf("iniciar observabilidade: %w", err)
-	}
-	defer func() {
-		ctxDesligar, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancelar()
-		obs.Desligar(ctxDesligar)
-	}()
-
 	banco, err := postgres.Abrir(ctx, cfg.DatabaseURL)
 	if err != nil {
 		return err
@@ -65,16 +51,13 @@ func executar() error {
 
 	var prazo *adaptadorredis.Indice
 	if cfg.RedisURL != "" {
-		prazo, err = adaptadorredis.Abrir(ctx, cfg.RedisURL, obs)
+		prazo, err = adaptadorredis.Abrir(ctx, cfg.RedisURL)
 		if err != nil {
-			obs.Log.Warn("índice de prazo indisponível na largada",
-				"erro", err.Error(), "efeito", "expiração fica só com a varredura")
 			prazo = nil
 		} else {
 			defer prazo.Fechar()
 		}
 	} else {
-		obs.Log.Warn(config.ErrRedisAusente.Error())
 	}
 
 	reservas := postgres.NovoRepositorioReservas(banco)
@@ -87,13 +70,12 @@ func executar() error {
 	}
 
 	bloquear := usecase.BloquearPoltronas{
-		Reservas:       reservas,
-		Prazo:          indiceDePrazo,
-		Relogio:        relogio,
-		Log:            obs.Log,
-		TTL:            cfg.ReservaTTL,
-		Limite:         cfg.PoltronasMaxPorBloqueio,
-		TraceContextDe: contextoDeRastreamento,
+		Reservas: reservas,
+		Prazo:    indiceDePrazo,
+		Relogio:  relogio,
+
+		TTL:    cfg.ReservaTTL,
+		Limite: cfg.PoltronasMaxPorBloqueio,
 	}
 	reservar := usecase.ReservarPoltronas{
 		Sessoes: adaptadorcatalogo.NovoCliente(adaptadorcatalogo.Opcoes{
@@ -104,35 +86,33 @@ func executar() error {
 		}),
 		Bloqueio: bloquear,
 		Relogio:  relogio,
-		Log:      obs.Log,
 	}
 	consultar := usecase.ConsultarMapa{Poltronas: poltronas}
-	confirmar := usecase.ConfirmarReserva{Reservas: reservas, Prazo: indiceDePrazo, Relogio: relogio, Log: obs.Log}
-	cancelar := usecase.CancelarReserva{Reservas: reservas, Prazo: indiceDePrazo, Relogio: relogio, Log: obs.Log}
-	expirar := usecase.ExpirarReservas{Reservas: reservas, Prazo: indiceDePrazo, Relogio: relogio, Log: obs.Log}
-	provisionar := usecase.ProvisionarSessao{Poltronas: poltronas, Log: obs.Log}
+	confirmar := usecase.ConfirmarReserva{Reservas: reservas, Prazo: indiceDePrazo, Relogio: relogio}
+	cancelar := usecase.CancelarReserva{Reservas: reservas, Prazo: indiceDePrazo, Relogio: relogio}
+	expirar := usecase.ExpirarReservas{Reservas: reservas, Prazo: indiceDePrazo, Relogio: relogio}
+	provisionar := usecase.ProvisionarSessao{Poltronas: poltronas}
 	cancelarSessao := usecase.CancelarSessao{
-		Reservas: reservas, Prazo: indiceDePrazo, Relogio: relogio, Log: obs.Log,
+		Reservas: reservas, Prazo: indiceDePrazo, Relogio: relogio,
 	}
 
-	if err := adaptadoramqp.ConsumirPagamentoSucesso(ctx, broker, cfg.AMQPPrefetch, obs, confirmar); err != nil {
+	if err := adaptadoramqp.ConsumirPagamentoSucesso(ctx, broker, cfg.AMQPPrefetch, confirmar); err != nil {
 		return fmt.Errorf("consumidor de pagamento aprovado: %w", err)
 	}
-	if err := adaptadoramqp.ConsumirPagamentoFalhou(ctx, broker, cfg.AMQPPrefetch, obs, cancelar); err != nil {
+	if err := adaptadoramqp.ConsumirPagamentoFalhou(ctx, broker, cfg.AMQPPrefetch, cancelar); err != nil {
 		return fmt.Errorf("consumidor de pagamento recusado: %w", err)
 	}
-	if err := adaptadoramqp.ConsumirSessaoCriada(ctx, broker, cfg.AMQPPrefetch, obs, provisionar); err != nil {
+	if err := adaptadoramqp.ConsumirSessaoCriada(ctx, broker, cfg.AMQPPrefetch, provisionar); err != nil {
 		return fmt.Errorf("consumidor de sessão criada: %w", err)
 	}
-	if err := adaptadoramqp.ConsumirSessaoCancelada(ctx, broker, cfg.AMQPPrefetch, obs, cancelarSessao); err != nil {
+	if err := adaptadoramqp.ConsumirSessaoCancelada(ctx, broker, cfg.AMQPPrefetch, cancelarSessao); err != nil {
 		return fmt.Errorf("consumidor de sessão cancelada: %w", err)
 	}
 
-	publicador := &adaptadoramqp.Publicador{Conexao: broker, Banco: banco, Obs: obs, Intervalo: time.Second}
+	publicador := &adaptadoramqp.Publicador{Conexao: broker, Banco: banco, Intervalo: time.Second}
 	publicador.Iniciar(ctx)
 
 	aoFalhar := func(nome string, err error) {
-		obs.Log.Warn("rotina periódica falhou", "rotina", nome, "erro", err.Error())
 	}
 
 	postgres.RotinaPeriodica(ctx, "varredura-expiracao", cfg.VarreduraExpiracaoInterval,
@@ -149,10 +129,7 @@ func executar() error {
 
 	if prazo != nil {
 		prazo.EscutarExpiracoes(ctx, func(ctx context.Context, reservaID string) {
-			if _, err := expirar.ExpirarUma(ctx, reservaID); err != nil {
-				obs.Log.Warn("falha ao expirar pelo índice de prazo",
-					"reserva_id", reservaID, "erro", err.Error())
-			}
+			_, _ = expirar.ExpirarUma(ctx, reservaID)
 		})
 	}
 
@@ -169,9 +146,7 @@ func executar() error {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	go func() {
-		if err := admin.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			obs.Log.Error("porta de administração caiu", "erro", err.Error())
-		}
+		_ = admin.ListenAndServe()
 	}()
 	defer func() {
 		ctxDesligar, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
@@ -207,32 +182,16 @@ func executar() error {
 		}
 	}()
 
-	obs.Log.Info("estoque no ar",
-		"admin", cfg.AdminAddr, "rest", cfg.HTTPAddr, "catalogo", cfg.CatalogoURL,
-		"reserva_ttl", cfg.ReservaTTL.String(),
-		"limite_poltronas", cfg.PoltronasMaxPorBloqueio)
-
 	select {
 	case err := <-erros:
 		return err
 	case <-ctx.Done():
-		obs.Log.Info("encerrando")
+
 		ctxDreno, cancelarDreno := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancelarDreno()
 		if n, err := publicador.Drenar(ctxDreno, 500); err != nil {
-			obs.Log.Warn("caixa de saída não drenada no encerramento", "erro", err.Error())
 		} else if n > 0 {
-			obs.Log.Info("fatos publicados no encerramento", "quantidade", n)
 		}
 		return nil
 	}
-}
-
-func contextoDeRastreamento(ctx context.Context) map[string]string {
-	portador := propagation.MapCarrier{}
-	otel.GetTextMapPropagator().Inject(ctx, portador)
-	if len(portador) == 0 {
-		return nil
-	}
-	return portador
 }

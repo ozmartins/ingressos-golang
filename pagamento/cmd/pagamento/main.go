@@ -18,7 +18,6 @@ import (
 	"github.com/oseias/ingressos-golang/pagamento/internal/adapter/postgres"
 	"github.com/oseias/ingressos-golang/pagamento/internal/platform/config"
 	"github.com/oseias/ingressos-golang/pagamento/internal/platform/health"
-	"github.com/oseias/ingressos-golang/pagamento/internal/platform/observability"
 	"github.com/oseias/ingressos-golang/pagamento/internal/usecase"
 )
 
@@ -42,9 +41,6 @@ func executar() error {
 	if err != nil {
 		return err
 	}
-
-	log := observability.Logger(cfg.NivelLog)
-	propagador := observability.Propagador()
 
 	ctx, parar := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer parar()
@@ -80,7 +76,7 @@ func executar() error {
 	if err != nil {
 		return err
 	}
-	publicador, err := adaptamqp.NovoPublicador(canalPub, cfg.AMQPExchange, propagador)
+	publicador, err := adaptamqp.NovoPublicador(canalPub, cfg.AMQPExchange)
 	if err != nil {
 		return err
 	}
@@ -104,17 +100,16 @@ func executar() error {
 
 	consumidor := &adaptamqp.Consumidor{
 		Canal: canalCons, Fila: cfg.AMQPFilaReserva, Prefetch: cfg.AMQPPrefetch,
-		Caso: registrar, Log: log, Propagador: propagador,
+		Caso:        registrar,
 		EmAndamento: &adaptamqp.Medidor{},
 	}
 
 	varrer := usecase.VarrerCobrancas{
-		Repo: repo, Cobranca: processar, Relogio: relogio{}, Log: log,
+		Repo: repo, Cobranca: processar, Relogio: relogio{},
 		Lote: cfg.VarreduraLote,
 	}
 	postgres.RotinaPeriodica(ctx, "varredura-cobrancas", cfg.VarreduraIntervalo,
 		varrer.Executar, func(nome string, err error) {
-			log.Warn("rotina periódica falhou; será repetida", "rotina", nome, "erro", err)
 		})
 
 	auth, err := adapthttp.NovoAutenticador(cfg.JWKSURL, cfg.JWTIssuer, cfg.JWTAud)
@@ -136,7 +131,6 @@ func executar() error {
 		Escolha:   usecase.EscolherForma{Repo: repo, Relogio: relogio{}},
 		Auth:      auth,
 		Prontidao: prontidao,
-		Log:       log,
 	}
 
 	servidor := &http.Server{
@@ -147,13 +141,11 @@ func executar() error {
 
 	erros := make(chan error, 2)
 	go func() {
-		log.Info("servidor HTTP no ar", "porta", cfg.PortaHTTP)
 		if err := servidor.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			erros <- err
 		}
 	}()
 	go func() {
-		log.Info("consumindo intenções", "fila", cfg.AMQPFilaReserva, "prefetch", cfg.AMQPPrefetch)
 		if err := consumidor.Consumir(ctx); err != nil && !errors.Is(err, context.Canceled) {
 			erros <- err
 		}
@@ -163,7 +155,7 @@ func executar() error {
 	case err := <-erros:
 		return err
 	case <-ctx.Done():
-		log.Info("desligando")
+
 		desligar, cancelar := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancelar()
 		return servidor.Shutdown(desligar)

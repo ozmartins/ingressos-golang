@@ -3,11 +3,9 @@ package http
 import (
 	"encoding/json"
 	"errors"
-	"log/slog"
+
 	"net/http"
 	"strconv"
-
-	"go.opentelemetry.io/otel/trace"
 
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/shared"
 )
@@ -36,7 +34,6 @@ type problem struct {
 	Title    string            `json:"title"`
 	Status   int               `json:"status"`
 	Detail   string            `json:"detail,omitempty"`
-	Instance string            `json:"instance,omitempty"`
 	Metadata map[string]string `json:"metadata,omitempty"`
 }
 
@@ -48,15 +45,10 @@ func escreverProblem(w http.ResponseWriter, r *http.Request, status int, tipo, t
 		Detail:   detail,
 		Metadata: metadata,
 	}
-	if sc := trace.SpanContextFromContext(r.Context()); sc.HasTraceID() {
-		corpo.Instance = "urn:trace:" + sc.TraceID().String()
-	}
 
 	w.Header().Set("Content-Type", "application/problem+json; charset=utf-8")
 	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(corpo); err != nil {
-		slog.Debug("falha ao escrever a resposta de erro", slog.Any("erro", err))
-	}
+	_ = json.NewEncoder(w).Encode(corpo)
 }
 
 func responderErroDeDominio(w http.ResponseWriter, r *http.Request, err error, limitePoltronas int) {

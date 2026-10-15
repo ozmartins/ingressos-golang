@@ -55,7 +55,6 @@ func TestProcessoSobeApenasComConfiguracaoExterna(t *testing.T) {
 		"JWT_ISSUER=http://keycloak.test/realms/cinema",
 		"JWT_AUDIENCE=cinema-app",
 		"TLS_CLIENT_AUTH=off",
-		"LOG_LEVEL=error",
 	}
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("iniciar processo: %v", err)

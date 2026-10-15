@@ -32,10 +32,9 @@ func (r ResultadoTransicao) String() string {
 }
 
 type FatoPendente struct {
-	MessageID    string
-	RoutingKey   string
-	Payload      []byte
-	TraceContext map[string]string
+	MessageID  string
+	RoutingKey string
+	Payload    []byte
 }
 
 type DesfechoCancelamentoDeSessao struct {
@@ -75,12 +74,6 @@ type IndiceDePrazo interface {
 
 type Relogio interface {
 	Agora() time.Time
-}
-
-type Registrador interface {
-	Info(msg string, args ...any)
-	Warn(msg string, args ...any)
-	Error(msg string, args ...any)
 }
 
 type CatalogoDeSessoes interface {

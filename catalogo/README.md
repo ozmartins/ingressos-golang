@@ -48,9 +48,6 @@ broker confirmar. Disso decorrem três coisas que quem integra precisa saber:
   da sessão; a alteração nunca invalida a matriz, porque a sala de uma sessão não
   pode mudar — `PUT` com outra sala responde `409`.
 
-O contexto de rastreamento da requisição viaja nos cabeçalhos da mensagem, de
-modo que o span de quem consome não nasça órfão.
-
 ## A reserva mora no estoque
 
 Este serviço não reserva nada e não chama nenhum outro serviço de forma
@@ -254,8 +251,6 @@ Opcionais, com padrão:
 | `PAGINACAO_TAMANHO_MAXIMO` | `100` | Teto de `page_size`; acima disso a requisição é recusada |
 | `OUTBOX_INTERVALO` | `1s` | De quanto em quanto tempo a caixa de saída é drenada |
 | `OUTBOX_LOTE` | `100` | Fatos lidos por drenagem |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | — | Coletor de rastros e métricas; sem ele o serviço roda e apenas não exporta |
-| `LOG_LEVEL` | `info` | `debug`, `info`, `warn` ou `error` |
 
 ## Arquitetura
 
@@ -267,7 +262,7 @@ internal/
   domain/       entidades e regras; não importa nada de infraestrutura
   usecase/      casos de uso e as portas que eles exigem
   adapter/      http (entrada), postgres, amqp, identidade (saída)
-  platform/     configuração, observabilidade, saúde
+  platform/     configuração, saúde
 ```
 
 A regra não depende de revisão humana: o `depguard` configurado em

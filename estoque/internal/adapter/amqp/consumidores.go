@@ -7,7 +7,6 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/shared"
-	"github.com/oseias/ingressos-golang/estoque/internal/platform/observability"
 	"github.com/oseias/ingressos-golang/estoque/internal/usecase"
 )
 
@@ -18,11 +17,9 @@ func chaveIdempotencia(msg amqp.Delivery, alternativa string) string {
 	return alternativa
 }
 
-func ConsumirPagamentoSucesso(ctx context.Context, conexao *Conexao, prefetch int,
-	obs *observability.Observabilidade, uc usecase.ConfirmarReserva) error {
-
+func ConsumirPagamentoSucesso(ctx context.Context, conexao *Conexao, prefetch int, uc usecase.ConfirmarReserva) error {
 	c := &Consumidor{
-		Conexao: conexao, Fila: FilaPagamentoSucesso, Prefetch: prefetch, Obs: obs,
+		Conexao: conexao, Fila: FilaPagamentoSucesso, Prefetch: prefetch,
 		Trata: func(ctx context.Context, msg amqp.Delivery) (string, error) {
 			desfecho, err := usecase.LerDesfechoPagamento(msg.Body)
 			if err != nil {
@@ -39,11 +36,9 @@ func ConsumirPagamentoSucesso(ctx context.Context, conexao *Conexao, prefetch in
 	return c.Iniciar(ctx)
 }
 
-func ConsumirPagamentoFalhou(ctx context.Context, conexao *Conexao, prefetch int,
-	obs *observability.Observabilidade, uc usecase.CancelarReserva) error {
-
+func ConsumirPagamentoFalhou(ctx context.Context, conexao *Conexao, prefetch int, uc usecase.CancelarReserva) error {
 	c := &Consumidor{
-		Conexao: conexao, Fila: FilaPagamentoFalhou, Prefetch: prefetch, Obs: obs,
+		Conexao: conexao, Fila: FilaPagamentoFalhou, Prefetch: prefetch,
 		Trata: func(ctx context.Context, msg amqp.Delivery) (string, error) {
 			desfecho, err := usecase.LerDesfechoPagamento(msg.Body)
 			if err != nil {
@@ -60,11 +55,9 @@ func ConsumirPagamentoFalhou(ctx context.Context, conexao *Conexao, prefetch int
 	return c.Iniciar(ctx)
 }
 
-func ConsumirSessaoCriada(ctx context.Context, conexao *Conexao, prefetch int,
-	obs *observability.Observabilidade, uc usecase.ProvisionarSessao) error {
-
+func ConsumirSessaoCriada(ctx context.Context, conexao *Conexao, prefetch int, uc usecase.ProvisionarSessao) error {
 	c := &Consumidor{
-		Conexao: conexao, Fila: FilaSessaoCriada, Prefetch: prefetch, Obs: obs,
+		Conexao: conexao, Fila: FilaSessaoCriada, Prefetch: prefetch,
 		Trata: func(ctx context.Context, msg amqp.Delivery) (string, error) {
 			evento, err := usecase.LerSessaoCriada(msg.Body)
 			if err != nil {
@@ -84,11 +77,9 @@ func ConsumirSessaoCriada(ctx context.Context, conexao *Conexao, prefetch int,
 	return c.Iniciar(ctx)
 }
 
-func ConsumirSessaoCancelada(ctx context.Context, conexao *Conexao, prefetch int,
-	obs *observability.Observabilidade, uc usecase.CancelarSessao) error {
-
+func ConsumirSessaoCancelada(ctx context.Context, conexao *Conexao, prefetch int, uc usecase.CancelarSessao) error {
 	c := &Consumidor{
-		Conexao: conexao, Fila: FilaSessaoCancelada, Prefetch: prefetch, Obs: obs,
+		Conexao: conexao, Fila: FilaSessaoCancelada, Prefetch: prefetch,
 		Trata: func(ctx context.Context, msg amqp.Delivery) (string, error) {
 			evento, err := usecase.LerSessaoCancelada(msg.Body)
 			if err != nil {

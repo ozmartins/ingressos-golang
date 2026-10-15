@@ -2,7 +2,7 @@ package amqp
 
 import (
 	"context"
-	"log/slog"
+
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -17,9 +17,9 @@ const (
 )
 
 type Publicador struct {
-	Conexao   *Conexao
-	Caixa     *postgres.CaixaDeSaida
-	Log       *slog.Logger
+	Conexao *Conexao
+	Caixa   *postgres.CaixaDeSaida
+
 	Intervalo time.Duration
 	Lote      int
 }
@@ -45,7 +45,7 @@ func (p *Publicador) Iniciar(ctx context.Context) {
 		for {
 			select {
 			case <-ctx.Done():
-				p.Log.Info("publicador da caixa de saída encerrado")
+
 				return
 			case <-tique.C:
 				p.drenar(ctx, lote)
@@ -55,36 +55,9 @@ func (p *Publicador) Iniciar(ctx context.Context) {
 }
 
 func (p *Publicador) drenar(ctx context.Context, lote int) {
-	var (
-		falhas        int
-		primeiraFalha error
-	)
-
-	n, err := p.Caixa.Drenar(ctx, lote, func(fato postgres.FatoNaCaixa) error {
-		if err := p.publicar(ctx, fato); err != nil {
-			falhas++
-			if primeiraFalha == nil {
-				primeiraFalha = err
-			}
-			return err
-		}
-
-		return nil
+	_, _ = p.Caixa.Drenar(ctx, lote, func(fato postgres.FatoNaCaixa) error {
+		return p.publicar(ctx, fato)
 	})
-
-	if err != nil {
-		p.Log.Warn("falha ao drenar a caixa de saída", slog.Any("erro", err))
-		return
-	}
-
-	if falhas > 0 {
-		p.Log.Warn("fatos não publicados; serão reenviados",
-			slog.Int("quantidade", falhas), slog.Any("erro", primeiraFalha))
-	}
-
-	if n > 0 {
-		p.Log.Info("fatos publicados", slog.Int("quantidade", n))
-	}
 }
 
 func (p *Publicador) publicar(ctx context.Context, fato postgres.FatoNaCaixa) error {
@@ -92,12 +65,6 @@ func (p *Publicador) publicar(ctx context.Context, fato postgres.FatoNaCaixa) er
 
 	if err != nil {
 		return err
-	}
-
-	cabecalhos := amqp.Table{}
-
-	for chave, valor := range fato.TraceContext {
-		cabecalhos[chave] = valor
 	}
 
 	ctxPublicacao, cancelar := context.WithTimeout(ctx, timeoutPublicar)
@@ -111,7 +78,6 @@ func (p *Publicador) publicar(ctx context.Context, fato postgres.FatoNaCaixa) er
 			DeliveryMode: amqp.Persistent,
 			MessageId:    fato.MessageID,
 			Timestamp:    time.Now().UTC(),
-			Headers:      cabecalhos,
 			Body:         fato.Payload,
 		})
 

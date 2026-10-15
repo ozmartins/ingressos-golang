@@ -11,9 +11,6 @@ CREATE TABLE catalogo.outbox_eventos (
     message_id    VARCHAR(64)  NOT NULL UNIQUE,
     routing_key   VARCHAR(120) NOT NULL,
     payload       JSONB        NOT NULL,
-    -- Contexto W3C capturado na requisição: o publicador roda fora dela, e sem
-    -- isso o span do consumidor nasceria órfão.
-    trace_context JSONB,
     criado_em     TIMESTAMPTZ  NOT NULL DEFAULT now(),
     publicado_em  TIMESTAMPTZ,
     tentativas    INT          NOT NULL DEFAULT 0

@@ -11,17 +11,17 @@ import (
 
 const filaCancelamento = "estoque.sessao-cancelada"
 
-func montarCancelarSessao(e *estoqueFalso, p *prazoFalso, l *logFalso) CancelarSessao {
+func montarCancelarSessao(e *estoqueFalso, p *prazoFalso) CancelarSessao {
 	return CancelarSessao{
-		Reservas: e, Prazo: p, Relogio: shared.NovoRelogioFixo(agora), Log: l,
+		Reservas: e, Prazo: p, Relogio: shared.NovoRelogioFixo(agora),
 	}
 }
 
 func TestCancelarSessaoSoltaAsPendentes(t *testing.T) {
-	estoque, prazo, log := novoEstoqueFalso(), novoPrazoFalso(), &logFalso{}
+	estoque, prazo := novoEstoqueFalso(), novoPrazoFalso()
 	estoque.provisionar(sessao, "A1", "A2", "A3")
 
-	bloqueio := montarBloqueio(estoque, prazo, log)
+	bloqueio := montarBloqueio(estoque, prazo)
 	primeira, err := bloqueio.Executar(context.Background(), sessao, usuario, []string{"A1"}, valorDeTeste)
 	if err != nil {
 		t.Fatal(err)
@@ -31,7 +31,7 @@ func TestCancelarSessaoSoltaAsPendentes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	uc := montarCancelarSessao(estoque, prazo, log)
+	uc := montarCancelarSessao(estoque, prazo)
 	resultado, err := uc.Executar(context.Background(), filaCancelamento, "msg-1", sessao)
 	if err != nil {
 		t.Fatalf("erro inesperado: %v", err)
@@ -56,10 +56,10 @@ func TestCancelarSessaoSoltaAsPendentes(t *testing.T) {
 }
 
 func TestCancelarSessaoPreservaAsConfirmadas(t *testing.T) {
-	estoque, prazo, log := novoEstoqueFalso(), novoPrazoFalso(), &logFalso{}
+	estoque, prazo := novoEstoqueFalso(), novoPrazoFalso()
 	estoque.provisionar(sessao, "A1", "A2")
 
-	bloqueio := montarBloqueio(estoque, prazo, log)
+	bloqueio := montarBloqueio(estoque, prazo)
 	paga, err := bloqueio.Executar(context.Background(), sessao, usuario, []string{"A1"}, valorDeTeste)
 	if err != nil {
 		t.Fatal(err)
@@ -72,7 +72,7 @@ func TestCancelarSessaoPreservaAsConfirmadas(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	uc := montarCancelarSessao(estoque, prazo, log)
+	uc := montarCancelarSessao(estoque, prazo)
 	if _, err := uc.Executar(context.Background(), filaCancelamento, "msg-1", sessao); err != nil {
 		t.Fatalf("erro inesperado: %v", err)
 	}
@@ -89,14 +89,14 @@ func TestCancelarSessaoPreservaAsConfirmadas(t *testing.T) {
 }
 
 func TestCancelarSessaoEhIdempotente(t *testing.T) {
-	estoque, prazo, log := novoEstoqueFalso(), novoPrazoFalso(), &logFalso{}
+	estoque, prazo := novoEstoqueFalso(), novoPrazoFalso()
 	estoque.provisionar(sessao, "A1")
-	if _, err := montarBloqueio(estoque, prazo, log).
+	if _, err := montarBloqueio(estoque, prazo).
 		Executar(context.Background(), sessao, usuario, []string{"A1"}, valorDeTeste); err != nil {
 		t.Fatal(err)
 	}
 
-	uc := montarCancelarSessao(estoque, prazo, log)
+	uc := montarCancelarSessao(estoque, prazo)
 	if r, err := uc.Executar(context.Background(), filaCancelamento, "msg-1", sessao); err != nil || r != TransicaoAplicada {
 		t.Fatalf("primeira entrega: %v / %v", r, err)
 	}
@@ -110,8 +110,8 @@ func TestCancelarSessaoEhIdempotente(t *testing.T) {
 }
 
 func TestCancelarSessaoSemReservasNaoFalha(t *testing.T) {
-	estoque, prazo, log := novoEstoqueFalso(), novoPrazoFalso(), &logFalso{}
-	uc := montarCancelarSessao(estoque, prazo, log)
+	estoque, prazo := novoEstoqueFalso(), novoPrazoFalso()
+	uc := montarCancelarSessao(estoque, prazo)
 
 	r, err := uc.Executar(context.Background(), filaCancelamento, "msg-1", "sessao-desconhecida")
 	if err != nil {
@@ -123,9 +123,9 @@ func TestCancelarSessaoSemReservasNaoFalha(t *testing.T) {
 }
 
 func TestCancelarSessaoDevolveErroDeInfra(t *testing.T) {
-	estoque, prazo, log := novoEstoqueFalso(), novoPrazoFalso(), &logFalso{}
+	estoque, prazo := novoEstoqueFalso(), novoPrazoFalso()
 	estoque.erroForcado = shared.ErrDependenciaIndisponivel
-	uc := montarCancelarSessao(estoque, prazo, log)
+	uc := montarCancelarSessao(estoque, prazo)
 
 	if _, err := uc.Executar(context.Background(), filaCancelamento, "msg-1", sessao); err == nil {
 		t.Fatal("esperava que a falha de infraestrutura subisse, para a mensagem voltar à fila")

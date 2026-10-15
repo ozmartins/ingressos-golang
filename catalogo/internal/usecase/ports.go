@@ -60,10 +60,9 @@ type DataDoDia struct {
 }
 
 type FatoPendente struct {
-	MessageID    string
-	RoutingKey   string
-	Payload      []byte
-	TraceContext map[string]string
+	MessageID  string
+	RoutingKey string
+	Payload    []byte
 }
 
 type SessaoRepository interface {

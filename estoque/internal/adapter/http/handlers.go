@@ -3,7 +3,7 @@ package http
 import (
 	"context"
 	"encoding/json"
-	"log/slog"
+
 	"net/http"
 	"net/url"
 	"time"
@@ -137,7 +137,5 @@ func (a *API) consultarMapa(w http.ResponseWriter, r *http.Request) {
 func responderJSON(w http.ResponseWriter, status int, corpo any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(corpo); err != nil {
-		slog.Debug("falha ao escrever a resposta", slog.Any("erro", err))
-	}
+	_ = json.NewEncoder(w).Encode(corpo)
 }

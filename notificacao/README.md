@@ -65,7 +65,6 @@ erro de largada — não cai silenciosamente no padrão.
 | `AMQP_LIMITE_ENTREGAS` | `3` (tentativas, não reentregas) |
 | `NOTIFICADOR_MODO` | `enviar` (`falhar` exercita o caminho de erro) |
 | `NOTIFICADOR_TIMEOUT` | prazo para o canal de aviso responder (padrão `10s`) |
-| `LOG_LEVEL` | `info` |
 
 ## Rodar
 
@@ -105,8 +104,6 @@ lugar nenhum deste serviço.
 
 ## Uma regra que o código guarda em silêncio
 
-O `codigo_qr` **nunca** vai para log, atributo de rastro ou mensagem de erro. Log
-é copiado, agregado e lido por muita gente — um código de acesso em log é um
-ingresso utilizável em log, e a assinatura não protege contra quem simplesmente
-copia o código inteiro. O que identifica a operação nos registros é o
-`ingresso_id`. Há teste que cobra isso.
+O `codigo_qr` **nunca** vai para mensagem de erro. Um código de acesso exposto
+é um ingresso utilizável, e a assinatura não protege contra quem simplesmente
+copia o código inteiro. O que identifica a operação é o `ingresso_id`.

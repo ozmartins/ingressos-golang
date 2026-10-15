@@ -317,22 +317,3 @@ func (p *prazoFalso) Liberar(_ context.Context, reservaID string) error {
 	p.liberados[reservaID] = true
 	return nil
 }
-
-type logFalso struct {
-	mu     sync.Mutex
-	avisos []string
-}
-
-func (l *logFalso) Info(string, ...any) {}
-func (l *logFalso) Warn(msg string, _ ...any) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.avisos = append(l.avisos, msg)
-}
-func (l *logFalso) Error(string, ...any) {}
-
-func (l *logFalso) avisou() bool {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return len(l.avisos) > 0
-}

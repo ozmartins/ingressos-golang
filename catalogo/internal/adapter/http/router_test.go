@@ -1,9 +1,7 @@
 package http
 
 import (
-	"bytes"
 	"context"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -88,25 +86,6 @@ func TestRotaProtegidaExigeCredencialEPublicaNao(t *testing.T) {
 	}
 }
 
-func TestLogRegistraARotaComMetodoESemOIdentificador(t *testing.T) {
-	var saida bytes.Buffer
-	anterior := slog.Default()
-	slog.SetDefault(slog.New(slog.NewTextHandler(&saida, nil)))
-	t.Cleanup(func() { slog.SetDefault(anterior) })
-
-	var visto []string
-	router := novoRouter(tabelaFalsa(&visto), Dependencias{Verificador: verificadorFalso{aceita: true}})
-	router.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/api/v1/filmes/"+idDeTeste, nil))
-
-	log := saida.String()
-	if !strings.Contains(log, `rota="GET /api/v1/filmes/{id}"`) {
-		t.Fatalf("o log deveria ter rota=\"GET /api/v1/filmes/{id}\"; foi:\n%s", log)
-	}
-	if strings.Contains(log, idDeTeste) {
-		t.Fatalf("o identificador vazou para o rótulo da rota:\n%s", log)
-	}
-}
-
 func TestBordasDeRoteamento(t *testing.T) {
 	var visto []string
 	router := novoRouter(tabelaFalsa(&visto), Dependencias{Verificador: verificadorFalso{aceita: true}})
@@ -151,25 +130,6 @@ func TestBordasDeRoteamento(t *testing.T) {
 			}
 		}
 	})
-}
-
-func TestMiddlewaresEnvolvemTambemAsRequisicoesSemRota(t *testing.T) {
-	var saida bytes.Buffer
-	anterior := slog.Default()
-	slog.SetDefault(slog.New(slog.NewTextHandler(&saida, nil)))
-	t.Cleanup(func() { slog.SetDefault(anterior) })
-
-	var visto []string
-	router := novoRouter(tabelaFalsa(&visto), Dependencias{Verificador: verificadorFalso{aceita: true}})
-	router.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/nada", nil))
-	router.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodPost, "/api/v1/filmes/"+idDeTeste, nil))
-
-	log := saida.String()
-	for _, esperado := range []string{"status=404", "status=405"} {
-		if !strings.Contains(log, esperado) {
-			t.Errorf("o log não registrou %s:\n%s", esperado, log)
-		}
-	}
 }
 
 func TestIdComBarraCodificadaDaAMesmaRecusaQueIdInvalido(t *testing.T) {

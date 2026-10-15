@@ -29,7 +29,6 @@ type ConfirmarReserva struct {
 	Reservas RepositorioReservas
 	Prazo    IndiceDePrazo
 	Relogio  Relogio
-	Log      Registrador
 }
 
 func (uc ConfirmarReserva) Executar(ctx context.Context, fila, messageID, reservaID string) (ResultadoTransicao, error) {
@@ -41,20 +40,13 @@ func (uc ConfirmarReserva) Executar(ctx context.Context, fila, messageID, reserv
 	switch resultado {
 	case TransicaoAplicada:
 		if uc.Prazo != nil {
-			if err := uc.Prazo.Liberar(ctx, reservaID); err != nil {
-				uc.Log.Warn("não foi possível limpar o índice de prazo",
-					"reserva_id", reservaID, "erro", err.Error())
-			}
+			_ = uc.Prazo.Liberar(ctx, reservaID)
 		}
 	case TransicaoIgnoradaEstadoFinal:
-		uc.Log.Warn("pagamento aprovado para reserva já finalizada",
-			"reserva_id", reservaID, "fila", fila, "acao", "ignorado")
+
 	case TransicaoIgnoradaInexistente:
-		uc.Log.Warn("pagamento aprovado para reserva desconhecida",
-			"reserva_id", reservaID, "fila", fila, "acao", "ignorado")
+
 	case TransicaoIgnoradaDuplicata:
-		uc.Log.Info("reentrega de pagamento aprovado já processada",
-			"reserva_id", reservaID, "fila", fila)
 	}
 	return resultado, nil
 }

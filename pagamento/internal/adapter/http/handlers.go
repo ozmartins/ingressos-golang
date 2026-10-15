@@ -3,7 +3,7 @@ package http
 import (
 	"encoding/json"
 	"errors"
-	"log/slog"
+
 	"net/http"
 	"strings"
 
@@ -65,7 +65,6 @@ type API struct {
 	Escolha   usecase.EscolherForma
 	Auth      *Autenticador
 	Prontidao *health.Prontidao
-	Log       *slog.Logger
 }
 
 func (a *API) Rotas() http.Handler {
@@ -121,13 +120,13 @@ func (a *API) consultar(w http.ResponseWriter, r *http.Request) {
 	t, err := a.Consulta.Executar(r.Context(), reservaID, sub)
 	switch {
 	case usecase.NaoEncontrada(err):
-		a.Log.Info("consulta sem resultado visível", "reserva_id", reservaID, "sub", sub)
+
 		responderErro(w, http.StatusNotFound, CodNaoEncontrado, "não há pagamento para essa reserva")
 	case errors.Is(err, usecase.ErrDependenciaIndisponivel):
-		a.Log.Error("dependência indisponível ao consultar pagamento", "reserva_id", reservaID, "erro", err)
+
 		responderErro(w, http.StatusServiceUnavailable, CodIndisponivel, "serviço indisponível no momento")
 	case err != nil:
-		a.Log.Error("falha ao consultar pagamento", "reserva_id", reservaID, "erro", err)
+
 		responderErro(w, http.StatusServiceUnavailable, CodIndisponivel, "serviço indisponível no momento")
 	default:
 		responderJSON(w, http.StatusOK, paraResposta(t))
@@ -156,7 +155,7 @@ func (a *API) escolherForma(w http.ResponseWriter, r *http.Request) {
 	t, err := a.Escolha.Executar(r.Context(), reservaID, sub, transacao.FormaPagamento(corpo.FormaPagamento))
 	switch {
 	case usecase.NaoEncontrada(err):
-		a.Log.Info("escolha sem pagamento visível", "reserva_id", reservaID, "sub", sub)
+
 		responderErro(w, http.StatusNotFound, CodNaoEncontrado, "não há pagamento para essa reserva")
 
 	case errors.Is(err, transacao.ErrFormaDesconhecida):
@@ -176,11 +175,11 @@ func (a *API) escolherForma(w http.ResponseWriter, r *http.Request) {
 			"o prazo da reserva venceu e ela não pode mais ser paga")
 
 	case errors.Is(err, usecase.ErrDependenciaIndisponivel):
-		a.Log.Error("dependência indisponível ao registrar a forma de pagamento", "reserva_id", reservaID, "erro", err)
+
 		responderErro(w, http.StatusServiceUnavailable, CodIndisponivel, "serviço indisponível no momento")
 
 	case err != nil:
-		a.Log.Error("falha ao registrar a forma de pagamento", "reserva_id", reservaID, "erro", err)
+
 		responderErro(w, http.StatusServiceUnavailable, CodIndisponivel, "serviço indisponível no momento")
 
 	default:
@@ -206,7 +205,6 @@ func (a *API) vivo(w http.ResponseWriter, _ *http.Request) {
 
 func (a *API) pronto(w http.ResponseWriter, r *http.Request) {
 	if nome, err := a.Prontidao.Verificar(r.Context()); err != nil {
-		a.Log.Warn("dependência indisponível", "dependencia", nome, "erro", err)
 		responderJSON(w, http.StatusServiceUnavailable, map[string]string{
 			"status": "indisponível", "dependencia": nome,
 		})
@@ -231,9 +229,7 @@ func responderErro(w http.ResponseWriter, status int, codigo, detalhe string) {
 func escrever(w http.ResponseWriter, tipo string, status int, corpo any) {
 	w.Header().Set("Content-Type", tipo)
 	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(corpo); err != nil {
-		slog.Debug("falha ao escrever a resposta", slog.Any("erro", err))
-	}
+	_ = json.NewEncoder(w).Encode(corpo)
 }
 
 var errSemCredencial = errors.New("http: credencial ausente")

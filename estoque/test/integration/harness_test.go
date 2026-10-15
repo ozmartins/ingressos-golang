@@ -14,19 +14,12 @@ import (
 	adaptadorredis "github.com/oseias/ingressos-golang/estoque/internal/adapter/redis"
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/poltrona"
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/shared"
-	"github.com/oseias/ingressos-golang/estoque/internal/platform/observability"
 	"github.com/oseias/ingressos-golang/estoque/internal/usecase"
 )
 
 const valorDeTeste = "84.00"
 
 const usuario = "c394c8b3-76a1-4328-b803-02f5923b7a15"
-
-type registrador struct{ t *testing.T }
-
-func (r registrador) Info(msg string, args ...any)  { r.t.Logf("INFO  %s %v", msg, args) }
-func (r registrador) Warn(msg string, args ...any)  { r.t.Logf("WARN  %s %v", msg, args) }
-func (r registrador) Error(msg string, args ...any) { r.t.Logf("ERROR %s %v", msg, args) }
 
 type Cenario struct {
 	Banco     *postgres.Banco
@@ -55,11 +48,7 @@ func montarCenario(t *testing.T, comPrazo bool) *Cenario {
 
 	var prazo usecase.IndiceDePrazo
 	if comPrazo {
-		obs, err := observability.Iniciar(ctx, "error", "")
-		if err != nil {
-			t.Fatalf("observabilidade: %v", err)
-		}
-		indice, err := adaptadorredis.Abrir(ctx, ambiente.RedisURL, obs)
+		indice, err := adaptadorredis.Abrir(ctx, ambiente.RedisURL)
 		if err != nil {
 			t.Fatalf("abrir redis: %v", err)
 		}
@@ -70,22 +59,18 @@ func montarCenario(t *testing.T, comPrazo bool) *Cenario {
 	reservas := postgres.NovoRepositorioReservas(banco)
 	poltronas := postgres.NovoRepositorioPoltronas(banco)
 	relogio := shared.NovoRelogioFixo(time.Now().UTC())
-	log := registrador{t: t}
 
 	return &Cenario{
 		Banco: banco, Pool: banco.SQL(), Reservas: reservas, Poltronas: poltronas, Relogio: relogio,
 		Bloquear: usecase.BloquearPoltronas{
-			Reservas: reservas, Prazo: prazo, Relogio: relogio, Log: log,
+			Reservas: reservas, Prazo: prazo, Relogio: relogio,
 			TTL: 10 * time.Minute, Limite: 10,
-			TraceContextDe: func(context.Context) map[string]string {
-				return map[string]string{"traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"}
-			},
 		},
 		Consultar:   usecase.ConsultarMapa{Poltronas: poltronas},
-		Confirmar:   usecase.ConfirmarReserva{Reservas: reservas, Prazo: prazo, Relogio: relogio, Log: log},
-		Cancelar:    usecase.CancelarReserva{Reservas: reservas, Prazo: prazo, Relogio: relogio, Log: log},
-		Expirar:     usecase.ExpirarReservas{Reservas: reservas, Prazo: prazo, Relogio: relogio, Log: log, LotePorVarredura: 500},
-		Provisionar: usecase.ProvisionarSessao{Poltronas: poltronas, Log: log},
+		Confirmar:   usecase.ConfirmarReserva{Reservas: reservas, Prazo: prazo, Relogio: relogio},
+		Cancelar:    usecase.CancelarReserva{Reservas: reservas, Prazo: prazo, Relogio: relogio},
+		Expirar:     usecase.ExpirarReservas{Reservas: reservas, Prazo: prazo, Relogio: relogio, LotePorVarredura: 500},
+		Provisionar: usecase.ProvisionarSessao{Poltronas: poltronas},
 	}
 }
 

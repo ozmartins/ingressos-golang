@@ -2,9 +2,7 @@ package postgres
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"log/slog"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -18,13 +16,6 @@ func NovaCaixaDeSaida(b *Banco) *CaixaDeSaida { return &CaixaDeSaida{banco: b} }
 
 func enfileirarFato(tx *gorm.DB, fato usecase.FatoPendente) error {
 	linha := outboxRow{MessageID: fato.MessageID, RoutingKey: fato.RoutingKey, Payload: fato.Payload}
-	if len(fato.TraceContext) > 0 {
-		trace, err := json.Marshal(fato.TraceContext)
-		if err != nil {
-			return fmt.Errorf("serializando contexto de rastreamento: %w", err)
-		}
-		linha.TraceContext = trace
-	}
 
 	err := tx.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "message_id"}},
@@ -37,11 +28,10 @@ func enfileirarFato(tx *gorm.DB, fato usecase.FatoPendente) error {
 }
 
 type FatoNaCaixa struct {
-	ID           int64
-	MessageID    string
-	RoutingKey   string
-	Payload      []byte
-	TraceContext map[string]string
+	ID         int64
+	MessageID  string
+	RoutingKey string
+	Payload    []byte
 }
 
 func (c *CaixaDeSaida) Drenar(ctx context.Context, limite int, publicar func(FatoNaCaixa) error) (int, error) {
@@ -60,13 +50,6 @@ func (c *CaixaDeSaida) Drenar(ctx context.Context, limite int, publicar func(Fat
 
 		for _, p := range pendentes {
 			f := FatoNaCaixa{ID: p.ID, MessageID: p.MessageID, RoutingKey: p.RoutingKey, Payload: p.Payload}
-			if len(p.TraceContext) > 0 {
-				if err := json.Unmarshal(p.TraceContext, &f.TraceContext); err != nil {
-					slog.WarnContext(ctx, "contexto de rastreamento ilegível na caixa de saída; publicando sem ele",
-						slog.String("message_id", p.MessageID), slog.Any("erro", err))
-					f.TraceContext = nil
-				}
-			}
 
 			fato := tx.Model(&outboxRow{}).Where("id = ?", f.ID)
 			if err := publicar(f); err != nil {

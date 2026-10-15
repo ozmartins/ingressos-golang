@@ -71,9 +71,6 @@ func TestCaixaDeSaidaDrenaEMarcaOFatoPublicado(t *testing.T) {
 	if f.MessageID != id || f.RoutingKey != usecase.RoutingKeySessaoCriada {
 		t.Errorf("fato inesperado: %+v", f)
 	}
-	if f.TraceContext["traceparent"] == "" {
-		t.Errorf("o contexto de rastreamento não sobreviveu à ida e volta: %+v", f.TraceContext)
-	}
 	var corpo map[string]any
 	if err := json.Unmarshal(f.Payload, &corpo); err != nil {
 		t.Errorf("o payload não voltou como JSON: %v", err)

@@ -56,9 +56,6 @@ CREATE TABLE estoque.outbox_eventos (
     message_id    VARCHAR(64) NOT NULL UNIQUE,
     routing_key   VARCHAR(120) NOT NULL,
     payload       JSONB       NOT NULL,
-    -- Contexto W3C capturado na concessão: o publicador roda fora da requisição
-    -- e sem isso o span nasceria órfão.
-    trace_context JSONB,
     criado_em     TIMESTAMPTZ NOT NULL DEFAULT now(),
     publicado_em  TIMESTAMPTZ,
     tentativas    INT         NOT NULL DEFAULT 0

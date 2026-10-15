@@ -30,9 +30,8 @@ func sessaoAgendada() dominiosessao.Sessao {
 func montarReserva(c *catalogoFalso, e *estoqueFalso) ReservarPoltronas {
 	return ReservarPoltronas{
 		Sessoes:  c,
-		Bloqueio: montarBloqueio(e, novoPrazoFalso(), &logFalso{}),
+		Bloqueio: montarBloqueio(e, novoPrazoFalso()),
 		Relogio:  shared.NovoRelogioFixo(agora),
-		Log:      &logFalso{},
 	}
 }
 

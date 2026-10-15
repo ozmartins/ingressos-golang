@@ -23,9 +23,6 @@ type Config struct {
 
 	PaginacaoTamanhoPadrao int
 	PaginacaoTamanhoMaximo int
-
-	OTLPEndpoint string
-	LogLevel     string
 }
 
 type erroCampo struct {
@@ -42,9 +39,6 @@ func Carregar() (Config, error) {
 		KeycloakIssuerURL: os.Getenv("KEYCLOAK_ISSUER_URL"),
 		KeycloakAudience:  os.Getenv("KEYCLOAK_AUDIENCE"),
 		RabbitMQURL:       os.Getenv("RABBITMQ_URL"),
-
-		OTLPEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
-		LogLevel:     comPadrao("LOG_LEVEL", "info"),
 	}
 
 	for _, obrigatorio := range []struct {

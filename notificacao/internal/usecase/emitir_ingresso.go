@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
+
 	"time"
 
 	"github.com/oseias/ingressos-golang/notificacao/internal/domain/aviso"
@@ -48,7 +48,6 @@ type EmitirIngresso struct {
 	Assinador   Assinador
 	Relogio     Relogio
 	IDs         GeradorID
-	Log         *slog.Logger
 }
 
 func (u EmitirIngresso) Executar(ctx context.Context, a Anuncio) (Desfecho, error) {
@@ -67,17 +66,11 @@ func (u EmitirIngresso) Executar(ctx context.Context, a Anuncio) (Desfecho, erro
 		return NovaTentativa, fmt.Errorf("gravar ingresso: %w", err)
 	}
 	if !criado {
-		u.log().Info("anúncio já processado, nada a fazer",
-			"reserva_id", a.ReservaID, "ingresso_id", atual.ID,
-			"desfecho", Confirmar.String())
 		return Confirmar, nil
 	}
 
 	u.avisar(ctx, atual)
 
-	u.log().Info("ingresso emitido",
-		"reserva_id", a.ReservaID, "ingresso_id", atual.ID,
-		"transacao_id", a.TransacaoID, "desfecho", Confirmar.String())
 	return Confirmar, nil
 }
 
@@ -101,31 +94,12 @@ func (u EmitirIngresso) avisar(ctx context.Context, ing ingresso.Ingresso) {
 		var errReg error
 		reg, errReg = aviso.NovoFalho(u.IDs.Novo(), ing.ID, ing.UsuarioID, canal, detalhes, agora)
 		if errReg != nil {
-			u.log().Error("registro de falha de aviso não montado",
-				"ingresso_id", ing.ID, "erro", errReg)
 			return
 		}
-		u.log().Warn("aviso não saiu; ingresso permanece válido",
-			"ingresso_id", ing.ID, "canal", string(canal),
-			"desfecho_aviso", string(aviso.Falha), "erro", err)
 	} else {
 		reg = aviso.NovoEnviado(u.IDs.Novo(), ing.ID, ing.UsuarioID, canal, agora)
-		u.log().Info("aviso enviado",
-			"ingresso_id", ing.ID, "canal", string(canal),
-			"desfecho_aviso", string(aviso.Enviado))
 	}
-
-	if err := u.Avisos.Registrar(ctx, reg); err != nil {
-		u.log().Error("registro de aviso não gravado",
-			"ingresso_id", ing.ID, "erro", err)
-	}
-}
-
-func (u EmitirIngresso) log() *slog.Logger {
-	if u.Log != nil {
-		return u.Log
-	}
-	return slog.Default()
+	_ = u.Avisos.Registrar(ctx, reg)
 }
 
 func validar(a Anuncio) error {

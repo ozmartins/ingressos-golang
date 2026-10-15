@@ -20,8 +20,8 @@ func TestCarregarAplicaPadroes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("erro inesperado: %v", err)
 	}
-	if c.HTTPPort != "8080" || c.LogLevel != "info" {
-		t.Fatalf("padrões não aplicados: porta=%s log=%s", c.HTTPPort, c.LogLevel)
+	if c.HTTPPort != "8080" {
+		t.Fatalf("padrões não aplicados: porta=%s", c.HTTPPort)
 	}
 	if c.PaginacaoTamanhoPadrao != 20 || c.PaginacaoTamanhoMaximo != 100 {
 		t.Fatalf("padrões de paginação errados: %d/%d", c.PaginacaoTamanhoPadrao, c.PaginacaoTamanhoMaximo)

@@ -18,26 +18,23 @@ const usuario = "c394c8b3-76a1-4328-b803-02f5923b7a15"
 
 var agora = time.Date(2026, 8, 29, 21, 33, 0, 0, time.UTC)
 
-func montarBloqueio(e *estoqueFalso, p *prazoFalso, l *logFalso) BloquearPoltronas {
+func montarBloqueio(e *estoqueFalso, p *prazoFalso) BloquearPoltronas {
 	return BloquearPoltronas{
 		Reservas: e,
 		Prazo:    p,
 		Relogio:  shared.NovoRelogioFixo(agora),
-		Log:      l,
-		TTL:      10 * time.Minute,
-		Limite:   10,
-		TraceContextDe: func(context.Context) map[string]string {
-			return map[string]string{"traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"}
-		},
+
+		TTL:    10 * time.Minute,
+		Limite: 10,
 	}
 }
 
 func TestBloqueioConcedido(t *testing.T) {
 	estoque := novoEstoqueFalso()
 	estoque.provisionar(sessao, "A1", "A2", "A3")
-	prazo, log := novoPrazoFalso(), &logFalso{}
+	prazo := novoPrazoFalso()
 
-	resultado, err := montarBloqueio(estoque, prazo, log).Executar(context.Background(), sessao, usuario, []string{"A1", "A2"}, valorDeTeste)
+	resultado, err := montarBloqueio(estoque, prazo).Executar(context.Background(), sessao, usuario, []string{"A1", "A2"}, valorDeTeste)
 	if err != nil {
 		t.Fatalf("erro inesperado: %v", err)
 	}
@@ -64,7 +61,7 @@ func TestBloqueioPublicaFatoComRotulosEContexto(t *testing.T) {
 	estoque := novoEstoqueFalso()
 	estoque.provisionar(sessao, "A1", "A2")
 
-	resultado, err := montarBloqueio(estoque, novoPrazoFalso(), &logFalso{}).
+	resultado, err := montarBloqueio(estoque, novoPrazoFalso()).
 		Executar(context.Background(), sessao, usuario, []string{"a2", "A1"}, valorDeTeste)
 	if err != nil {
 		t.Fatalf("erro inesperado: %v", err)
@@ -79,9 +76,6 @@ func TestBloqueioPublicaFatoComRotulosEContexto(t *testing.T) {
 	}
 	if fato.RoutingKey != RoutingKeyReservaCriada {
 		t.Errorf("routing key = %q, esperado %q", fato.RoutingKey, RoutingKeyReservaCriada)
-	}
-	if fato.TraceContext["traceparent"] == "" {
-		t.Error("fato sem contexto de rastreamento")
 	}
 
 	var evento EventoReservaCriada
@@ -99,7 +93,7 @@ func TestBloqueioPublicaFatoComRotulosEContexto(t *testing.T) {
 func TestBloqueioRecusadoPorIndisponibilidadeNaoEhErro(t *testing.T) {
 	estoque := novoEstoqueFalso()
 	estoque.provisionar(sessao, "A1", "A2")
-	uc := montarBloqueio(estoque, novoPrazoFalso(), &logFalso{})
+	uc := montarBloqueio(estoque, novoPrazoFalso())
 
 	if _, err := uc.Executar(context.Background(), sessao, usuario, []string{"A1"}, valorDeTeste); err != nil {
 		t.Fatalf("primeiro bloqueio devia passar: %v", err)
@@ -120,7 +114,7 @@ func TestBloqueioRecusadoPorIndisponibilidadeNaoEhErro(t *testing.T) {
 func TestBloqueioRecusaSolicitacaoInvalida(t *testing.T) {
 	estoque := novoEstoqueFalso()
 	estoque.provisionar(sessao, "A1")
-	uc := montarBloqueio(estoque, novoPrazoFalso(), &logFalso{})
+	uc := montarBloqueio(estoque, novoPrazoFalso())
 
 	casos := map[string]struct {
 		usuario string
@@ -149,7 +143,7 @@ func TestBloqueioRecusaSolicitacaoInvalida(t *testing.T) {
 }
 
 func TestBloqueioRecusaSessaoNaoProvisionada(t *testing.T) {
-	uc := montarBloqueio(novoEstoqueFalso(), novoPrazoFalso(), &logFalso{})
+	uc := montarBloqueio(novoEstoqueFalso(), novoPrazoFalso())
 
 	_, err := uc.Executar(context.Background(), "sessao-sem-matriz", usuario, []string{"A1"}, valorDeTeste)
 	if !errors.Is(err, shared.ErrSessaoNaoProvisionada) {
@@ -161,7 +155,7 @@ func TestBloqueioRecusaRotuloInexistente(t *testing.T) {
 	estoque := novoEstoqueFalso()
 	estoque.provisionar(sessao, "A1")
 
-	_, err := montarBloqueio(estoque, novoPrazoFalso(), &logFalso{}).
+	_, err := montarBloqueio(estoque, novoPrazoFalso()).
 		Executar(context.Background(), sessao, usuario, []string{"Z9"}, valorDeTeste)
 	if !errors.Is(err, shared.ErrPoltronaInexistente) {
 		t.Fatalf("erro = %v, esperado ErrPoltronaInexistente", err)
@@ -173,7 +167,7 @@ func TestBloqueioPropagaFalhaDoRepositorio(t *testing.T) {
 	estoque.provisionar(sessao, "A1")
 	estoque.erroForcado = shared.ErrDependenciaIndisponivel
 
-	_, err := montarBloqueio(estoque, novoPrazoFalso(), &logFalso{}).
+	_, err := montarBloqueio(estoque, novoPrazoFalso()).
 		Executar(context.Background(), sessao, usuario, []string{"A1"}, valorDeTeste)
 	if !errors.Is(err, shared.ErrDependenciaIndisponivel) {
 		t.Fatalf("erro = %v, esperado ErrDependenciaIndisponivel", err)
@@ -185,16 +179,12 @@ func TestBloqueioSobreviveAoIndiceDePrazoIndisponivel(t *testing.T) {
 	estoque.provisionar(sessao, "A1")
 	prazo := novoPrazoFalso()
 	prazo.erro = errors.New("redis fora do ar")
-	log := &logFalso{}
 
-	resultado, err := montarBloqueio(estoque, prazo, log).Executar(context.Background(), sessao, usuario, []string{"A1"}, valorDeTeste)
+	resultado, err := montarBloqueio(estoque, prazo).Executar(context.Background(), sessao, usuario, []string{"A1"}, valorDeTeste)
 	if err != nil {
 		t.Fatalf("falha do índice de prazo não pode derrubar o bloqueio: %v", err)
 	}
 	if !resultado.Concedido {
 		t.Fatal("esperava bloqueio concedido mesmo sem índice de prazo")
-	}
-	if !log.avisou() {
-		t.Error("degradação do índice de prazo devia ser registrada")
 	}
 }

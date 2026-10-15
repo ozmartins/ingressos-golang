@@ -633,8 +633,7 @@ func TestCriarSessaoEnfileiraOAnuncioComAPlantaDaSala(t *testing.T) {
 	salas := &salaRepoFalso{sala: catalogo.Sala{ID: "sala-1", Layout: layout}}
 	uc := CriarSessao{
 		Sessoes: sessoes, Filmes: &filmeRepoFalso{}, Salas: salas, GerarID: idFixo,
-		Agora:          func() time.Time { return time.Date(2026, 9, 6, 18, 0, 0, 0, time.UTC) },
-		TraceContextDe: func(context.Context) map[string]string { return map[string]string{"traceparent": "00-abc-def-01"} },
+		Agora: func() time.Time { return time.Date(2026, 9, 6, 18, 0, 0, 0, time.UTC) },
 	}
 
 	sessao, err := uc.Executar(context.Background(), dadosSessao())
@@ -648,9 +647,6 @@ func TestCriarSessaoEnfileiraOAnuncioComAPlantaDaSala(t *testing.T) {
 	}
 	if fato.MessageID != sessao.ID {
 		t.Errorf("message_id = %q, esperava o id da sessão %q", fato.MessageID, sessao.ID)
-	}
-	if fato.TraceContext["traceparent"] == "" {
-		t.Error("o contexto de rastreamento da requisição deveria viajar com o fato")
 	}
 
 	var evento EventoSessaoCriada
@@ -838,7 +834,6 @@ func TestAtualizarSessaoEnfileiraOAnuncio(t *testing.T) {
 	uc := AtualizarSessao{
 		Sessoes: sessoes, Filmes: &filmeRepoFalso{duracao: 100}, Salas: &salaRepoFalso{},
 		GerarID: idFixo, Agora: agoraFixo,
-		TraceContextDe: func(context.Context) map[string]string { return map[string]string{"traceparent": "00-abc-def-01"} },
 	}
 
 	dados := dadosSessao()
@@ -853,9 +848,6 @@ func TestAtualizarSessaoEnfileiraOAnuncio(t *testing.T) {
 	}
 	if fato.MessageID != idFixo() {
 		t.Errorf("message_id = %q, esperava um identificador próprio do fato", fato.MessageID)
-	}
-	if fato.TraceContext["traceparent"] == "" {
-		t.Error("o contexto de rastreamento deveria viajar com o fato")
 	}
 
 	var evento EventoSessaoAlterada

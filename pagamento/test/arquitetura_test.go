@@ -28,7 +28,6 @@ func TestNucleoNaoImportaInfraestrutura(t *testing.T) {
 		"gorm.io",
 		"github.com/go-chi",
 		"github.com/rabbitmq/amqp091-go",
-		"go.opentelemetry.io/otel",
 		"net/http",
 	}
 

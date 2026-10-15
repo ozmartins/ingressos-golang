@@ -46,21 +46,15 @@ func TestBloqueioGravaTudoNaMesmaTransacao(t *testing.T) {
 	}
 
 	var payload []byte
-	var traceContext []byte
 	var publicadoEm *string
 	err = c.Pool.QueryRowContext(ctx,
-		`SELECT payload, trace_context, publicado_em FROM outbox_eventos WHERE message_id = $1`,
-		resultado.Reserva.ID).Scan(&payload, &traceContext, &publicadoEm)
+		`SELECT payload, publicado_em FROM outbox_eventos WHERE message_id = $1`,
+		resultado.Reserva.ID).Scan(&payload, &publicadoEm)
 	if err != nil {
 		t.Fatalf("fato não foi para a caixa de saída: %v", err)
 	}
 	if publicadoEm != nil {
 		t.Error("fato não pode nascer publicado")
-	}
-
-	var contexto map[string]string
-	if err := json.Unmarshal(traceContext, &contexto); err != nil || contexto["traceparent"] == "" {
-		t.Errorf("fato sem contexto de rastreamento: %s", traceContext)
 	}
 
 	var evento usecase.EventoReservaCriada

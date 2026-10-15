@@ -3,8 +3,7 @@ package amqp
 import (
 	"context"
 	"errors"
-	"io"
-	"log/slog"
+
 	"testing"
 	"time"
 
@@ -55,7 +54,6 @@ func tratar(t *testing.T, corpo string, errCriar error) *reconhecedorFalso {
 	t.Helper()
 	ack := &reconhecedorFalso{}
 	c := &Consumidor{
-		Log: slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Caso: usecase.RegistrarIntencao{
 			Repo:    repoFalso{errCriar: errCriar},
 			Relogio: relogioFixo{},
@@ -98,7 +96,6 @@ func TestFalhaDeInfraEhDevolvidaParaNovaTentativa(t *testing.T) {
 func TestFalhaNoAckNaoPanica(t *testing.T) {
 	ack := &reconhecedorFalso{ackErr: errors.New("canal fechado")}
 	c := &Consumidor{
-		Log:  slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Caso: usecase.RegistrarIntencao{Repo: repoFalso{}, Relogio: relogioFixo{}, IDs: idFixo{}},
 	}
 	c.tratar(context.Background(), amqp.Delivery{Acknowledger: ack, Body: []byte(anuncioValido)})

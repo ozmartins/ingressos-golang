@@ -28,11 +28,9 @@ type BloquearPoltronas struct {
 	Reservas RepositorioReservas
 	Prazo    IndiceDePrazo
 	Relogio  Relogio
-	Log      Registrador
 
-	TTL            time.Duration
-	Limite         int
-	TraceContextDe func(context.Context) map[string]string
+	TTL    time.Duration
+	Limite int
 }
 
 type ResultadoBloqueio struct {
@@ -63,10 +61,7 @@ func (uc BloquearPoltronas) Executar(ctx context.Context, sessaoID, usuarioID st
 	}
 
 	if uc.Prazo != nil {
-		if err := uc.Prazo.Marcar(ctx, r.ID, r.ExpiraEm); err != nil {
-			uc.Log.Warn("índice de prazo indisponível; expiração fica com a varredura",
-				"reserva_id", r.ID, "erro", err.Error())
-		}
+		_ = uc.Prazo.Marcar(ctx, r.ID, r.ExpiraEm)
 	}
 
 	return ResultadoBloqueio{Concedido: true, Reserva: r, Mensagem: "poltronas bloqueadas"}, nil
@@ -88,15 +83,9 @@ func (uc BloquearPoltronas) montarFato(ctx context.Context, r reserva.Reserva) (
 		return FatoPendente{}, err
 	}
 
-	var traceCtx map[string]string
-	if uc.TraceContextDe != nil {
-		traceCtx = uc.TraceContextDe(ctx)
-	}
-
 	return FatoPendente{
-		MessageID:    r.ID,
-		RoutingKey:   RoutingKeyReservaCriada,
-		Payload:      payload,
-		TraceContext: traceCtx,
+		MessageID:  r.ID,
+		RoutingKey: RoutingKeyReservaCriada,
+		Payload:    payload,
 	}, nil
 }

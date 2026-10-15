@@ -95,7 +95,7 @@ ou malformada.
 | `DATABASE_URL` | — (obrigatória) | PostgreSQL, fonte de verdade (o `search_path` é fixado no código, no schema `estoque`) |
 | `RABBITMQ_URL` | — (obrigatória) | barramento de fatos |
 | `REDIS_URL` | vazio | índice de prazo; ausente, só a varredura expira |
-| `ADMIN_ADDR` | `:8090` | saúde e métricas |
+| `ADMIN_ADDR` | `:8090` | saúde |
 | `HTTP_ADDR` | `:8085` | API REST e `/docs` |
 | `JWKS_URL` | — (obrigatória) | chaves do Keycloak, carregadas na largada, que validam o JWT da API REST |
 | `JWT_ISSUER` | — (obrigatória) | emissor aceito no token |
@@ -109,8 +109,6 @@ ou malformada.
 | `VARREDURA_EXPIRACAO_INTERVALO` | `10s` | intervalo da varredura autoritativa |
 | `AMQP_PREFETCH` | `32` | trabalho não confirmado por consumidor |
 | `RETENCAO_MENSAGENS_PROCESSADAS` | `720h` | janela de idempotência |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | vazio | coletor de métricas e rastros |
-| `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 
 ## Estrutura
 
@@ -120,7 +118,7 @@ cmd/publicar/      ferramenta de linha de comando para publicar fatos à mão
 internal/domain/   núcleo: poltrona, reserva, invariantes — sem infraestrutura
 internal/usecase/  orquestração e portas
 internal/adapter/  HTTP (API e cliente do catálogo), PostgreSQL, AMQP, Redis
-internal/platform/ configuração, observabilidade, saúde
+internal/platform/ configuração, saúde
 migrations/        esquema versionado
 test/              integração (Testcontainers), arquitetura
 ```

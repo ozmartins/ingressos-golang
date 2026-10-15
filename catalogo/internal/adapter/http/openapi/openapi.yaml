@@ -718,7 +718,6 @@ components:
         title: { type: string }
         status: { type: integer }
         detail: { type: string }
-        instance: { type: string }
         errors:
           type: array
           items:

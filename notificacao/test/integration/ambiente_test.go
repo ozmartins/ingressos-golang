@@ -5,7 +5,7 @@ package integration
 import (
 	"context"
 	"encoding/json"
-	"log/slog"
+
 	"os"
 	"path/filepath"
 	"testing"
@@ -42,7 +42,6 @@ type ambiente struct {
 	Conexao   *amqp091.Connection
 	Canal     *amqp091.Channel
 	Assinador *codigo.Assinador
-	Log       *slog.Logger
 }
 
 func subirAmbiente(t *testing.T) *ambiente {
@@ -111,7 +110,6 @@ func subirAmbiente(t *testing.T) *ambiente {
 	return &ambiente{
 		Banco: banco, Ingressos: postgres.Ingressos{DB: banco.DB()}, Avisos: postgres.Avisos{DB: banco.DB()},
 		Conexao: conexao, Canal: canal, Assinador: assinador,
-		Log: slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError})),
 	}
 }
 
@@ -134,7 +132,6 @@ func (a *ambiente) caso(falharAviso bool) usecase.EmitirIngresso {
 		Assinador:   a.Assinador,
 		Relogio:     sistema.Relogio{},
 		IDs:         sistema.GeradorID{},
-		Log:         a.Log,
 	}
 }
 
@@ -147,7 +144,7 @@ func (a *ambiente) consumidor(t *testing.T, falharAviso bool) *adaptamqp.Consumi
 	t.Cleanup(func() { _ = canal.Close() })
 	return &adaptamqp.Consumidor{
 		Canal: canal, Fila: fila, Prefetch: 10,
-		Caso: a.caso(falharAviso), Log: a.Log,
+		Caso:                  a.caso(falharAviso),
 		EsperaAntesDeDevolver: 50 * time.Millisecond,
 	}
 }

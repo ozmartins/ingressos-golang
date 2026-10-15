@@ -196,10 +196,9 @@ func dadosSessao(inicio time.Time) catalogo.DadosSessao {
 
 func fatoDeTeste(sessaoID string) usecase.FatoPendente {
 	return usecase.FatoPendente{
-		MessageID:    sessaoID,
-		RoutingKey:   usecase.RoutingKeySessaoCriada,
-		Payload:      []byte(`{"evento":"SESSAO_CRIADA","versao":1,"sessao_id":"` + sessaoID + `"}`),
-		TraceContext: map[string]string{"traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"},
+		MessageID:  sessaoID,
+		RoutingKey: usecase.RoutingKeySessaoCriada,
+		Payload:    []byte(`{"evento":"SESSAO_CRIADA","versao":1,"sessao_id":"` + sessaoID + `"}`),
 	}
 }
 

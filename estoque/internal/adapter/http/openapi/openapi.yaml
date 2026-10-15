@@ -131,9 +131,6 @@ components:
           type: integer
         detail:
           type: string
-        instance:
-          type: string
-          description: "`urn:trace:<trace_id>`, a chave que localiza o rastro no log."
         metadata:
           type: object
           additionalProperties:
@@ -154,7 +151,7 @@ components:
           schema:
             $ref: "#/components/schemas/Problem"
     ErroInterno:
-      description: Falha não prevista. O detalhe fica no log, nunca na resposta.
+      description: Falha não prevista. O detalhe nunca vai na resposta.
       content:
         application/problem+json:
           schema:

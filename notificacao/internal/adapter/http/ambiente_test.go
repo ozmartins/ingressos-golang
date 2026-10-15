@@ -6,7 +6,6 @@ import (
 	"crypto/rsa"
 	"encoding/json"
 	"io"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -153,15 +152,13 @@ func montarAmbiente(t *testing.T) *ambiente {
 	if err != nil {
 		t.Fatalf("chave de portaria: %v", err)
 	}
-	log := slog.New(slog.NewJSONHandler(io.Discard, nil))
 
 	api := &API{
 		Listagem:  usecase.ListarIngressos{Ingressos: repo},
-		Validacao: usecase.ValidarIngresso{Ingressos: repo, Assinador: assinadorFalso{}, Relogio: relogioFixo{}, Log: log},
+		Validacao: usecase.ValidarIngresso{Ingressos: repo, Assinador: assinadorFalso{}, Relogio: relogioFixo{}},
 		Auth:      NovoAutenticadorComChave(kf, emissor, publico),
 		Chave:     portaria,
 		Prontidao: health.NovaProntidao(),
-		Log:       log,
 	}
 	srv := httptest.NewServer(api.Rotas())
 	t.Cleanup(srv.Close)

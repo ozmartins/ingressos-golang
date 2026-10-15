@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/sony/gobreaker/v2"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/sessao"
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/shared"
@@ -32,7 +31,7 @@ type Cliente struct {
 }
 
 func NovoCliente(opts Opcoes) *Cliente {
-	return NovoClienteComTransporte(opts, otelhttp.NewTransport(http.DefaultTransport))
+	return NovoClienteComTransporte(opts, http.DefaultTransport)
 }
 
 func NovoClienteComTransporte(opts Opcoes, transporte http.RoundTripper) *Cliente {

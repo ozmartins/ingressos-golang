@@ -11,18 +11,8 @@ import (
 	amqp091 "github.com/rabbitmq/amqp091-go"
 
 	adaptadoramqp "github.com/oseias/ingressos-golang/estoque/internal/adapter/amqp"
-	"github.com/oseias/ingressos-golang/estoque/internal/platform/observability"
 	"github.com/oseias/ingressos-golang/estoque/internal/usecase"
 )
-
-func observabilidade(t *testing.T) *observability.Observabilidade {
-	t.Helper()
-	obs, err := observability.Iniciar(context.Background(), "error", "")
-	if err != nil {
-		t.Fatalf("observabilidade: %v", err)
-	}
-	return obs
-}
 
 func conectarBroker(t *testing.T) *adaptadoramqp.Conexao {
 	t.Helper()
@@ -75,7 +65,7 @@ func TestFatoSobreviveABrokerIndisponivel(t *testing.T) {
 	}
 	conexaoCaida.Fechar()
 
-	publicadorCaido := &adaptadoramqp.Publicador{Conexao: conexaoCaida, Banco: c.Banco, Obs: observabilidade(t)}
+	publicadorCaido := &adaptadoramqp.Publicador{Conexao: conexaoCaida, Banco: c.Banco}
 
 	sessao, reservaID := reservaPendente(t, c)
 	_ = sessao
@@ -97,7 +87,7 @@ func TestFatoSobreviveABrokerIndisponivel(t *testing.T) {
 		t.Errorf("reserva = %s — falha de publicação invalidou o bloqueio", got)
 	}
 
-	publicador := &adaptadoramqp.Publicador{Conexao: conectarBroker(t), Banco: c.Banco, Obs: observabilidade(t)}
+	publicador := &adaptadoramqp.Publicador{Conexao: conectarBroker(t), Banco: c.Banco}
 	if _, err := publicador.Drenar(ctx, 200); err != nil {
 		t.Fatalf("drenar após retorno: %v", err)
 	}
@@ -125,9 +115,6 @@ func TestFatoSobreviveABrokerIndisponivel(t *testing.T) {
 			if msg.MessageId != reservaID {
 				t.Errorf("message_id = %q, esperado o id da reserva (chave de deduplicação)", msg.MessageId)
 			}
-			if msg.Headers["traceparent"] == nil {
-				t.Error("fato publicado sem traceparent — rastro quebra no broker")
-			}
 			goto entregue
 		case <-prazo:
 			t.Fatal("fato não chegou após o retorno do broker")
@@ -152,7 +139,7 @@ func TestConsumoAplicaEfeitoEConfirma(t *testing.T) {
 	defer cancelar()
 
 	conexao := conectarBroker(t)
-	if err := adaptadoramqp.ConsumirPagamentoSucesso(ctx, conexao, 8, observabilidade(t), c.Confirmar); err != nil {
+	if err := adaptadoramqp.ConsumirPagamentoSucesso(ctx, conexao, 8, c.Confirmar); err != nil {
 		t.Fatalf("consumidor: %v", err)
 	}
 
@@ -174,7 +161,7 @@ func TestMensagemInvalidaVaiParaDLQ(t *testing.T) {
 	defer cancelar()
 
 	conexao := conectarBroker(t)
-	if err := adaptadoramqp.ConsumirPagamentoFalhou(ctx, conexao, 8, observabilidade(t), c.Cancelar); err != nil {
+	if err := adaptadoramqp.ConsumirPagamentoFalhou(ctx, conexao, 8, c.Cancelar); err != nil {
 		t.Fatalf("consumidor: %v", err)
 	}
 
@@ -206,7 +193,7 @@ func TestSessaoCriadaProvisionaPeloConsumo(t *testing.T) {
 	defer cancelar()
 
 	conexao := conectarBroker(t)
-	if err := adaptadoramqp.ConsumirSessaoCriada(ctx, conexao, 8, observabilidade(t), c.Provisionar); err != nil {
+	if err := adaptadoramqp.ConsumirSessaoCriada(ctx, conexao, 8, c.Provisionar); err != nil {
 		t.Fatalf("consumidor: %v", err)
 	}
 
@@ -256,7 +243,6 @@ func publicarBruto(t *testing.T, routingKey string, corpo []byte, messageID stri
 		amqp091.Publishing{
 			ContentType: "application/json", DeliveryMode: amqp091.Persistent,
 			MessageId: messageID, Body: corpo,
-			Headers: amqp091.Table{"traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"},
 		})
 	if err != nil {
 		t.Fatalf("publicar: %v", err)
@@ -293,35 +279,4 @@ func aguardar(t *testing.T, limite time.Duration, condicao func() bool, mensagem
 		time.Sleep(100 * time.Millisecond)
 	}
 	t.Fatal(mensagem)
-}
-
-func publicarBrutoComHeader(t *testing.T, routingKey, reservaID, traceparent string) {
-	t.Helper()
-
-	conn, err := amqp091.Dial(ambiente.RabbitURL)
-	if err != nil {
-		t.Fatalf("publicar: %v", err)
-	}
-	defer conn.Close()
-
-	canal, err := conn.Channel()
-	if err != nil {
-		t.Fatalf("publicar: %v", err)
-	}
-	corpo, _ := json.Marshal(usecase.DesfechoPagamento{
-		Evento: "PAGAMENTO_SUCESSO", Versao: 1, ReservaID: reservaID,
-		OcorridoEm: time.Now().UTC().Format(time.RFC3339),
-	})
-
-	ctx, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancelar()
-	err = canal.PublishWithContext(ctx, adaptadoramqp.Exchange, routingKey, false, false,
-		amqp091.Publishing{
-			ContentType: "application/json", DeliveryMode: amqp091.Persistent,
-			MessageId: reservaID, Body: corpo,
-			Headers: amqp091.Table{"traceparent": traceparent},
-		})
-	if err != nil {
-		t.Fatalf("publicar: %v", err)
-	}
 }

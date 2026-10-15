@@ -27,12 +27,11 @@ type PoltronaNoFato struct {
 }
 
 type CriarSessao struct {
-	Sessoes        SessaoRepository
-	Filmes         FilmeRepository
-	Salas          SalaRepository
-	GerarID        func() string
-	Agora          func() time.Time
-	TraceContextDe func(context.Context) map[string]string
+	Sessoes SessaoRepository
+	Filmes  FilmeRepository
+	Salas   SalaRepository
+	GerarID func() string
+	Agora   func() time.Time
 }
 
 func (uc CriarSessao) Executar(ctx context.Context, dados catalogo.DadosSessao) (catalogo.Sessao, error) {
@@ -79,16 +78,10 @@ func (uc CriarSessao) anunciar(ctx context.Context, sessao catalogo.Sessao, sala
 		return FatoPendente{}, fmt.Errorf("montando o anúncio da sessão: %w", err)
 	}
 
-	var traceCtx map[string]string
-	if uc.TraceContextDe != nil {
-		traceCtx = uc.TraceContextDe(ctx)
-	}
-
 	return FatoPendente{
-		MessageID:    sessao.ID,
-		RoutingKey:   RoutingKeySessaoCriada,
-		Payload:      payload,
-		TraceContext: traceCtx,
+		MessageID:  sessao.ID,
+		RoutingKey: RoutingKeySessaoCriada,
+		Payload:    payload,
 	}, nil
 }
 

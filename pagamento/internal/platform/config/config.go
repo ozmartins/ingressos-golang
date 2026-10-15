@@ -28,9 +28,6 @@ type Config struct {
 	JWKSURL   string
 	JWTIssuer string
 	JWTAud    string
-
-	OTLPEndpoint string
-	NivelLog     string
 }
 
 type faltando []string
@@ -43,8 +40,6 @@ func Carregar() (Config, error) {
 		AMQPExchangeDLX:    comPadrao("AMQP_EXCHANGE_DLX", "cinema.eventos.dlx"),
 		AMQPFilaReserva:    comPadrao("AMQP_FILA_RESERVA_CRIADA", "pagamento.reserva-criada"),
 		AMQPFilaReservaDLQ: comPadrao("AMQP_FILA_RESERVA_CRIADA_DLQ", "pagamento.reserva-criada.dlq"),
-		OTLPEndpoint:       os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
-		NivelLog:           comPadrao("LOG_LEVEL", "info"),
 	}
 
 	c.DatabaseURL = obrigatoria("DATABASE_URL", &f)

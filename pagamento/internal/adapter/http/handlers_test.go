@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log/slog"
+
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -113,7 +113,6 @@ func apiCom(repo usecase.Repositorio) *API {
 		Escolha:   usecase.EscolherForma{Repo: repo, Relogio: relogioReal{}},
 		Auth:      NovoAutenticadorComChave(kf, issuer, audience),
 		Prontidao: p,
-		Log:       slog.New(slog.DiscardHandler),
 	}
 }
 

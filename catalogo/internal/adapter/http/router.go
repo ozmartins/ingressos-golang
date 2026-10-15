@@ -11,14 +11,12 @@ import (
 
 	"github.com/oseias/ingressos-golang/catalogo/internal/adapter/http/middleware"
 	"github.com/oseias/ingressos-golang/catalogo/internal/adapter/http/openapi"
-	"github.com/oseias/ingressos-golang/catalogo/internal/platform/observability"
 )
 
 type Dependencias struct {
 	Handlers    Handlers
 	Saude       http.HandlerFunc
 	Verificador middleware.VerificadorDeCredencial
-	Metricas    *observability.Metricas
 }
 
 type Rota struct {
@@ -92,9 +90,7 @@ func NovoRouter(d Dependencias) http.Handler { return novoRouter(rotas, d) }
 func novoRouter(tabela []Rota, d Dependencias) http.Handler {
 	r := chi.NewRouter()
 	r.Use(
-		middleware.Telemetria,
 		middleware.Recuperacao,
-		middleware.Log(d.Metricas),
 		chimw.GetHead,
 	)
 	r.MethodNotAllowed(metodoNaoPermitido)

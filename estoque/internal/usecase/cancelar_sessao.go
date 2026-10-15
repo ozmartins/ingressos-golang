@@ -28,7 +28,6 @@ type CancelarSessao struct {
 	Reservas RepositorioReservas
 	Prazo    IndiceDePrazo
 	Relogio  Relogio
-	Log      Registrador
 }
 
 func (uc CancelarSessao) Executar(ctx context.Context, fila, messageID, sessaoID string) (ResultadoTransicao, error) {
@@ -43,26 +42,12 @@ func (uc CancelarSessao) Executar(ctx context.Context, fila, messageID, sessaoID
 			if uc.Prazo == nil {
 				break
 			}
-			if err := uc.Prazo.Liberar(ctx, id); err != nil {
-				uc.Log.Warn("não foi possível limpar o índice de prazo",
-					"reserva_id", id, "sessao_id", sessaoID, "erro", err.Error())
-			}
-		}
-		uc.Log.Info("sessão cancelada; reservas pendentes liberadas",
-			"sessao_id", sessaoID, "canceladas", len(desfecho.Canceladas))
-
-		if desfecho.Confirmadas > 0 {
-			uc.Log.Warn("sessão cancelada tinha ingressos confirmados; exigem tratamento fora do sistema",
-				"sessao_id", sessaoID, "confirmadas", desfecho.Confirmadas)
+			_ = uc.Prazo.Liberar(ctx, id)
 		}
 
 	case TransicaoIgnoradaDuplicata:
-		uc.Log.Info("reentrega de cancelamento de sessão já processada",
-			"sessao_id", sessaoID, "fila", fila)
 
 	case TransicaoIgnoradaInexistente:
-		uc.Log.Info("cancelamento de sessão sem reservas pendentes",
-			"sessao_id", sessaoID)
 	}
 	return desfecho.Resultado, nil
 }

@@ -48,10 +48,9 @@ func (uc AtualizarSessao) anunciarAlteracao(ctx context.Context, sessao catalogo
 	}
 
 	return FatoPendente{
-		MessageID:    uc.GerarID(),
-		RoutingKey:   RoutingKeySessaoAlterada,
-		Payload:      payload,
-		TraceContext: traceDe(uc.TraceContextDe, ctx),
+		MessageID:  uc.GerarID(),
+		RoutingKey: RoutingKeySessaoAlterada,
+		Payload:    payload,
 	}, nil
 }
 
@@ -67,10 +66,9 @@ func (uc RemoverSessao) anunciarCancelamento(ctx context.Context, sessaoID strin
 	}
 
 	return FatoPendente{
-		MessageID:    sessaoID + ":cancelada",
-		RoutingKey:   RoutingKeySessaoCancelada,
-		Payload:      payload,
-		TraceContext: traceDe(uc.TraceContextDe, ctx),
+		MessageID:  sessaoID + ":cancelada",
+		RoutingKey: RoutingKeySessaoCancelada,
+		Payload:    payload,
 	}, nil
 }
 
@@ -79,11 +77,4 @@ func agoraOu(f func() time.Time) func() time.Time {
 		return f
 	}
 	return time.Now
-}
-
-func traceDe(f func(context.Context) map[string]string, ctx context.Context) map[string]string {
-	if f == nil {
-		return nil
-	}
-	return f(ctx)
 }

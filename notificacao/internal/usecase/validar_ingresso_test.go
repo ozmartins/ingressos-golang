@@ -2,8 +2,7 @@ package usecase
 
 import (
 	"context"
-	"io"
-	"log/slog"
+
 	"sync"
 	"testing"
 	"time"
@@ -14,7 +13,6 @@ import (
 func validador(repo *ingressosFalsos) ValidarIngresso {
 	return ValidarIngresso{
 		Ingressos: repo, Assinador: assinadorFalso{}, Relogio: relogioFixo{},
-		Log: slog.New(slog.NewJSONHandler(io.Discard, nil)),
 	}
 }
 

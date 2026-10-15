@@ -72,8 +72,6 @@ malformada impede o processo de subir.
 | `ADQUIRENTE_TIMEOUT` | não | `10s` | prazo de resposta do adquirente |
 | `VARREDURA_INTERVALO` | não | `2s` | intervalo da varredura; é o atraso entre a escolha da forma e o início da cobrança |
 | `VARREDURA_LOTE` | não | `50` | transações examinadas por varredura |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | não | — | destino de métricas e rastros |
-| `LOG_LEVEL` | não | `info` | `debug`, `info`, `warn` ou `error` |
 
 ## Desenho
 

@@ -30,9 +30,6 @@ type Config struct {
 
 	NotificadorModo    string
 	NotificadorTimeout time.Duration
-
-	OTLPEndpoint string
-	NivelLog     string
 }
 
 const (
@@ -49,8 +46,6 @@ func Carregar() (Config, error) {
 		AMQPExchange:    comPadrao("AMQP_EXCHANGE", "cinema.eventos"),
 		AMQPExchangeDLX: comPadrao("AMQP_EXCHANGE_DLX", "cinema.eventos.dlx"),
 		AMQPFila:        comPadrao("AMQP_FILA_PAGAMENTO_SUCESSO", "notificacao.pagamento-sucesso"),
-		OTLPEndpoint:    os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
-		NivelLog:        comPadrao("LOG_LEVEL", "info"),
 	}
 	c.AMQPFilaDLQ = comPadrao("AMQP_FILA_PAGAMENTO_SUCESSO_DLQ", c.AMQPFila+".dlq")
 

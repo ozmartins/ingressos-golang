@@ -112,7 +112,6 @@ services:
       KEYCLOAK_ISSUER_URL: http://keycloak:8081/realms/cinema
       KEYCLOAK_AUDIENCE: cinema-app
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
-      LOG_LEVEL: info
     ports: ["${PORTA_CATALOGO:-8082}:8080"]
     depends_on:
       migrate-catalogo:
@@ -144,7 +143,6 @@ services:
       POLTRONAS_MAX_POR_BLOQUEIO: "10"
       VARREDURA_EXPIRACAO_INTERVALO: 10s
       AMQP_PREFETCH: "32"
-      LOG_LEVEL: info
     ports:
       - "${PORTA_ESTOQUE_ADMIN:-8090}:8090"
       - "${PORTA_ESTOQUE_REST:-8085}:8085"
@@ -171,7 +169,6 @@ services:
       JWKS_URL: http://keycloak:8081/realms/cinema/protocol/openid-connect/certs
       JWT_ISSUER: http://keycloak:8081/realms/cinema
       JWT_AUDIENCE: cinema-app
-      LOG_LEVEL: info
     ports: ["${PORTA_PAGAMENTO:-8083}:8080"]
     depends_on:
       migrate-pagamento:
@@ -193,7 +190,6 @@ services:
       INGRESSO_QR_SEGREDO: ${INGRESSO_QR_SEGREDO:-segredo-de-desenvolvimento-nao-usar-em-producao}
       PORTARIA_API_KEY: ${PORTARIA_API_KEY:-chave-de-portaria-de-teste}
       NOTIFICADOR_MODO: enviar
-      LOG_LEVEL: info
     ports: ["${PORTA_NOTIFICACAO:-8084}:8080"]
     depends_on:
       migrate-notificacao:

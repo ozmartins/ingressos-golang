@@ -3,7 +3,7 @@ package http
 import (
 	"encoding/json"
 	"errors"
-	"log/slog"
+
 	"net/http"
 	"strings"
 	"time"
@@ -21,7 +21,6 @@ type API struct {
 	Auth      *Autenticador
 	Chave     *ChavePortaria
 	Prontidao *health.Prontidao
-	Log       *slog.Logger
 }
 
 func (a *API) Rotas() http.Handler {
@@ -84,13 +83,11 @@ func (a *API) listar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if errors.Is(err, usecase.ErrDependenciaIndisponivel) {
-		a.log().Error("dependência indisponível ao listar ingressos", "erro", err)
 		problema(w, http.StatusServiceUnavailable, "indisponivel",
 			"Serviço indisponível", "Não foi possível consultar os ingressos agora.")
 		return
 	}
 	if err != nil {
-		a.log().Error("falha ao listar ingressos", "erro", err)
 		problema(w, http.StatusServiceUnavailable, "indisponivel",
 			"Serviço indisponível", "Não foi possível consultar os ingressos agora.")
 		return
@@ -133,13 +130,11 @@ func (a *API) validar(w http.ResponseWriter, r *http.Request) {
 
 	res, err := a.Validacao.Executar(r.Context(), *pedido.CodigoQR)
 	if errors.Is(err, usecase.ErrDependenciaIndisponivel) {
-		a.log().Error("dependência indisponível ao validar ingresso", "erro", err)
 		problema(w, http.StatusServiceUnavailable, "indisponivel",
 			"Serviço indisponível", "Não foi possível validar o ingresso agora.")
 		return
 	}
 	if err != nil {
-		a.log().Error("falha ao validar ingresso", "erro", err)
 		problema(w, http.StatusServiceUnavailable, "indisponivel",
 			"Serviço indisponível", "Não foi possível validar o ingresso agora.")
 		return
@@ -176,19 +171,11 @@ func (a *API) vivo(w http.ResponseWriter, _ *http.Request) {
 
 func (a *API) pronto(w http.ResponseWriter, r *http.Request) {
 	if nome, err := a.Prontidao.Verificar(r.Context()); err != nil {
-		a.log().Warn("dependência indisponível", "dependencia", nome, "erro", err)
 		problema(w, http.StatusServiceUnavailable, "indisponivel",
 			"Dependência indisponível", nome+" não respondeu.")
 		return
 	}
 	responderJSON(w, http.StatusOK, map[string]string{"status": "pronto"})
-}
-
-func (a *API) log() *slog.Logger {
-	if a.Log != nil {
-		return a.Log
-	}
-	return slog.Default()
 }
 
 func responderJSON(w http.ResponseWriter, status int, corpo any) {

@@ -5,7 +5,7 @@ package integration
 import (
 	"context"
 	"encoding/json"
-	"log/slog"
+
 	"os"
 	"path/filepath"
 	"testing"
@@ -22,7 +22,6 @@ import (
 	"github.com/oseias/ingressos-golang/pagamento/internal/adapter/postgres"
 	"github.com/oseias/ingressos-golang/pagamento/internal/domain/transacao"
 	"github.com/oseias/ingressos-golang/pagamento/internal/usecase"
-	"go.opentelemetry.io/otel/propagation"
 )
 
 const (
@@ -39,7 +38,6 @@ type ambiente struct {
 	Conexao *amqp091.Connection
 	Canal   *amqp091.Channel
 	Publica *adaptamqp.Publicador
-	Log     *slog.Logger
 }
 
 type relogioReal struct{}
@@ -121,7 +119,7 @@ func subirAmbiente(t *testing.T) *ambiente {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pub, err := adaptamqp.NovoPublicador(canalPub, exchange, propagation.TraceContext{})
+	pub, err := adaptamqp.NovoPublicador(canalPub, exchange)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +127,6 @@ func subirAmbiente(t *testing.T) *ambiente {
 	return &ambiente{
 		Banco: banco, Repo: postgres.NovoRepositorio(banco.DB()),
 		Conexao: conexao, Canal: canal, Publica: pub,
-		Log: slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError})),
 	}
 }
 
@@ -186,7 +183,7 @@ func (a *ambiente) consumidorDe(t *testing.T, adq usecase.Adquirente, prefetch i
 	c := &adaptamqp.Consumidor{
 		Canal: canal, Fila: filaReserva, Prefetch: prefetch,
 		Caso: usecase.RegistrarIntencao{Repo: a.Repo, Relogio: relogioReal{}, IDs: idsReais{}},
-		Log:  a.Log, Propagador: propagation.TraceContext{},
+
 		EmAndamento: &adaptamqp.Medidor{},
 	}
 	ctx, cancelar := context.WithCancel(context.Background())
@@ -199,7 +196,7 @@ func (a *ambiente) consumidorDe(t *testing.T, adq usecase.Adquirente, prefetch i
 			Relogio: relogioReal{}, IDs: idsReais{},
 			PrazoAdquirente: 2 * time.Second,
 		},
-		Relogio: relogioReal{}, Log: a.Log,
+		Relogio: relogioReal{},
 	}
 	go func() {
 		tique := time.NewTicker(50 * time.Millisecond)

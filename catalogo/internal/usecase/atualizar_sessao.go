@@ -8,12 +8,11 @@ import (
 )
 
 type AtualizarSessao struct {
-	Sessoes        SessaoRepository
-	Filmes         FilmeRepository
-	Salas          SalaRepository
-	GerarID        func() string
-	Agora          func() time.Time
-	TraceContextDe func(context.Context) map[string]string
+	Sessoes SessaoRepository
+	Filmes  FilmeRepository
+	Salas   SalaRepository
+	GerarID func() string
+	Agora   func() time.Time
 }
 
 func (uc AtualizarSessao) Executar(ctx context.Context, sessaoID string, dados catalogo.DadosSessao) (catalogo.Sessao, error) {

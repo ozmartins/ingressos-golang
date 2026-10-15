@@ -1,12 +1,9 @@
 package amqp
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
-	"log/slog"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -88,19 +85,16 @@ func (n notificadorFalso) Avisar(context.Context, ingresso.Ingresso) error {
 	return nil
 }
 
-func montar(t *testing.T, log *slog.Logger) (*Consumidor, *repoFalso) {
+func montar(t *testing.T) (*Consumidor, *repoFalso) {
 	t.Helper()
 	repo := &repoFalso{porRes: map[string]ingresso.Ingresso{}}
 	return &Consumidor{
 		Caso: usecase.EmitirIngresso{
 			Ingressos: repo, Avisos: avisosFalsos{}, Notificador: notificadorFalso{},
-			Assinador: assinadorFalso{}, Relogio: relogioFixo{}, IDs: &idsFixos{}, Log: log,
+			Assinador: assinadorFalso{}, Relogio: relogioFixo{}, IDs: &idsFixos{},
 		},
-		Log: log,
 	}, repo
 }
-
-func semLog() *slog.Logger { return slog.New(slog.NewTextHandler(new(bytes.Buffer), nil)) }
 
 func anuncioJSON() []byte {
 	b, _ := json.Marshal(map[string]any{
@@ -115,105 +109,56 @@ func TestDesfechosDoConsumo(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("anúncio válido, reserva nova → ack", func(t *testing.T) {
-		c, _ := montar(t, semLog())
-		if g := c.Classificar(ctx, anuncioJSON(), false); g != Confirmar {
+		c, _ := montar(t)
+		if g := c.Classificar(ctx, anuncioJSON()); g != Confirmar {
 			t.Errorf("gesto = %v, queria Confirmar", g)
 		}
 	})
 
 	t.Run("reserva já com ingresso → ack inerte", func(t *testing.T) {
-		c, _ := montar(t, semLog())
-		c.Classificar(ctx, anuncioJSON(), false)
-		if g := c.Classificar(ctx, anuncioJSON(), false); g != Confirmar {
+		c, _ := montar(t)
+		c.Classificar(ctx, anuncioJSON())
+		if g := c.Classificar(ctx, anuncioJSON()); g != Confirmar {
 			t.Errorf("gesto da reentrega = %v, queria Confirmar", g)
 		}
 	})
 
 	t.Run("JSON ilegível → quarentena", func(t *testing.T) {
-		c, _ := montar(t, semLog())
-		if g := c.Classificar(ctx, []byte("{nao e json"), false); g != Quarentena {
+		c, _ := montar(t)
+		if g := c.Classificar(ctx, []byte("{nao e json")); g != Quarentena {
 			t.Errorf("gesto = %v, queria Quarentena", g)
 		}
 	})
 
 	t.Run("campo obrigatório ausente → quarentena", func(t *testing.T) {
-		c, _ := montar(t, semLog())
+		c, _ := montar(t)
 		corpo := []byte(`{"reserva_id":"` + reserva1 + `","usuario_id":"` + usuario1 + `"}`)
-		if g := c.Classificar(ctx, corpo, false); g != Quarentena {
+		if g := c.Classificar(ctx, corpo); g != Quarentena {
 			t.Errorf("gesto = %v, queria Quarentena", g)
 		}
 	})
 
 	t.Run("UUID malformado → quarentena", func(t *testing.T) {
-		c, _ := montar(t, semLog())
+		c, _ := montar(t)
 		corpo := []byte(`{"transacao_id":"` + trans1 + `","reserva_id":"nao-e-uuid","usuario_id":"` + usuario1 + `","pago_em":"` + pagoEm1 + `"}`)
-		if g := c.Classificar(ctx, corpo, false); g != Quarentena {
+		if g := c.Classificar(ctx, corpo); g != Quarentena {
 			t.Errorf("gesto = %v, queria Quarentena", g)
 		}
 	})
 
 	t.Run("banco indisponível → nova tentativa", func(t *testing.T) {
-		c, repo := montar(t, semLog())
+		c, repo := montar(t)
 		repo.falhar = true
-		if g := c.Classificar(ctx, anuncioJSON(), false); g != Devolver {
+		if g := c.Classificar(ctx, anuncioJSON()); g != Devolver {
 			t.Errorf("gesto = %v, queria Devolver", g)
 		}
 	})
 
 	t.Run("canal de aviso com erro → ack, não reprocessa", func(t *testing.T) {
-		c, _ := montar(t, semLog())
+		c, _ := montar(t)
 		c.Caso.Notificador = notificadorFalso{falhar: true}
-		if g := c.Classificar(ctx, anuncioJSON(), false); g != Confirmar {
+		if g := c.Classificar(ctx, anuncioJSON()); g != Confirmar {
 			t.Errorf("gesto = %v, queria Confirmar: falha de aviso NÃO pode reprocessar", g)
 		}
 	})
-}
-
-func TestLogRegistraDesfechoDaEmissao(t *testing.T) {
-	var buf bytes.Buffer
-	log := slog.New(slog.NewJSONHandler(&buf, nil))
-	c, _ := montar(t, log)
-
-	c.Classificar(context.Background(), anuncioJSON(), false)
-
-	saida := buf.String()
-	if !strings.Contains(saida, "ingresso_id") {
-		t.Errorf("o log não registra o ingresso_id do desfecho:\n%s", saida)
-	}
-	if !strings.Contains(saida, "desfecho") {
-		t.Errorf("o log não registra o desfecho:\n%s", saida)
-	}
-	if !strings.Contains(saida, reserva1) {
-		t.Errorf("o log não correlaciona com a reserva:\n%s", saida)
-	}
-}
-
-func TestLogNaoVazaCodigoDeAcesso(t *testing.T) {
-	casos := map[string]func(*Consumidor){
-		"emissão bem-sucedida": func(*Consumidor) {},
-		"aviso falhou":         func(c *Consumidor) { c.Caso.Notificador = notificadorFalso{falhar: true} },
-	}
-	for nome, ajustar := range casos {
-		t.Run(nome, func(t *testing.T) {
-			var buf bytes.Buffer
-			c, repo := montar(t, slog.New(slog.NewJSONHandler(&buf, nil)))
-			ajustar(c)
-
-			c.Classificar(context.Background(), anuncioJSON(), false)
-
-			emitido, ok := repo.porRes[reserva1]
-			if !ok {
-				t.Fatal("nada foi emitido; o teste não exerce o que alega")
-			}
-			if emitido.CodigoQR == "" {
-				t.Fatal("ingresso sem código; o teste não exerce o que alega")
-			}
-			if strings.Contains(buf.String(), emitido.CodigoQR) {
-				t.Errorf("o código de acesso vazou para o log:\n%s", buf.String())
-			}
-			if !strings.Contains(buf.String(), emitido.ID) {
-				t.Error("o log deveria identificar a operação pelo ingresso_id")
-			}
-		})
-	}
 }

@@ -18,8 +18,8 @@ func eventoSessao(poltronas ...LayoutPoltrona) EventoSessaoCriada {
 }
 
 func TestProvisionarCriaMatrizCompletaEmLivre(t *testing.T) {
-	estoque, log := novoEstoqueFalso(), &logFalso{}
-	uc := ProvisionarSessao{Poltronas: estoque, Log: log}
+	estoque := novoEstoqueFalso()
+	uc := ProvisionarSessao{Poltronas: estoque}
 
 	evento := eventoSessao(
 		LayoutPoltrona{Fileira: "B", Numero: 2, Tipo: "PCD"},
@@ -50,8 +50,8 @@ func TestProvisionarCriaMatrizCompletaEmLivre(t *testing.T) {
 }
 
 func TestProvisionarEhIdempotenteENaoReiniciaEstado(t *testing.T) {
-	estoque, prazo, log := novoEstoqueFalso(), novoPrazoFalso(), &logFalso{}
-	uc := ProvisionarSessao{Poltronas: estoque, Log: log}
+	estoque, prazo := novoEstoqueFalso(), novoPrazoFalso()
+	uc := ProvisionarSessao{Poltronas: estoque}
 	evento := eventoSessao(
 		LayoutPoltrona{Fileira: "A", Numero: 1, Tipo: "NORMAL"},
 		LayoutPoltrona{Fileira: "A", Numero: 2, Tipo: "NORMAL"},
@@ -60,7 +60,7 @@ func TestProvisionarEhIdempotenteENaoReiniciaEstado(t *testing.T) {
 	if _, err := uc.Executar(context.Background(), filaSessao, sessao, evento); err != nil {
 		t.Fatalf("erro inesperado: %v", err)
 	}
-	if _, err := montarBloqueio(estoque, prazo, log).
+	if _, err := montarBloqueio(estoque, prazo).
 		Executar(context.Background(), sessao, usuario, []string{"A1"}, valorDeTeste); err != nil {
 		t.Fatalf("erro inesperado: %v", err)
 	}
@@ -99,7 +99,7 @@ func TestProvisionarRecusaLayoutInvalido(t *testing.T) {
 	for nome, evento := range casos {
 		t.Run(nome, func(t *testing.T) {
 			estoque := novoEstoqueFalso()
-			uc := ProvisionarSessao{Poltronas: estoque, Log: &logFalso{}}
+			uc := ProvisionarSessao{Poltronas: estoque}
 
 			if _, err := uc.Executar(context.Background(), filaSessao, sessao, evento); err == nil {
 				t.Fatal("esperava recusa do layout")

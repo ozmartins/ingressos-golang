@@ -31,9 +31,6 @@ type Config struct {
 	VarreduraExpiracaoInterval time.Duration
 	AMQPPrefetch               int
 	RetencaoMensagens          time.Duration
-
-	OTLPEndpoint string
-	LogLevel     string
 }
 
 type coletor struct{ erros []string }
@@ -108,9 +105,6 @@ func Carregar() (*Config, error) {
 		VarreduraExpiracaoInterval: c.duracao("VARREDURA_EXPIRACAO_INTERVALO", "10s"),
 		AMQPPrefetch:               c.inteiro("AMQP_PREFETCH", "32"),
 		RetencaoMensagens:          c.duracao("RETENCAO_MENSAGENS_PROCESSADAS", "720h"),
-
-		OTLPEndpoint: c.comPadrao("OTEL_EXPORTER_OTLP_ENDPOINT", ""),
-		LogLevel:     c.comPadrao("LOG_LEVEL", "info"),
 	}
 
 	if len(c.erros) > 0 {

@@ -3,7 +3,6 @@ package usecase
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"sync"
 	"testing"
 	"time"
@@ -230,8 +229,6 @@ func (p *publicadorFalso) rotas() []string {
 
 var errInfra = errors.New("infra fora do ar")
 
-func logDescartado() *slog.Logger { return slog.New(slog.DiscardHandler) }
-
 func cenario(res ResultadoCobranca) (ProcessarPagamento, *repoFalso, *adquirenteFalso, *publicadorFalso) {
 	repo, adq, pub := novoRepo(), &adquirenteFalso{resultado: res}, &publicadorFalso{}
 	uc := ProcessarPagamento{
@@ -254,7 +251,7 @@ func fluxoCompleto(t *testing.T, uc ProcessarPagamento, repo *repoFalso, i Inten
 	tr, err := escolher.Executar(ctx, i.ReservaID, i.UsuarioID, transacao.PIX)
 
 	if errors.Is(err, transacao.ErrReservaExpirada) {
-		varrer := VarrerCobrancas{Repo: repo, Cobranca: uc, Relogio: uc.Relogio, Log: logDescartado()}
+		varrer := VarrerCobrancas{Repo: repo, Cobranca: uc, Relogio: uc.Relogio}
 		if err := varrer.Executar(ctx); err != nil {
 			return Requeue, err
 		}

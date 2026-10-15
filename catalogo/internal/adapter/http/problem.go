@@ -3,7 +3,7 @@ package http
 import (
 	"encoding/json"
 	"errors"
-	"log/slog"
+
 	"net/http"
 	"strings"
 
@@ -13,12 +13,11 @@ import (
 const BaseURIErros = "https://cinema.example/errors/"
 
 type Problem struct {
-	Type     string      `json:"type"`
-	Title    string      `json:"title"`
-	Status   int         `json:"status"`
-	Detail   string      `json:"detail,omitempty"`
-	Instance string      `json:"instance,omitempty"`
-	Errors   []CampoErro `json:"errors,omitempty"`
+	Type   string      `json:"type"`
+	Title  string      `json:"title"`
+	Status int         `json:"status"`
+	Detail string      `json:"detail,omitempty"`
+	Errors []CampoErro `json:"errors,omitempty"`
 }
 
 type CampoErro struct {
@@ -64,18 +63,15 @@ func EscreverProblem(w http.ResponseWriter, r *http.Request, categoria, detail s
 		categoria = catErroInterno
 	}
 	p := Problem{
-		Type:     BaseURIErros + categoria,
-		Title:    d.titulo,
-		Status:   d.status,
-		Detail:   detail,
-		Instance: instanciaDoContexto(r),
-		Errors:   campos,
+		Type:   BaseURIErros + categoria,
+		Title:  d.titulo,
+		Status: d.status,
+		Detail: detail,
+		Errors: campos,
 	}
 	w.Header().Set("Content-Type", "application/problem+json; charset=utf-8")
 	w.WriteHeader(d.status)
-	if err := json.NewEncoder(w).Encode(p); err != nil {
-		slog.ErrorContext(r.Context(), "falha ao serializar problem+json", slog.Any("erro", err))
-	}
+	_ = json.NewEncoder(w).Encode(p)
 }
 
 func EscreverErroDeDominio(w http.ResponseWriter, r *http.Request, err error, contexto string) {
@@ -87,10 +83,10 @@ func EscreverErroDeDominio(w http.ResponseWriter, r *http.Request, err error, co
 	case errors.Is(err, shared.ErrNaoEncontrado):
 		EscreverProblem(w, r, categoriaNaoEncontrado(err, contexto), mensagemLimpa(err))
 	case errors.Is(err, shared.ErrBancoIndisponivel):
-		slog.ErrorContext(r.Context(), "banco de dados indisponível", slog.Any("erro", err), slog.String("contexto", contexto))
+
 		EscreverProblem(w, r, catBancoIndisponivel, "Serviço temporariamente indisponível. Tente novamente em instantes.")
 	default:
-		slog.ErrorContext(r.Context(), "erro não previsto", slog.Any("erro", err), slog.String("contexto", contexto))
+
 		EscreverProblem(w, r, catErroInterno, "Erro interno. Consulte o suporte informando o identificador desta requisição.")
 	}
 }

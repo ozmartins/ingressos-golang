@@ -2,7 +2,7 @@ package middleware
 
 import (
 	"context"
-	"log/slog"
+
 	"net/http"
 	"strings"
 
@@ -35,7 +35,6 @@ func Autenticacao(v VerificadorDeCredencial, aoRecusar func(http.ResponseWriter,
 			id, err := v.Verificar(r.Context(), token)
 
 			if err != nil {
-				slog.WarnContext(r.Context(), "credencial recusada", slog.Any("erro", err))
 				aoRecusar(w, r, "Credencial inválida ou expirada.")
 				return
 			}

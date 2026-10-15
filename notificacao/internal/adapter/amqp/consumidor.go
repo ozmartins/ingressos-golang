@@ -2,16 +2,12 @@ package amqp
 
 import (
 	"context"
-	"log/slog"
+
 	"sync"
 	"time"
 
-	"github.com/oseias/ingressos-golang/notificacao/internal/platform/observability"
 	"github.com/oseias/ingressos-golang/notificacao/internal/usecase"
 	amqp "github.com/rabbitmq/amqp091-go"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/propagation"
-	"go.opentelemetry.io/otel/trace"
 )
 
 type Gesto int
@@ -34,12 +30,11 @@ func (g Gesto) String() string {
 }
 
 type Consumidor struct {
-	Canal                 *amqp.Channel
-	Fila                  string
-	Prefetch              int
-	Caso                  usecase.EmitirIngresso
-	Log                   *slog.Logger
-	Propagador            propagation.TextMapPropagator
+	Canal    *amqp.Channel
+	Fila     string
+	Prefetch int
+	Caso     usecase.EmitirIngresso
+
 	EsperaAntesDeDevolver time.Duration
 }
 
@@ -67,45 +62,28 @@ func (c *Consumidor) Consumir(ctx context.Context) error {
 }
 
 func (c *Consumidor) tratar(ctx context.Context, d amqp.Delivery) {
-	if c.Propagador != nil {
-		ctx = c.Propagador.Extract(ctx, portadorAMQP(d.Headers))
-	}
-	ctx, span := observability.Tracer().Start(ctx, "emitir_ingresso")
-	defer span.End()
-
-	gesto := c.Classificar(ctx, d.Body, span.SpanContext().IsValid())
+	gesto := c.Classificar(ctx, d.Body)
 
 	switch gesto {
 	case Confirmar:
-		if err := d.Ack(false); err != nil {
-			c.log().Error("falha ao confirmar entrega", "erro", err)
-		}
+		_ = d.Ack(false)
+
 	case Quarentena:
-		if err := d.Nack(false, false); err != nil {
-			c.log().Error("falha ao enviar para a quarentena", "erro", err)
-		}
+		_ = d.Nack(false, false)
+
 	default:
 		select {
 		case <-time.After(c.espera()):
 		case <-ctx.Done():
 		}
-		if err := d.Nack(false, true); err != nil {
-			c.log().Error("falha ao devolver para nova tentativa", "erro", err)
-		}
+		_ = d.Nack(false, true)
 	}
 }
 
-func (c *Consumidor) Classificar(ctx context.Context, corpo []byte, comRastro bool) Gesto {
+func (c *Consumidor) Classificar(ctx context.Context, corpo []byte) Gesto {
 	a, err := usecase.DecodificarAnuncio(corpo)
 	if err != nil {
-		c.log().Error("anúncio ilegível, indo para a quarentena",
-			"erro", err, "gesto", Quarentena.String())
 		return Quarentena
-	}
-	if comRastro {
-		if span := trechoAtual(ctx); span != nil {
-			span.SetAttributes(attribute.String("reserva_id", a.ReservaID))
-		}
 	}
 
 	desfecho, err := c.Caso.Executar(ctx, a)
@@ -113,12 +91,10 @@ func (c *Consumidor) Classificar(ctx context.Context, corpo []byte, comRastro bo
 	case usecase.Confirmar:
 		return Confirmar
 	case usecase.Quarentena:
-		c.log().Warn("anúncio encaminhado para a quarentena",
-			"reserva_id", a.ReservaID, "erro", err, "gesto", Quarentena.String())
+
 		return Quarentena
 	default:
-		c.log().Warn("anúncio devolvido para nova tentativa",
-			"reserva_id", a.ReservaID, "erro", err, "gesto", Devolver.String())
+
 		return Devolver
 	}
 }
@@ -128,42 +104,4 @@ func (c *Consumidor) espera() time.Duration {
 		return c.EsperaAntesDeDevolver
 	}
 	return 200 * time.Millisecond
-}
-
-func (c *Consumidor) log() *slog.Logger {
-	if c.Log != nil {
-		return c.Log
-	}
-	return slog.Default()
-}
-
-type portadorAMQP amqp.Table
-
-func (p portadorAMQP) Get(chave string) string {
-	if v, ok := p[chave]; ok {
-		if s, ok := v.(string); ok {
-			return s
-		}
-	}
-	return ""
-}
-
-func (p portadorAMQP) Set(chave, valor string) { p[chave] = valor }
-
-func (p portadorAMQP) Keys() []string {
-	ks := make([]string, 0, len(p))
-	for k := range p {
-		ks = append(ks, k)
-	}
-	return ks
-}
-
-func trechoAtual(ctx context.Context) interface {
-	SetAttributes(...attribute.KeyValue)
-} {
-	s := trace.SpanFromContext(ctx)
-	if !s.SpanContext().IsValid() {
-		return nil
-	}
-	return s
 }

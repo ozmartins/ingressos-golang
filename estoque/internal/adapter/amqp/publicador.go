@@ -7,13 +7,12 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 
 	"github.com/oseias/ingressos-golang/estoque/internal/adapter/postgres"
-	"github.com/oseias/ingressos-golang/estoque/internal/platform/observability"
 )
 
 type Publicador struct {
-	Conexao   *Conexao
-	Banco     *postgres.Banco
-	Obs       *observability.Observabilidade
+	Conexao *Conexao
+	Banco   *postgres.Banco
+
 	Intervalo time.Duration
 	Lote      int
 }
@@ -34,7 +33,7 @@ func (p *Publicador) Iniciar(ctx context.Context) {
 		for {
 			select {
 			case <-ctx.Done():
-				p.Obs.Log.Info("publicador da caixa de saída encerrado")
+
 				return
 			case <-tique.C:
 				p.drenar(ctx, lote)
@@ -50,22 +49,10 @@ func (p *Publicador) Drenar(ctx context.Context, lote int) (int, error) {
 }
 
 func (p *Publicador) drenar(ctx context.Context, lote int) {
-	n, err := p.Drenar(ctx, lote)
-	if err != nil {
-		p.Obs.Log.Warn("falha ao drenar a caixa de saída", "erro", err.Error())
-		return
-	}
-	if n > 0 {
-		p.Obs.Log.Info("fatos publicados", "quantidade", n)
-	}
+	_, _ = p.Drenar(ctx, lote)
 }
 
 func (p *Publicador) publicar(ctx context.Context, fato postgres.FatoNaCaixa) error {
-	headers := amqp.Table{}
-	for chave, valor := range fato.TraceContext {
-		headers[chave] = valor
-	}
-
 	ctxPub, cancelar := context.WithTimeout(ctx, 5*time.Second)
 	defer cancelar()
 
@@ -76,7 +63,6 @@ func (p *Publicador) publicar(ctx context.Context, fato postgres.FatoNaCaixa) er
 			DeliveryMode: amqp.Persistent,
 			MessageId:    fato.MessageID,
 			Timestamp:    time.Now().UTC(),
-			Headers:      headers,
 			Body:         fato.Payload,
 		})
 	if err != nil {

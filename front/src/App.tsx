@@ -1,7 +1,37 @@
+import { useState } from 'react'
+import type { Cinema, Filme } from './api/tipos'
+import { PaginaCinema, type CarregadoresCinema } from './componentes/PaginaCinema'
 import { PaginaInicial } from './componentes/PaginaInicial'
+import { useRota } from './hooks/useRota'
 
-function App() {
-  return <PaginaInicial />
+interface Props {
+  /** Injetáveis para testes; por padrão consultam o catálogo. */
+  carregarFilmes?: () => Promise<Filme[]>
+  carregarCinemas?: () => Promise<Cinema[]>
+  carregadoresCinema?: Partial<CarregadoresCinema>
+}
+
+/**
+ * A página inicial, uma vez aberta, permanece montada (oculta) enquanto o
+ * detalhe de um cinema é exibido: assim aba, filtros e dados sobrevivem ao "voltar".
+ */
+function App({ carregarFilmes, carregarCinemas, carregadoresCinema }: Props) {
+  const [rota] = useRota()
+  const [inicioAberto, setInicioAberto] = useState(rota.tipo === 'inicio')
+  if (rota.tipo === 'inicio' && !inicioAberto) setInicioAberto(true)
+
+  return (
+    <>
+      {inicioAberto ? (
+        <div hidden={rota.tipo !== 'inicio'}>
+          <PaginaInicial carregarFilmes={carregarFilmes} carregarCinemas={carregarCinemas} />
+        </div>
+      ) : null}
+      {rota.tipo === 'cinema' ? (
+        <PaginaCinema key={rota.id} id={rota.id} carregadores={carregadoresCinema} />
+      ) : null}
+    </>
+  )
 }
 
 export default App

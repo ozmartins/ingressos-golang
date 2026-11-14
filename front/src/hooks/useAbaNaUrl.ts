@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { lerRota } from '../dominio/rotas'
 
 export type Aba = 'filmes' | 'cinemas'
 
@@ -12,7 +13,10 @@ export function useAbaNaUrl(): [Aba, (aba: Aba) => void] {
   const [aba, setAbaEstado] = useState<Aba>(lerAba)
 
   useEffect(() => {
-    const aoNavegar = () => setAbaEstado(lerAba())
+    // Fora da página inicial (ex.: detalhe de um cinema) a aba não é relida.
+    const aoNavegar = () => {
+      if (lerRota(window.location.pathname).tipo === 'inicio') setAbaEstado(lerAba())
+    }
     window.addEventListener('popstate', aoNavegar)
     return () => window.removeEventListener('popstate', aoNavegar)
   }, [])

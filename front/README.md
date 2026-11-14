@@ -6,7 +6,9 @@ Aplicação React + TypeScript + Vite voltada ao público. A página inicial tem
 - **Cinemas:** busca por nome e filtros de estado e cidade (as cidades dependem do estado escolhido).
 - A aba ativa fica na URL (`/?aba=filmes` ou `/?aba=cinemas`) e os filtros de cada aba são mantidos ao alternar entre elas.
 
-Especificação, plano e tarefas: [`specs/001-home-filmes-cinemas/`](specs/001-home-filmes-cinemas/).
+- **Detalhe do cinema (`/cinemas/{id}`):** clicar no card de um cinema abre a página com os dados do cinema, suas salas ativas e a programação (sessões agrupadas por filme, com filtro por dia). Só aparecem filmes **em cartaz**. "Voltar" retorna à aba de cinemas com os filtros preservados. Em hospedagem estática, `/cinemas/*` deve cair no `index.html` (o Vite dev/preview já faz isso).
+
+Especificação, plano e tarefas: [`specs/001-home-filmes-cinemas/`](specs/001-home-filmes-cinemas/) e [`specs/002-detalhe-cinema/`](specs/002-detalhe-cinema/).
 
 ## Como rodar
 
@@ -24,7 +26,7 @@ npm run build
 
 O catálogo não envia cabeçalhos CORS. Em desenvolvimento (`npm run dev`) e no `npm run preview`, o Vite encaminha `/catalogo/*` para `http://localhost:8082/*` (ver `vite.config.ts`). Para apontar para outra base, defina `VITE_CATALOGO_URL` (padrão: `/catalogo`).
 
-Os dados são lidos das listagens públicas `GET /api/v1/filmes` e `GET /api/v1/cinemas`, percorrendo todas as páginas (100 itens por página). Filmes fora de cartaz e cinemas inativos não são exibidos. As imagens vêm de URLs remotas devolvidas pela API: `imagem_url` nos filmes e `logo_url` nos cinemas (sem URL, um substituto neutro é exibido).
+Os dados são lidos das listagens públicas `GET /api/v1/filmes` e `GET /api/v1/cinemas`, percorrendo todas as páginas (100 itens por página). A página do cinema também usa `GET /api/v1/cinemas/{id}`, `/salas?cinema_id=`, `/sessoes?cinema_id=`. Filmes fora de cartaz e cinemas inativos não são exibidos. As imagens vêm de URLs remotas devolvidas pela API: `imagem_url` nos filmes e `logo_url` nos cinemas (sem URL, um substituto neutro é exibido).
 
 ## Estrutura
 

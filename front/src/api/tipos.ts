@@ -33,3 +33,32 @@ export interface PaginaApi<T> {
   itens: T[]
   pagina: Paginacao
 }
+
+export type TipoTela = '2D' | '3D' | 'IMAX' | 'VIP'
+
+export type Idioma = 'DUBLADO' | 'LEGENDADO'
+
+export interface Sala {
+  id: string
+  cinema_id: string
+  numero: number
+  tipo_tela: TipoTela
+  capacidade_total: number
+  ativo: boolean
+}
+
+/** Sessão da grade pública, já com filme, cinema e sala resolvidos. */
+export interface SessaoNaGrade {
+  id: string
+  filme_id: string
+  filme_titulo: string
+  cinema_id: string
+  cinema_nome: string
+  sala_numero: number
+  tipo_tela: TipoTela
+  /** ISO 8601 (UTC). */
+  data_hora_inicio: string
+  idioma: Idioma
+  /** Decimal exato em texto, p. ex. "42.00". */
+  preco_base: string
+}

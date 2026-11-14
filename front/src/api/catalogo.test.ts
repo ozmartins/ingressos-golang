@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { buscarCinemas, buscarFilmes } from './catalogo'
+import {
+  buscarCinema,
+  buscarCinemas,
+  buscarFilmes,
+  buscarSalas,
+  buscarSessoes,
+  buscarTodosFilmes,
+  CinemaNaoEncontrado,
+} from './catalogo'
 import type { Cinema, Filme, PaginaApi } from './tipos'
 
 function filme(id: string, status: Filme['status'] = 'EM_CARTAZ'): Filme {
@@ -69,5 +77,57 @@ describe('buscarCinemas', () => {
     const url = String(fetchSimulado.mock.calls[0][0])
     expect(url).toContain('/api/v1/cinemas')
     expect(url).toContain('ativo=true')
+  })
+})
+
+describe('detalhe do cinema', () => {
+  it('buscarCinema devolve o cinema', async () => {
+    const fetchSimulado = vi.fn().mockResolvedValue(resposta(cinema('9')))
+    vi.stubGlobal('fetch', fetchSimulado)
+    expect((await buscarCinema('9')).id).toBe('9')
+    expect(String(fetchSimulado.mock.calls[0][0])).toContain('/api/v1/cinemas/9')
+  })
+
+  it.each([404, 400])('buscarCinema com %i lança CinemaNaoEncontrado', async (status) => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(resposta({}, status)))
+    await expect(buscarCinema('x')).rejects.toBeInstanceOf(CinemaNaoEncontrado)
+  })
+
+  it('buscarCinema com outro status lança erro comum', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(resposta({}, 500)))
+    const erro = await buscarCinema('x').catch((e: unknown) => e)
+    expect(erro).toBeInstanceOf(Error)
+    expect(erro).not.toBeInstanceOf(CinemaNaoEncontrado)
+  })
+
+  it('buscarSalas filtra por cinema ativo e percorre páginas', async () => {
+    const fetchSimulado = vi
+      .fn()
+      .mockResolvedValueOnce(resposta(pagina([{ id: 's1' }], 1, true)))
+      .mockResolvedValueOnce(resposta(pagina([{ id: 's2' }], 2, false)))
+    vi.stubGlobal('fetch', fetchSimulado)
+    const salas = await buscarSalas('c1')
+    expect(salas).toHaveLength(2)
+    const url = String(fetchSimulado.mock.calls[0][0])
+    expect(url).toContain('/api/v1/salas')
+    expect(url).toContain('cinema_id=c1')
+    expect(url).toContain('ativo=true')
+  })
+
+  it('buscarSessoes filtra por cinema e percorre páginas', async () => {
+    const fetchSimulado = vi
+      .fn()
+      .mockResolvedValueOnce(resposta(pagina([{ id: 'a' }], 1, true)))
+      .mockResolvedValueOnce(resposta(pagina([{ id: 'b' }], 2, false)))
+    vi.stubGlobal('fetch', fetchSimulado)
+    expect(await buscarSessoes('c1')).toHaveLength(2)
+    const url = String(fetchSimulado.mock.calls[0][0])
+    expect(url).toContain('/api/v1/sessoes')
+    expect(url).toContain('cinema_id=c1')
+  })
+
+  it('buscarTodosFilmes mantém os fora de cartaz', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(resposta(pagina([filme('1', 'FORA_DE_CARTAZ')], 1, false))))
+    expect((await buscarTodosFilmes()).map((f) => f.id)).toEqual(['1'])
   })
 })

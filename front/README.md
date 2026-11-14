@@ -33,6 +33,8 @@ O `estoque` (mapa de assentos e reservas) também não envia CORS: `/estoque/*` 
 
 O botão "Comprar Ingressos" abre `/cinemas/{cinemaId}/filmes/{filmeId}/comprar?sessao={id}`. A rota exige login: sem sessão, o usuário vai ao Keycloak e volta à mesma página. Selecionar assentos e "Continuar" cria a reserva temporária no `estoque` (requer o serviço no ar na porta 8085). Detalhes em `specs/003-selecao-assentos/`.
 
+Na tela "Pagamento aprovado" o botão "Baixar ingresso (PDF)" gera, no próprio navegador (biblioteca `jspdf`, carregada só nesse momento), um PDF A4 com um ingresso por assento (filme, cinema, sala, dia, horário, assento, código do pedido) e uma página de resumo de valores. O pagamento é simulado, então o documento traz o aviso de que não vale como ingresso real. Detalhes em `specs/006-ingresso-pdf/`.
+
 Os dados são lidos das listagens públicas `GET /api/v1/filmes` e `GET /api/v1/cinemas`, percorrendo todas as páginas (100 itens por página). A página do cinema também usa `GET /api/v1/cinemas/{id}`, `/salas?cinema_id=`, `/sessoes?cinema_id=`. Filmes fora de cartaz e cinemas inativos não são exibidos. As imagens vêm de URLs remotas devolvidas pela API: `imagem_url` nos filmes e `logo_url` nos cinemas (sem URL, um substituto neutro é exibido).
 
 ## Estrutura

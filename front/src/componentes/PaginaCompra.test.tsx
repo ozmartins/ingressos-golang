@@ -167,6 +167,7 @@ describe('PaginaCompra — reserva', () => {
     expect(lerReserva('c1', 'f1', null)).toMatchObject({
       sessaoId: 's1',
       filmeTitulo: 'Eu Sou O Rocky',
+      classificacao: '12',
       cinemaNome: 'Cine Centro',
       sala: 3,
       rotulos: ['A1'],

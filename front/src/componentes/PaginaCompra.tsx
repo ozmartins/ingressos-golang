@@ -247,7 +247,7 @@ function CompraAutenticada({ cinemaId, filmeId, token, c }: Interna) {
     if (!atual || !filme || selecionados.length === 0 || reservando) return
     const sessaoId = atual.id
     const rotulos = selecionados
-    const { titulo, imagem_url } = filme
+    const { titulo, imagem_url, classificacao_etaria } = filme
     setReserva({ estado: 'reservando' })
     setAviso(null)
     setErroReserva(null)
@@ -261,6 +261,7 @@ function CompraAutenticada({ cinemaId, filmeId, token, c }: Interna) {
           filmeId,
           sessaoId,
           filmeTitulo: titulo,
+          classificacao: classificacao_etaria,
           posterUrl: imagem_url ?? null,
           cinemaNome: atual.cinema_nome,
           sala: atual.sala_numero,

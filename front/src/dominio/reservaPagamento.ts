@@ -6,6 +6,8 @@ export interface ReservaPagamento {
   filmeId: string
   sessaoId: string
   filmeTitulo: string
+  /** Classificação etária do filme (ausente em reservas gravadas antes do ingresso em PDF). */
+  classificacao?: string
   posterUrl: string | null
   cinemaNome: string
   sala: number
@@ -53,6 +55,7 @@ export function lerReserva(cinemaId: string, filmeId: string, usuarioId: string 
       r.filmeId === filmeId &&
       texto(r.sessaoId) &&
       texto(r.filmeTitulo) &&
+      (r.classificacao === undefined || typeof r.classificacao === 'string') &&
       (r.posterUrl === null || typeof r.posterUrl === 'string') &&
       texto(r.cinemaNome) &&
       inteiro(r.sala) &&

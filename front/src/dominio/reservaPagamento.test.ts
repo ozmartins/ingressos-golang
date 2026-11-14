@@ -26,6 +26,15 @@ describe('reservaPagamento', () => {
     expect(lerReserva('c1', 'f1', 'u1')).toEqual(base)
   })
 
+  it('aceita reserva sem classificação (gravada antes) e com ela; rejeita tipo inválido', () => {
+    salvarReserva({ ...base, classificacao: '12' })
+    expect(lerReserva('c1', 'f1', 'u1')?.classificacao).toBe('12')
+    salvarReserva(base)
+    expect(lerReserva('c1', 'f1', 'u1')?.classificacao).toBeUndefined()
+    sessionStorage.setItem('pagamento:reserva', JSON.stringify({ ...base, classificacao: 12 }))
+    expect(lerReserva('c1', 'f1', 'u1')).toBeNull()
+  })
+
   it('devolve null sem reserva, com ids diferentes ou após limpar', () => {
     expect(lerReserva('c1', 'f1', 'u1')).toBeNull()
     salvarReserva(base)

@@ -2,6 +2,7 @@ import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Sessao } from '../dominio/keycloak'
+import { codigoPedido, type IngressoPdf } from '../dominio/ingressoPdf'
 import { lerReserva, salvarReserva, type ReservaPagamento } from '../dominio/reservaPagamento'
 import { PaginaPagamento } from './PaginaPagamento'
 
@@ -27,8 +28,12 @@ const reserva: ReservaPagamento = {
 
 let relogio = AGORA
 
-function renderizar(sessao: Sessao | null = login, irParaLogin: (r: string) => void = () => undefined) {
-  render(<PaginaPagamento cinemaId="c1" filmeId="f1" sessao={sessao} irParaLogin={irParaLogin} atrasoMs={2000} agora={() => relogio} />)
+function renderizar(
+  sessao: Sessao | null = login,
+  irParaLogin: (r: string) => void = () => undefined,
+  gerarPdf: (i: IngressoPdf) => Promise<void> = () => Promise.resolve(),
+) {
+  render(<PaginaPagamento cinemaId="c1" filmeId="f1" sessao={sessao} irParaLogin={irParaLogin} atrasoMs={2000} agora={() => relogio} gerarPdf={gerarPdf} />)
 }
 
 const preencher = async (numero = '4111111111111111') => {
@@ -187,6 +192,87 @@ describe('PaginaPagamento — pagar', () => {
     for (const espiao of [log, info, warn, erro]) expect(espiao).not.toHaveBeenCalled()
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
+  })
+})
+
+describe('PaginaPagamento — ingresso em PDF', () => {
+  const BOTAO = { name: 'Baixar ingresso (PDF)' }
+
+  async function aprovar(gerarPdf?: (i: IngressoPdf) => Promise<void>) {
+    salvarReserva({ ...reserva, classificacao: '12' })
+    renderizar(login, () => undefined, gerarPdf)
+    expect(screen.queryByRole('button', BOTAO)).not.toBeInTheDocument()
+    await preencher()
+    await userEvent.click(screen.getByRole('button', { name: 'Pagar' }))
+    expect(screen.queryByRole('button', BOTAO)).not.toBeInTheDocument()
+    await avancar(2000)
+  }
+
+  it('o botão só existe depois de aprovado e entrega os dados do pedido ao gerador', async () => {
+    const gerarPdf = vi.fn<(i: IngressoPdf) => Promise<void>>(() => Promise.resolve())
+    await aprovar(gerarPdf)
+    await userEvent.click(screen.getByRole('button', BOTAO))
+    expect(gerarPdf).toHaveBeenCalledTimes(1)
+    const ingresso = gerarPdf.mock.calls[0][0]
+    expect(ingresso.codigoPedido).toBe(codigoPedido({ ...reserva, classificacao: '12' }))
+    expect(ingresso.ingressos.map((i) => i.assento)).toEqual(['A1', 'A2'])
+    expect(ingresso.ingressos[0]).toMatchObject({ filme: 'Rocky', classificacao: '12', cinema: 'Cine Centro', sala: 'Sala 3' })
+    expect(ingresso.resumo.quantidade).toBe(2)
+    expect(screen.getByRole('heading', { name: 'Pagamento aprovado' })).toBeInTheDocument()
+    expect(screen.getByRole('button', BOTAO)).toBeEnabled()
+  })
+
+  it('baixar de novo entrega o mesmo código do pedido', async () => {
+    const gerarPdf = vi.fn<(i: IngressoPdf) => Promise<void>>(() => Promise.resolve())
+    await aprovar(gerarPdf)
+    await userEvent.click(screen.getByRole('button', BOTAO))
+    await userEvent.click(screen.getByRole('button', BOTAO))
+    expect(gerarPdf).toHaveBeenCalledTimes(2)
+    expect(gerarPdf.mock.calls[0][0].codigoPedido).toBe(gerarPdf.mock.calls[1][0].codigoPedido)
+  })
+
+  it('enquanto gera: botão desabilitado e ocupado; cliques repetidos não geram duas vezes', async () => {
+    let concluir: () => void = () => undefined
+    const gerarPdf = vi.fn<(i: IngressoPdf) => Promise<void>>(() => new Promise<void>((resolver) => (concluir = resolver)))
+    await aprovar(gerarPdf)
+    await userEvent.dblClick(screen.getByRole('button', BOTAO))
+    const gerando = screen.getByRole('button', { name: 'Gerando PDF…' })
+    expect(gerando).toBeDisabled()
+    expect(gerando).toHaveAttribute('aria-busy', 'true')
+    expect(gerarPdf).toHaveBeenCalledTimes(1)
+    await act(async () => concluir())
+    expect(screen.getByRole('button', BOTAO)).toBeEnabled()
+  })
+
+  it('falha: avisa, mantém a confirmação e permite tentar de novo', async () => {
+    const gerarPdf = vi.fn().mockRejectedValueOnce(new Error('falhou')).mockResolvedValue(undefined)
+    await aprovar(gerarPdf)
+    await userEvent.click(screen.getByRole('button', BOTAO))
+    expect(screen.getByRole('alert')).toHaveTextContent('Não foi possível gerar o PDF')
+    expect(screen.getByRole('heading', { name: 'Pagamento aprovado' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', BOTAO))
+    expect(gerarPdf).toHaveBeenCalledTimes(2)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('não aparece com cartão recusado, sem reserva nem reserva expirada', async () => {
+    salvarReserva(reserva)
+    renderizar()
+    await preencher('4111111000030000')
+    await userEvent.click(screen.getByRole('button', { name: 'Pagar' }))
+    await avancar(2000)
+    expect(screen.getByRole('heading', { name: 'Pagamento recusado' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', BOTAO)).not.toBeInTheDocument()
+    document.body.innerHTML = ''
+    sessionStorage.clear()
+    renderizar()
+    expect(screen.queryByRole('button', BOTAO)).not.toBeInTheDocument()
+    document.body.innerHTML = ''
+    salvarReserva({ ...reserva, expiraEm: new Date(AGORA + 1000).toISOString() })
+    renderizar()
+    await avancar(2000)
+    expect(screen.getByRole('heading', { name: 'Reserva expirada' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', BOTAO)).not.toBeInTheDocument()
   })
 })
 

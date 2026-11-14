@@ -10,7 +10,9 @@ import {
 } from './api/formatar'
 import { iniciarLogin, type ConfigOidc } from './api/oidc'
 import { SEM_SESSAO, login, logout, type Sessao } from './api/sessao'
+import { obterFormulario } from './api/formularios'
 import { buscarDefinicao, ehControllerCrud, TABELA, type Definicao } from './api/tabela'
+import { iniciar, responder, type Dialogo } from './dialogo'
 import { executar, linhasAjudaLocal, type Resultado } from './comandos'
 import type { Linha } from './linhas'
 
@@ -47,25 +49,21 @@ async function executarLogin(resto: string, ctx: Contexto): Promise<Resultado> {
   return resultado(r.linhas, r.sessao)
 }
 
-async function executarDefinicao(def: Definicao, resto: string, ctx: Contexto): Promise<Resultado> {
-  const args = lerArgumentos(def, resto)
-  if (ehErro(args)) return resultado([erro(args.erro), ...formatarUso(def)])
-
-  if (def.protegido && ctx.sessao.token === null) {
-    return resultado([
-      erro('este comando exige autenticação.'),
-      erro('use: login'),
-    ])
-  }
-
-  const caminho = def.caminho.replace('{id}', encodeURIComponent(args.id ?? ''))
+async function enviarDefinicao(
+  def: Definicao,
+  id: string | undefined,
+  query: Record<string, string>,
+  corpo: unknown,
+  ctx: Contexto,
+): Promise<Resultado> {
+  const caminho = def.caminho.replace('{id}', encodeURIComponent(id ?? ''))
   try {
     const resposta = await requisitar(ctx.fetchFn, ctx.base, {
       metodo: def.metodo,
       caminho,
       raiz: def.raiz,
-      query: args.query,
-      corpo: args.corpo,
+      query,
+      corpo,
       token: ctx.sessao.token,
     })
     if (resposta.status === 401) {
@@ -83,6 +81,41 @@ async function executarDefinicao(def: Definicao, resto: string, ctx: Contexto): 
     if (e instanceof FalhaRequisicao) return resultado(formatarFalha(e))
     throw e
   }
+}
+
+async function executarDefinicao(def: Definicao, resto: string, ctx: Contexto): Promise<Resultado> {
+  const args = lerArgumentos(def, resto)
+  if (ehErro(args)) return resultado([erro(args.erro), ...formatarUso(def)])
+
+  if (def.protegido && ctx.sessao.token === null) {
+    return resultado([
+      erro('este comando exige autenticação.'),
+      erro('use: login'),
+    ])
+  }
+
+  if (def.usaCorpo) {
+    const campos = obterFormulario(def)
+    if (campos === undefined) return resultado([erro(`comando ainda não disponível: ${def.uso}`)])
+    const passo = iniciar(def, campos, args.id)
+    return { linhas: passo.linhas, limpar: false, dialogo: passo.dialogo }
+  }
+
+  return enviarDefinicao(def, args.id, args.query, undefined, ctx)
+}
+
+/** Recebe uma linha digitada enquanto há um diálogo de preenchimento ativo. */
+export async function continuarDialogo(
+  dialogo: Dialogo,
+  entrada: string,
+  ctx: Contexto,
+): Promise<Resultado> {
+  const passo = responder(dialogo, entrada)
+  if (passo.enviar === undefined) {
+    return { linhas: passo.linhas, limpar: false, dialogo: passo.dialogo }
+  }
+  const r = await enviarDefinicao(dialogo.definicao, dialogo.id, {}, passo.enviar.corpo, ctx)
+  return { ...r, linhas: [...passo.linhas, ...r.linhas], dialogo: null }
 }
 
 export async function despachar(entrada: string, ctx: Contexto): Promise<Resultado> {

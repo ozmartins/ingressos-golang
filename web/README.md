@@ -8,7 +8,8 @@ tabelas de texto (não em JSON); tabelas mais largas que a tela rolam na horizon
 | Comando | O que faz |
 |---------|-----------|
 | `filmes`, `cinemas`, `salas`, `sessoes` + `listar` / `obter <id>` | Consultas públicas |
-| `... criar <json>` / `atualizar <id> <json>` / `remover <id>` | Escrita (exige `login`) |
+| `... criar` / `atualizar <id>` | Escrita guiada (exige `login`): o terminal pergunta os campos, mostra um resumo e pede confirmação; a aplicação monta o JSON. `cancelar` ou Esc aborta |
+| `... remover <id>` | Remoção (exige `login`) |
 | `health` | Estado do serviço |
 | `login` / `logout` | Autenticação pela página de login do Keycloak (Authorization Code + PKCE; token só em memória) |
 | `login <client_id> <client_secret>` | Autenticação por client credentials, sem sair do terminal |

@@ -98,8 +98,8 @@ function definicoesDoRecurso(r: Recurso): Definicao[] {
       protegido: true,
       usaId: false,
       usaCorpo: true,
-      uso: `${nome} criar <json>`,
-      descricao: `cadastra ${r.artigo} ${r.singular} (exige login)`,
+      uso: `${nome} criar`,
+      descricao: `cadastra ${r.artigo} ${r.singular}, perguntando os campos (exige login)`,
     },
     {
       ...base,
@@ -120,8 +120,8 @@ function definicoesDoRecurso(r: Recurso): Definicao[] {
       protegido: true,
       usaId: true,
       usaCorpo: true,
-      uso: `${nome} atualizar <id> <json>`,
-      descricao: `atualiza ${r.artigo} ${r.singular} (exige login)`,
+      uso: `${nome} atualizar <id>`,
+      descricao: `atualiza ${r.artigo} ${r.singular}, perguntando os campos (exige login)`,
     },
     {
       ...base,

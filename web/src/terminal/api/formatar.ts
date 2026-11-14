@@ -372,6 +372,8 @@ export function formatarAjuda(): Linha[] {
       linhas.push(sistema(`      ${def.descricao}`))
     }
   }
+  linhas.push(saida(''))
+  linhas.push(sistema('criar e atualizar perguntam os campos um a um; digite "cancelar" (ou Esc) para abortar.'))
   linhas.push(saida('Sessão'))
   linhas.push(saida('  login'))
   linhas.push(sistema('      abre a página de login do Keycloak (usuário e senha)'))

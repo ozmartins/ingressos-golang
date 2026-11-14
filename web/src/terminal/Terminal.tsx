@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { concluirLogin, temRetorno, type ConfigOidc } from './api/oidc'
 import { SEM_SESSAO, mascarar, type Sessao } from './api/sessao'
 import type { Base } from './api/cliente'
-import { despachar } from './despachar'
+import { cancelar, registrarNoHistorico, type Dialogo } from './dialogo'
+import { continuarDialogo, despachar } from './despachar'
 import { adicionar, anterior, criar, proximo } from './historico'
 import { adicionarLinhas, type Linha } from './linhas'
 
@@ -31,6 +32,7 @@ export default function Terminal() {
   const [historico, setHistorico] = useState(criar)
   const [sessao, setSessao] = useState<Sessao>(SEM_SESSAO)
   const [ocupado, setOcupado] = useState(false)
+  const [dialogo, setDialogo] = useState<Dialogo | null>(null)
   const campo = useRef<HTMLInputElement>(null)
   const saida = useRef<HTMLDivElement>(null)
 
@@ -61,18 +63,23 @@ export default function Terminal() {
     const entrada = valor
     const eco: Linha = { tipo: 'entrada', texto: `${PROMPT} ${mascarar(entrada)}` }
     setValor('')
-    setHistorico((h) => adicionar(h, mascarar(entrada)))
+    if (registrarNoHistorico(dialogo)) setHistorico((h) => adicionar(h, mascarar(entrada)))
     setLinhas((atuais) => adicionarLinhas(atuais, [eco]))
-    if (entrada.trim() === '') return
+    if (dialogo === null && entrada.trim() === '') return
 
     setOcupado(true)
     try {
-      const resultado = await despachar(entrada, {
+      const contexto = {
         fetchFn: fetch.bind(globalThis),
         base: BASE,
         sessao,
         oidc: configOidc(),
-      })
+      }
+      const resultado =
+        dialogo === null
+          ? await despachar(entrada, contexto)
+          : await continuarDialogo(dialogo, entrada, contexto)
+      if (resultado.dialogo !== undefined) setDialogo(resultado.dialogo)
       if (resultado.redirecionar) {
         window.location.assign(resultado.redirecionar)
         return
@@ -91,7 +98,11 @@ export default function Terminal() {
       e.preventDefault()
       return
     }
-    if (e.key === 'Enter') {
+    if (e.key === 'Escape' && dialogo !== null) {
+      e.preventDefault()
+      setDialogo(null)
+      setLinhas((atuais) => adicionarLinhas(atuais, cancelar().linhas))
+    } else if (e.key === 'Enter') {
       e.preventDefault()
       void enviar()
     } else if (e.key === 'ArrowUp') {
@@ -122,7 +133,7 @@ export default function Terminal() {
         ))}
       </div>
       <div className="entrada">
-        <span className="prompt">{ocupado ? '…' : PROMPT}</span>
+        <span className="prompt">{ocupado ? '…' : dialogo === null ? PROMPT : '?'}</span>
         <span className="espelho" aria-hidden="true">
           {valor}
         </span>

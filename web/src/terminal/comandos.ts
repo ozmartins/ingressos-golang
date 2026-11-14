@@ -1,4 +1,5 @@
 import type { Sessao } from './api/sessao'
+import type { Dialogo } from './dialogo'
 import type { Linha } from './linhas'
 
 export interface Resultado {
@@ -7,6 +8,8 @@ export interface Resultado {
   sessao?: Sessao
   /** URL para onde o navegador deve ir (login no Keycloak). */
   redirecionar?: string
+  /** Diálogo de preenchimento: objeto = ativo/atualizado, null = encerrado, ausente = sem mudança. */
+  dialogo?: Dialogo | null
 }
 
 const saida = (texto: string): Linha => ({ tipo: 'saida', texto })

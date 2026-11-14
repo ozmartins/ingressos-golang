@@ -1,13 +1,27 @@
 import { describe, expect, it } from 'vitest'
 import { BASE_TESTE, fakeFetch, fetchQueFalha, respostaJson } from './api/fakes'
 import { SEM_SESSAO, type Sessao } from './api/sessao'
-import { despachar, type Contexto } from './despachar'
+import { despachar, continuarDialogo, type Contexto } from './despachar'
+import type { Resultado } from './comandos'
+import type { Dialogo } from './dialogo'
 
 function ctx(fetchFn: typeof fetch, sessao: Sessao = SEM_SESSAO): Contexto {
   return { fetchFn, base: BASE_TESTE, sessao }
 }
 const comToken: Sessao = { token: 'tok' }
 const textos = (r: { linhas: { texto: string }[] }) => r.linhas.map((l) => l.texto)
+
+/** Abre o comando e responde, uma a uma, às perguntas do diálogo. */
+async function preencher(comando: string, respostas: string[], c: Contexto): Promise<Resultado> {
+  let r = await despachar(comando, c)
+  let d: Dialogo | null | undefined = r.dialogo
+  for (const resposta of respostas) {
+    if (!d) throw new Error('diálogo encerrado antes das respostas acabarem')
+    r = await continuarDialogo(d, resposta, c)
+    d = r.dialogo
+  }
+  return r
+}
 
 describe('despachar - leituras', () => {
   it('filmes listar aplica filtros e paginação', async () => {
@@ -100,15 +114,16 @@ describe('despachar - comandos locais', () => {
 describe('despachar - autenticação', () => {
   it('escrita sem token orienta o login e não chama o serviço', async () => {
     const { fn, chamadas } = fakeFetch(() => respostaJson(201, {}))
-    const r = await despachar('filmes criar {"titulo":"X"}', ctx(fn))
+    const r = await despachar('filmes criar', ctx(fn))
     expect(chamadas).toHaveLength(0)
     expect(textos(r).join('\n')).toContain('use: login')
     expect(r.sessao).toBeUndefined()
+    expect(r.dialogo).toBeUndefined()
   })
 
   it('com token envia Authorization', async () => {
     const { fn, chamadas } = fakeFetch(() => respostaJson(200, {}))
-    await despachar('filmes atualizar abc {"titulo":"Y"}', ctx(fn, comToken))
+    await despachar('filmes remover abc', ctx(fn, comToken))
     expect(chamadas[0].init.headers).toHaveProperty('Authorization', 'Bearer tok')
   })
 
@@ -171,59 +186,155 @@ describe('despachar - autenticação', () => {
   })
 })
 
-describe('despachar - escritas', () => {
-  it('filmes criar envia o corpo e mostra o Location', async () => {
+const RESP_FILME = ['X', '', '90', 'Livre', 'Drama', '', '', 's']
+const RESP_CINEMA = ['Cine', 'Floripa', 'sc', 'Rua A, 1', '', 's']
+
+describe('despachar - escritas guiadas por campos', () => {
+  it('filmes criar abre o diálogo sem chamar o serviço', async () => {
+    const { fn, chamadas } = fakeFetch(() => respostaJson(201, {}))
+    const r = await despachar('filmes criar', ctx(fn, comToken))
+    expect(chamadas).toHaveLength(0)
+    expect(r.dialogo).toBeTruthy()
+    expect(textos(r).join('\n')).toContain('Título (obrigatório):')
+  })
+
+  it('filmes criar monta o corpo, envia e mostra o Location', async () => {
     const { fn, chamadas } = fakeFetch(() =>
       respostaJson(201, { id: '9', titulo: 'X' }, { Location: '/api/v1/filmes/9' }),
     )
-    const r = await despachar(
-      'filmes criar {"titulo":"X","duracao_minutos":90,"classificacao_etaria":"Livre","genero":"Drama"}',
+    const r = await preencher('filmes criar', RESP_FILME, ctx(fn, comToken))
+    expect(chamadas).toHaveLength(1)
+    expect(chamadas[0].url).toBe('/catalogo/api/v1/filmes')
+    expect(chamadas[0].init.method).toBe('POST')
+    expect(JSON.parse(String(chamadas[0].init.body))).toEqual({
+      titulo: 'X',
+      duracao_minutos: 90,
+      classificacao_etaria: 'Livre',
+      genero: 'Drama',
+    })
+    expect(textos(r)).toContain('Cadastrado com sucesso.')
+    expect(textos(r)).toContain('Localização: /api/v1/filmes/9')
+    expect(r.dialogo).toBeNull()
+  })
+
+  it('cinemas criar envia estado em maiúsculas e omite ativo em branco', async () => {
+    const { fn, chamadas } = fakeFetch(() => respostaJson(201, { id: 'c1' }))
+    await preencher('cinemas criar', RESP_CINEMA, ctx(fn, comToken))
+    expect(JSON.parse(String(chamadas[0].init.body))).toEqual({
+      nome: 'Cine',
+      cidade: 'Floripa',
+      estado: 'SC',
+      endereco: 'Rua A, 1',
+    })
+  })
+
+  it('sessoes criar envia preco_base como string', async () => {
+    const { fn, chamadas } = fakeFetch(() => respostaJson(201, { id: 's1' }))
+    const f = '11111111-1111-1111-1111-111111111111'
+    const s = '22222222-2222-2222-2222-222222222222'
+    await preencher('sessoes criar', [f, s, '2026-12-01 19:30', 'dublado', '42,5', '', 's'], ctx(fn, comToken))
+    const corpo = JSON.parse(String(chamadas[0].init.body)) as Record<string, unknown>
+    expect(corpo).toEqual({
+      filme_id: f,
+      sala_id: s,
+      data_hora_inicio: new Date(2026, 11, 1, 19, 30).toISOString(),
+      idioma: 'DUBLADO',
+      preco_base: '42.5',
+    })
+  })
+
+  it('salas criar envia as fileiras no formato do contrato', async () => {
+    const { fn, chamadas } = fakeFetch(() => respostaJson(201, { id: 'sa1' }))
+    const cinema = '11111111-1111-1111-1111-111111111111'
+    await preencher(
+      'salas criar',
+      [cinema, '3', 'imax', 'a', '10', '', 's', 'B', '12', 'pcd', 'n', '', 's'],
       ctx(fn, comToken),
     )
-    expect(chamadas[0].init.method).toBe('POST')
-    expect(JSON.parse(String(chamadas[0].init.body))).toMatchObject({ titulo: 'X', duracao_minutos: 90 })
-    expect(textos(r)[0]).toBe('Cadastrado com sucesso.')
-    expect(textos(r)).toContain('Localização: /api/v1/filmes/9')
+    expect(JSON.parse(String(chamadas[0].init.body))).toEqual({
+      cinema_id: cinema,
+      numero: 3,
+      tipo_tela: 'IMAX',
+      fileiras: [
+        { fileira: 'A', assentos: 10, tipo: 'NORMAL' },
+        { fileira: 'B', assentos: 12, tipo: 'PCD' },
+      ],
+    })
   })
 
-  it('salas atualizar usa PUT com id e corpo', async () => {
+  it('salas atualizar pede só número, tela e ativo e usa PUT com id', async () => {
     const { fn, chamadas } = fakeFetch(() => respostaJson(200, { id: 's1' }))
-    await despachar('salas atualizar s1 {"numero":3,"tipo_tela":"IMAX"}', ctx(fn, comToken))
+    const inicio = await despachar('salas atualizar s1', ctx(fn, comToken))
+    const perguntas = textos(inicio).join('\n')
+    expect(perguntas).toContain('Número da sala')
+    expect(perguntas).not.toContain('cinema')
+    await preencher('salas atualizar s1', ['3', 'imax', '', 's'], ctx(fn, comToken))
     expect(chamadas[0].url).toBe('/catalogo/api/v1/salas/s1')
     expect(chamadas[0].init.method).toBe('PUT')
+    expect(JSON.parse(String(chamadas[0].init.body))).toEqual({ numero: 3, tipo_tela: 'IMAX' })
   })
 
-  it('sessoes remover confirma o 204', async () => {
-    const { fn, chamadas } = fakeFetch(() => new Response(null, { status: 204 }))
-    const r = await despachar('sessoes remover s1', ctx(fn, comToken))
-    expect(chamadas[0].init.method).toBe('DELETE')
-    expect(textos(r)).toEqual(['Removido com sucesso.'])
-  })
-
-  it('JSON inválido não chama o serviço', async () => {
-    const { fn, chamadas } = fakeFetch(() => respostaJson(201, {}))
-    const r = await despachar('filmes criar {titulo', ctx(fn, comToken))
+  it('atualizar sem id mostra o uso; com JSON na linha recusa sem abrir diálogo', async () => {
+    const { fn, chamadas } = fakeFetch(() => respostaJson(200, {}))
+    const a = await despachar('filmes atualizar', ctx(fn, comToken))
+    expect(textos(a)).toEqual(['identificador ausente', 'uso: filmes atualizar <id>'])
+    const b = await despachar('filmes criar {"titulo":"X"}', ctx(fn, comToken))
+    expect(textos(b)[0]).toContain('não recebe JSON')
+    expect(b.dialogo).toBeUndefined()
+    const c = await despachar('filmes atualizar abc {"titulo":"Y"}', ctx(fn, comToken))
+    expect(textos(c)[0]).toContain('não recebe JSON')
     expect(chamadas).toHaveLength(0)
-    expect(textos(r)[0].startsWith('JSON inválido')).toBe(true)
   })
 
-  it('400 mostra os erros por campo', async () => {
+  it('cancelar encerra sem nenhuma requisição', async () => {
+    const { fn, chamadas } = fakeFetch(() => respostaJson(201, {}))
+    const r = await preencher('filmes criar', ['X', 'cancelar'], ctx(fn, comToken))
+    expect(chamadas).toHaveLength(0)
+    expect(r.dialogo).toBeNull()
+    expect(textos(r).join('\n')).toContain('Nada foi enviado')
+  })
+
+  it('recusar a confirmação não envia', async () => {
+    const { fn, chamadas } = fakeFetch(() => respostaJson(201, {}))
+    const r = await preencher('filmes criar', [...RESP_FILME.slice(0, -1), 'n'], ctx(fn, comToken))
+    expect(chamadas).toHaveLength(0)
+    expect(r.dialogo).toBeNull()
+  })
+
+  it('400 do serviço mostra os erros por campo e encerra o diálogo', async () => {
     const { fn } = fakeFetch(() =>
       respostaJson(400, {
         title: 'Entrada inválida', status: 400,
         errors: [{ campo: 'titulo', mensagem: 'obrigatório' }, { campo: 'genero', mensagem: 'obrigatório' }],
       }),
     )
-    const r = await despachar('filmes criar {"titulo":""}', ctx(fn, comToken))
-    expect(textos(r)).toEqual(['400 Entrada inválida', '  titulo: obrigatório', '  genero: obrigatório'])
+    const r = await preencher('filmes criar', RESP_FILME, ctx(fn, comToken))
+    expect(textos(r).slice(-3)).toEqual(['400 Entrada inválida', '  titulo: obrigatório', '  genero: obrigatório'])
+    expect(r.dialogo).toBeNull()
   })
 
   it('409 mostra o conflito do serviço', async () => {
     const { fn } = fakeFetch(() =>
       respostaJson(409, { title: 'Conflito', status: 409, detail: 'número de sala repetido' }),
     )
-    const r = await despachar('salas criar {"numero":1}', ctx(fn, comToken))
-    expect(textos(r)).toEqual(['409 Conflito', '  número de sala repetido'])
+    const cinema = '11111111-1111-1111-1111-111111111111'
+    const r = await preencher('salas criar', [cinema, '1', '2d', 'A', '5', '', 'n', '', 's'], ctx(fn, comToken))
+    expect(textos(r).slice(-2)).toEqual(['409 Conflito', '  número de sala repetido'])
+  })
+
+  it('401 no envio zera a sessão', async () => {
+    const { fn } = fakeFetch(() => respostaJson(401, { title: 'Token expirado', status: 401 }))
+    const r = await preencher('filmes criar', RESP_FILME, ctx(fn, comToken))
+    expect(r.sessao).toEqual({ token: null })
+  })
+})
+
+describe('despachar - remover', () => {
+  it('sessoes remover confirma o 204', async () => {
+    const { fn, chamadas } = fakeFetch(() => new Response(null, { status: 204 }))
+    const r = await despachar('sessoes remover s1', ctx(fn, comToken))
+    expect(chamadas[0].init.method).toBe('DELETE')
+    expect(textos(r)).toEqual(['Removido com sucesso.'])
   })
 })
 

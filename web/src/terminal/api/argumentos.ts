@@ -7,10 +7,9 @@ export interface ErroUso {
 export interface Argumentos {
   id?: string
   query: Record<string, string>
-  corpo?: unknown
 }
 
-export function ehErro(x: Argumentos | ErroUso | { corpo: unknown }): x is ErroUso {
+export function ehErro(x: Argumentos | ErroUso): x is ErroUso {
   return 'erro' in x
 }
 
@@ -19,15 +18,6 @@ export function destacar(texto: string): [string, string] {
   const i = t.search(/\s/)
   if (i === -1) return [t, '']
   return [t.slice(0, i), t.slice(i).trim()]
-}
-
-export function lerCorpo(texto: string): { corpo: unknown } | ErroUso {
-  if (texto.trim() === '') return { erro: 'corpo JSON ausente' }
-  try {
-    return { corpo: JSON.parse(texto) as unknown }
-  } catch (e) {
-    return { erro: `JSON inválido: ${e instanceof Error ? e.message : String(e)}` }
-  }
 }
 
 export function lerArgumentos(def: Definicao, resto: string): Argumentos | ErroUso {
@@ -55,13 +45,14 @@ export function lerArgumentos(def: Definicao, resto: string): Argumentos | ErroU
   if (def.usaId) {
     const [id, restante] = destacar(resto)
     if (id === '') return { erro: 'identificador ausente' }
-    if (def.usaCorpo) {
-      const c = lerCorpo(restante)
-      return ehErro(c) ? c : { id, query, corpo: c.corpo }
-    }
-    return restante === '' ? { id, query } : { erro: `argumento inesperado: ${restante}` }
+    if (restante === '') return { id, query }
+    return { erro: def.usaCorpo ? avisoSemJson(def) : `argumento inesperado: ${restante}` }
   }
 
-  const c = lerCorpo(resto)
-  return ehErro(c) ? c : { query, corpo: c.corpo }
+  return resto.trim() === '' ? { query } : { erro: avisoSemJson(def) }
+}
+
+function avisoSemJson(def: Definicao): string {
+  const comando = def.usaId ? `${def.controller} ${def.acao} <id>` : `${def.controller} ${def.acao}`
+  return `este comando não recebe JSON nem campos na linha: digite apenas "${comando}" e responda aos campos pedidos`
 }

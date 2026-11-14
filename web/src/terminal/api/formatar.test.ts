@@ -27,6 +27,13 @@ const filme = {
 const tabela = (...linhas: string[]) => linhas.join('\n')
 
 describe('formatarResposta - tabelas', () => {
+  it('a ajuda não traz exemplos com JSON e explica o fluxo guiado', () => {
+    const t = textos(formatarAjuda()).join('\n')
+    expect(t).not.toContain('<json>')
+    expect(t).toContain('perguntam os campos')
+    expect(t).toContain('filmes criar')
+  })
+
   it('um filme vira uma tabela Campo/Valor, com sinopse quebrada e sem JSON', () => {
     const r = formatarResposta(def('filmes', 'obter'), {
       status: 200,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { lerArgumentos, lerCorpo } from './argumentos'
+import { lerArgumentos } from './argumentos'
 import { buscarDefinicao } from './tabela'
 
 const def = (c: string, a: string) => {
@@ -49,34 +49,22 @@ describe('lerArgumentos - id', () => {
   })
 })
 
-describe('lerCorpo e lerArgumentos - corpo', () => {
-  it('aceita JSON com espaços e aspas, sem escape', () => {
-    const r = lerCorpo('{"titulo": "O Auto da Compadecida", "duracao_minutos": 104}')
-    expect(r).toEqual({ corpo: { titulo: 'O Auto da Compadecida', duracao_minutos: 104 } })
+describe('lerArgumentos - escrita guiada', () => {
+  it('criar não recebe argumentos', () => {
+    expect(lerArgumentos(def('filmes', 'criar'), '')).toEqual({ query: {} })
+    expect(lerArgumentos(def('filmes', 'criar'), '  ')).toEqual({ query: {} })
   })
 
-  it('corpo ausente vira erro de uso', () => {
-    expect(lerCorpo('   ')).toEqual({ erro: 'corpo JSON ausente' })
-    expect(lerArgumentos(def('filmes', 'criar'), '')).toEqual({ erro: 'corpo JSON ausente' })
-  })
-
-  it('JSON inválido vira erro de sintaxe', () => {
-    const r = lerCorpo('{titulo')
+  it('criar recusa JSON na linha e orienta o novo uso', () => {
+    const r = lerArgumentos(def('filmes', 'criar'), '{"a": 1}')
     expect(r).toHaveProperty('erro')
-    expect((r as { erro: string }).erro.startsWith('JSON inválido')).toBe(true)
+    expect((r as { erro: string }).erro).toContain('digite apenas "filmes criar"')
   })
 
-  it('criar lê o corpo inteiro; atualizar lê id e corpo', () => {
-    expect(lerArgumentos(def('filmes', 'criar'), '{"a": 1}')).toEqual({ query: {}, corpo: { a: 1 } })
-    expect(lerArgumentos(def('salas', 'atualizar'), 'id-1 {"numero": 2}')).toEqual({
-      id: 'id-1',
-      query: {},
-      corpo: { numero: 2 },
-    })
-  })
-
-  it('atualizar sem corpo ou sem id falha', () => {
-    expect(lerArgumentos(def('salas', 'atualizar'), 'id-1')).toEqual({ erro: 'corpo JSON ausente' })
+  it('atualizar recebe só o id', () => {
+    expect(lerArgumentos(def('salas', 'atualizar'), 'id-1')).toEqual({ id: 'id-1', query: {} })
     expect(lerArgumentos(def('salas', 'atualizar'), '')).toEqual({ erro: 'identificador ausente' })
+    const r = lerArgumentos(def('salas', 'atualizar'), 'id-1 {"numero": 2}')
+    expect((r as { erro: string }).erro).toContain('digite apenas "salas atualizar <id>"')
   })
 })

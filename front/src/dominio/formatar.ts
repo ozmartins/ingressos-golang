@@ -30,6 +30,18 @@ export function formatarPreco(valor: string | number): string {
   return moeda.format(Number(valor))
 }
 
+/** 8400 → "R$ 84,00". */
+export function formatarCentavos(centavos: number): string {
+  return moeda.format(centavos / 100)
+}
+
+export const ROTULO_IDIOMA = { DUBLADO: 'Dublado', LEGENDADO: 'Legendado' } as const
+
+/** Data local: "sáb., 14/11". */
+export function formatarDiaDe(data: Date): string {
+  return dia.format(data)
+}
+
 /** Hora local: "19:30". */
 export function formatarHora(data: Date): string {
   return hora.format(data)

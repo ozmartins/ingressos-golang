@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   concluirAutenticacao,
   lerSessao,
+  retornoSeguro,
   salvarSessao,
   temRetorno,
   urlAutenticacao,
@@ -48,5 +49,14 @@ describe('keycloak', () => {
     expect(temRetorno('?aba=cinemas')).toBe(false)
     const u = new URL(urlLogout({ accessToken: 'a', idToken: 'i', expiraEm: 1 }))
     expect(u.searchParams.get('id_token_hint')).toBe('i')
+  })
+})
+
+describe('retornoSeguro', () => {
+  it('aceita caminhos internos e rejeita o resto', () => {
+    expect(retornoSeguro('/cinemas/c1/filmes/f1/comprar?sessao=s')).toBe('/cinemas/c1/filmes/f1/comprar?sessao=s')
+    expect(retornoSeguro('//evil.com')).toBe('/')
+    expect(retornoSeguro('https://evil.com')).toBe('/')
+    expect(retornoSeguro('/\\evil.com')).toBe('/')
   })
 })

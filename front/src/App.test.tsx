@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Cinema } from './api/tipos'
 import App from './App'
 
@@ -20,7 +20,10 @@ const props = {
   },
 }
 
-afterEach(() => window.history.replaceState(null, '', '/'))
+afterEach(() => {
+  window.history.replaceState(null, '', '/')
+  sessionStorage.clear()
+})
 
 describe('App', () => {
   it('abre o cinema ao clicar no card e volta preservando aba e filtros', async () => {
@@ -57,5 +60,41 @@ describe('App', () => {
   it('na rota inicial mostra a página inicial', async () => {
     render(<App {...props} />)
     expect(await screen.findByRole('heading', { level: 1, name: 'Ingressos' })).toBeInTheDocument()
+  })
+
+  it('compra deslogado: vai ao login com retorno; logado: abre a seleção de assentos', async () => {
+    window.history.replaceState(null, '', '/cinemas/c1/filmes/f1/comprar')
+    const irParaLogin = vi.fn()
+    const compra = {
+      carregarCinema: () => Promise.resolve(cinemas[0]),
+      carregarFilmes: () =>
+        Promise.resolve([{ id: 'f1', titulo: 'Duna', genero: 'Ficção', duracao_minutos: 120, classificacao_etaria: '12', status: 'EM_CARTAZ' as const }]),
+      carregarSessoes: () =>
+        Promise.resolve([
+          {
+            id: 's1',
+            filme_id: 'f1',
+            filme_titulo: 'Duna',
+            cinema_id: 'c1',
+            cinema_nome: 'Cine Centro',
+            sala_numero: 1,
+            tipo_tela: '2D' as const,
+            data_hora_inicio: new Date(Date.now() + 86_400_000).toISOString(),
+            idioma: 'DUBLADO' as const,
+            preco_base: '30.00',
+          },
+        ]),
+      carregarMapa: () =>
+        Promise.resolve([{ rotulo: 'A1', fileira: 'A', numero: 1, tipo: 'NORMAL' as const, status: 'LIVRE' as const }]),
+      irParaLogin,
+    }
+    const { unmount } = render(<App {...props} carregadoresCompra={compra} />)
+    expect(await screen.findByText(/Redirecionando para o login/)).toBeInTheDocument()
+    expect(irParaLogin).toHaveBeenCalledWith('/cinemas/c1/filmes/f1/comprar')
+    unmount()
+
+    sessionStorage.setItem('oidc:sessao', JSON.stringify({ accessToken: 't', idToken: null, expiraEm: Date.now() + 60_000 }))
+    render(<App {...props} carregadoresCompra={compra} />)
+    expect(await screen.findByRole('button', { name: /Fileira A, assento 1, livre/ })).toBeInTheDocument()
   })
 })

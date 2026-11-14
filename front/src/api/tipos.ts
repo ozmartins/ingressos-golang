@@ -62,3 +62,38 @@ export interface SessaoNaGrade {
   /** Decimal exato em texto, p. ex. "42.00". */
   preco_base: string
 }
+
+export type TipoPoltrona = 'NORMAL' | 'PCD' | 'NAMORADEIRA'
+
+export type StatusPoltrona = 'LIVRE' | 'RESERVADA' | 'OCUPADA'
+
+/** Poltrona (assento) da sessão, como o estoque a devolve. */
+export interface Poltrona {
+  /** Identidade no escopo da sessão, p. ex. "B4". */
+  rotulo: string
+  fileira: string
+  numero: number
+  tipo: TipoPoltrona
+  status: StatusPoltrona
+}
+
+export interface MapaPoltronas {
+  sessao_id: string
+  poltronas: Poltrona[]
+}
+
+export interface RespostaBloqueio {
+  reserva_id: string
+  /** ISO 8601: instante em que a reserva pendente expira. */
+  expira_em: string
+  mensagem: string
+}
+
+/** Erro no formato RFC 9457 devolvido pelo estoque. */
+export interface Problem {
+  type: string
+  title: string
+  status: number
+  detail?: string
+  metadata?: Record<string, string>
+}

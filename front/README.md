@@ -26,6 +26,12 @@ npm run build
 
 O catálogo não envia cabeçalhos CORS. Em desenvolvimento (`npm run dev`) e no `npm run preview`, o Vite encaminha `/catalogo/*` para `http://localhost:8082/*` (ver `vite.config.ts`). Para apontar para outra base, defina `VITE_CATALOGO_URL` (padrão: `/catalogo`).
 
+O `estoque` (mapa de assentos e reservas) também não envia CORS: `/estoque/*` é encaminhado para `http://localhost:8085/*`; base configurável por `VITE_ESTOQUE_URL` (padrão: `/estoque`).
+
+### Página de compra
+
+O botão "Comprar Ingressos" abre `/cinemas/{cinemaId}/filmes/{filmeId}/comprar?sessao={id}`. A rota exige login: sem sessão, o usuário vai ao Keycloak e volta à mesma página. Selecionar assentos e "Continuar" cria a reserva temporária no `estoque` (requer o serviço no ar na porta 8085). Detalhes em `specs/003-selecao-assentos/`.
+
 Os dados são lidos das listagens públicas `GET /api/v1/filmes` e `GET /api/v1/cinemas`, percorrendo todas as páginas (100 itens por página). A página do cinema também usa `GET /api/v1/cinemas/{id}`, `/salas?cinema_id=`, `/sessoes?cinema_id=`. Filmes fora de cartaz e cinemas inativos não são exibidos. As imagens vêm de URLs remotas devolvidas pela API: `imagem_url` nos filmes e `logo_url` nos cinemas (sem URL, um substituto neutro é exibido).
 
 ## Estrutura

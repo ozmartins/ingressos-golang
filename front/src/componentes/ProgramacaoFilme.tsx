@@ -1,12 +1,10 @@
-import { formatarDia, formatarDuracao, formatarHora, formatarPreco } from '../dominio/formatar'
+import { formatarDia, formatarDuracao, formatarHora, formatarPreco, ROTULO_IDIOMA } from '../dominio/formatar'
 import type { Filme } from '../api/tipos'
 import type { ProgramacaoFilme as Programacao } from '../dominio/programacao'
 
-const ROTULO_IDIOMA = { DUBLADO: 'Dublado', LEGENDADO: 'Legendado' } as const
-
 interface Props {
   programacao: Programacao
-  /** Chamado ao acionar "Comprar Ingressos"; o fluxo de compra ainda não existe nesta página. */
+  /** Chamado ao acionar "Comprar Ingressos" (abre a página de compra do filme). */
   onComprar?: (filme: Filme) => void
 }
 

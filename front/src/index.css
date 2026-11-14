@@ -465,3 +465,281 @@ button {
   background: transparent;
   color: #4f46e5;
 }
+
+/* Página de compra (seleção de assentos) */
+.pagina-compra {
+  max-width: 1100px;
+}
+
+.sessao-cabecalho {
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  padding: 12px 16px;
+  margin-bottom: var(--espaco, 16px);
+}
+
+.sessao-etapa {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--destaque);
+}
+
+.sessao-dados {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.sessao-cabecalho .campo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 100%;
+}
+
+.sessao-cabecalho select {
+  max-width: 100%;
+  min-height: 40px;
+  font: inherit;
+  color: var(--texto);
+  background: var(--fundo);
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+.compra-corpo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--espaco, 16px);
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .compra-corpo {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+}
+
+.compra-mapa,
+.resumo,
+.reserva-confirmada {
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  padding: 16px;
+}
+
+.compra-lateral {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco, 16px);
+}
+
+.mapa-rolagem {
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.mapa-grade {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: max-content;
+  margin: 0 auto;
+}
+
+.mapa-fileira {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mapa-letra {
+  width: 1.5rem;
+  text-align: center;
+  font-weight: 700;
+  color: var(--texto-suave);
+}
+
+.mapa-assentos-fileira {
+  display: flex;
+  gap: 4px;
+}
+
+.assento {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--texto);
+  background: var(--superficie);
+  border: 2px solid var(--foco);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.assento:hover:not(:disabled) {
+  background: var(--fundo);
+}
+
+.assento-selecionado {
+  color: var(--destaque-texto);
+  background: var(--destaque);
+  border-color: var(--destaque);
+}
+
+.assento-ocupado,
+.assento-indisponivel {
+  color: var(--texto-suave);
+  background: var(--borda);
+  border-color: var(--borda);
+  cursor: not-allowed;
+}
+
+.assento.tipo-pcd,
+.assento.tipo-namoradeira {
+  border-radius: 6px;
+}
+
+.assento:disabled:not(.assento-ocupado):not(.assento-indisponivel) {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.mapa-tela {
+  margin: 16px auto 8px;
+  max-width: 420px;
+  padding: 4px 0;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--texto-suave);
+  background: var(--borda);
+  border-radius: 0 0 var(--raio) var(--raio);
+}
+
+.mapa-numeros {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--texto-suave);
+}
+
+.mapa-legenda {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 16px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+  color: var(--texto-suave);
+}
+
+.mapa-legenda li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.assento-amostra {
+  width: 22px;
+  height: 22px;
+  cursor: default;
+}
+
+.aviso {
+  margin: 12px 0 0;
+  color: var(--aviso);
+  font-weight: 600;
+}
+
+.resumo h2,
+.resumo h3,
+.reserva-confirmada h2 {
+  margin: 0 0 8px;
+}
+
+.resumo-filme {
+  display: flex;
+  gap: 12px;
+}
+
+.resumo-poster {
+  width: 72px;
+  height: 104px;
+  flex: none;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.resumo-sessao {
+  display: flex;
+  justify-content: space-between;
+  margin: 12px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--borda);
+  font-weight: 600;
+}
+
+.resumo-assentos {
+  color: var(--texto-suave);
+  overflow-wrap: anywhere;
+}
+
+.resumo-totais {
+  margin: 12px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--borda);
+}
+
+.resumo-totais > div {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.resumo-totais dt {
+  color: var(--texto-suave);
+}
+
+.resumo-totais dd {
+  margin: 0;
+}
+
+.resumo-total {
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.resumo-total dt {
+  color: var(--texto);
+}
+
+.resumo-continuar {
+  width: 100%;
+}
+
+.resumo-continuar:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.reserva-confirmada {
+  border-color: var(--ok);
+}

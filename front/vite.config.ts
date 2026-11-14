@@ -2,13 +2,18 @@ import react from '@vitejs/plugin-react'
 import type { ProxyOptions } from 'vite'
 import { defineConfig } from 'vitest/config'
 
-// O catálogo não envia cabeçalhos CORS; o navegador acessa o serviço pelo
+// O catálogo e o estoque não enviam cabeçalhos CORS; o navegador acessa o serviço pelo
 // proxy do Vite, na mesma origem da página.
 const proxyServicos: Record<string, ProxyOptions> = {
   '/catalogo': {
     target: 'http://localhost:8082',
     changeOrigin: true,
     rewrite: (caminho) => caminho.replace(/^\/catalogo/, ''),
+  },
+  '/estoque': {
+    target: 'http://localhost:8085',
+    changeOrigin: true,
+    rewrite: (caminho) => caminho.replace(/^\/estoque/, ''),
   },
 }
 

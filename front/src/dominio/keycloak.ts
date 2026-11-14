@@ -47,11 +47,16 @@ async function desafio(verificador: string): Promise<string> {
   return base64Url(new Uint8Array(resumo))
 }
 
+/** Só caminhos internos são aceitos como retorno (evita redirecionamento aberto). */
+export function retornoSeguro(retorno: string): string {
+  return retorno.startsWith('/') && !retorno.startsWith('//') && !retorno.includes('\\') ? retorno : '/'
+}
+
 /** Guarda state/verifier/página de origem e devolve a URL da tela do Keycloak. */
 export async function urlAutenticacao(tela: Tela, retorno: string): Promise<string> {
   const estado = aleatorio()
   const verificador = aleatorio()
-  const pendente: AuthPendente = { estado, verificador, retorno }
+  const pendente: AuthPendente = { estado, verificador, retorno: retornoSeguro(retorno) }
   sessionStorage.setItem(CHAVE_AUTH, JSON.stringify(pendente))
   const consulta = new URLSearchParams({
     client_id: CLIENT_ID,
@@ -114,7 +119,7 @@ export async function concluirAutenticacao(
     idToken: typeof dados.id_token === 'string' ? dados.id_token : null,
     expiraEm: Date.now() + (typeof dados.expires_in === 'number' ? dados.expires_in : 300) * 1000,
   }
-  return { sessao, retorno: pendente.retorno }
+  return { sessao, retorno: retornoSeguro(pendente.retorno) }
 }
 
 export function salvarSessao(sessao: Sessao): void {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatarDataHora, formatarDia, formatarDuracao, formatarHora, formatarPreco } from './formatar'
+import { formatarDataHora, formatarDia, formatarDuracao, formatarHora, formatarPreco, formatarCentavos } from './formatar'
 
 const semEspacoRigido = (texto: string) => texto.replace(/ /g, ' ')
 
@@ -31,5 +31,12 @@ describe('formatação pt-BR', () => {
 
   it('formata data e hora', () => {
     expect(formatarDataHora(new Date(2026, 10, 14, 19, 5))).toBe('14/11/2026 19:05')
+  })
+})
+
+describe('formatarCentavos', () => {
+  it('formata centavos em reais', () => {
+    expect(semEspacoRigido(formatarCentavos(8400))).toBe('R$ 84,00')
+    expect(semEspacoRigido(formatarCentavos(0))).toBe('R$ 0,00')
   })
 })

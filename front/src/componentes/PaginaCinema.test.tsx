@@ -105,6 +105,13 @@ describe('PaginaCinema', () => {
     expect(screen.getByRole('heading', { name: 'Avatar' })).toBeInTheDocument()
   })
 
+  it('"Comprar Ingressos" abre a página de compra do filme', async () => {
+    render(<PaginaCinema id="c1" carregadores={carregadores()} />)
+    await screen.findByRole('heading', { name: 'Duna' })
+    await userEvent.click(screen.getAllByRole('button', { name: 'Comprar Ingressos' })[0])
+    expect(window.location.pathname).toBe('/cinemas/c1/filmes/f1/comprar')
+  })
+
   it('cinema sem sessões em cartaz mostra mensagem', async () => {
     render(<PaginaCinema id="c1" carregadores={carregadores({ carregarSessoes: () => Promise.resolve([]) })} />)
     expect(await screen.findByText(/não tem sessões de filmes em cartaz/)).toBeInTheDocument()

@@ -15,6 +15,7 @@ import {
   montarSessoes,
   salasComSessoes,
 } from '../dominio/programacao'
+import { caminhoCompra } from '../dominio/rotas'
 import { interceptarClique, navegar, veioDoApp } from '../hooks/useRota'
 import { useRecurso } from '../hooks/useRecurso'
 import { CabecalhoCinema } from './CabecalhoCinema'
@@ -147,7 +148,11 @@ export function PaginaCinema({ id, carregadores }: { id: string; carregadores?: 
             </div>
             <ul className="programacao">
               {grupos.map((grupo) => (
-                <ProgramacaoFilme key={grupo.filme.id} programacao={grupo} />
+                <ProgramacaoFilme
+                  key={grupo.filme.id}
+                  programacao={grupo}
+                  onComprar={(filme) => navegar(caminhoCompra(id, filme.id))}
+                />
               ))}
             </ul>
           </>

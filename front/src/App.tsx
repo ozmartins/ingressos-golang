@@ -1,5 +1,7 @@
+import { PaginaInicial } from './componentes/PaginaInicial'
+
 function App() {
-  return <div />
+  return <PaginaInicial />
 }
 
 export default App

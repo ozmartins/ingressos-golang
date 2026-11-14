@@ -50,13 +50,13 @@
   ],
   "users": [
     {
-      "username": "teste",
+      "username": "ufsc",
       "enabled": true,
       "emailVerified": true,
-      "email": "teste@example.com",
-      "firstName": "Teste",
+      "email": "ufsc@example.com",
+      "firstName": "UFSC",
       "lastName": "Usuario",
-      "credentials": [{ "type": "password", "value": "teste", "temporary": false }],
+      "credentials": [{ "type": "password", "value": "admin", "temporary": false }],
       "realmRoles": ["default-roles-cinema"]
     }
   ]

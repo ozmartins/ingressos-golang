@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { FalhaRequisicao } from './cliente'
 import {
+  desenharTabela,
   formatarAcoes,
   formatarAjuda,
   formatarErro,
@@ -23,132 +24,186 @@ const filme = {
   classificacao_etaria: '14', genero: 'Ficção', imagem_url: 'https://example.com/m.png', status: 'EM_CARTAZ',
 }
 
-describe('formatarResposta - amigável', () => {
-  it('filme em texto legível, sem JSON', () => {
-    const t = textos(formatarResposta(def('filmes', 'obter'), { status: 200, corpo: filme }))
-    expect(t).toEqual([
-      'The Matrix',
-      '  130 min · 14 · Ficção · Em cartaz',
-      '  Um hacker descobre a verdade.',
-      '  Imagem: https://example.com/m.png',
-      '  Id: f1',
-    ])
-    expect(t.join('\n')).not.toMatch(/[{}"]/)
-  })
+const tabela = (...linhas: string[]) => linhas.join('\n')
 
-  it('lista com itens separados e resumo da paginação', () => {
-    const t = textos(
-      formatarResposta(def('filmes', 'listar'), {
-        status: 200,
-        corpo: {
-          itens: [filme, { ...filme, id: 'f2', titulo: 'Outro', sinopse: undefined, imagem_url: undefined, status: 'BREVE' }],
-          pagina: { pagina: 1, tamanho: 2, total: 5, tem_proxima: true },
-        },
-      }),
+describe('formatarResposta - tabelas', () => {
+  it('um filme vira uma tabela Campo/Valor, com sinopse quebrada e sem JSON', () => {
+    const r = formatarResposta(def('filmes', 'obter'), {
+      status: 200,
+      corpo: { ...filme, sinopse: 'Um hacker descobre a verdade sobre a realidade e se une a rebeldes para lutar contra as máquinas.' },
+    })
+    expect(r).toHaveLength(1)
+    expect(r[0].tipo).toBe('tabela')
+    expect(r[0].texto).toBe(
+      tabela(
+        '+---------------+-----------------------------------------------------------+',
+        '| Campo         | Valor                                                     |',
+        '+---------------+-----------------------------------------------------------+',
+        '| Id            | f1                                                        |',
+        '| Título        | The Matrix                                                |',
+        '| Duração       | 130 min                                                   |',
+        '| Classificação | 14                                                        |',
+        '| Gênero        | Ficção                                                    |',
+        '| Status        | Em cartaz                                                 |',
+        '| Sinopse       | Um hacker descobre a verdade sobre a realidade e se une a |',
+        '|               | rebeldes para lutar contra as máquinas.                   |',
+        '| Imagem        | https://example.com/m.png                                 |',
+        '+---------------+-----------------------------------------------------------+',
+      ),
     )
-    expect(t).toContain('')
-    expect(t).toContain('Outro')
-    expect(t).toContain('  130 min · 14 · Ficção · Em breve')
-    expect(t.slice(-2)).toEqual(['Página 1 de 3 · 5 registros no total', 'Há mais resultados: use page=2.'])
+    expect(r[0].texto).not.toMatch(/[{}"]/)
   })
 
-  it('lista vazia', () => {
-    const t = textos(
-      formatarResposta(def('cinemas', 'listar'), {
-        status: 200,
-        corpo: { itens: [], pagina: { pagina: 1, tamanho: 20, total: 0, tem_proxima: false } },
-      }),
+  it('lista de filmes: uma linha por registro, título cortado, resumo da paginação', () => {
+    const r = formatarResposta(def('filmes', 'listar'), {
+      status: 200,
+      corpo: {
+        itens: [filme, { ...filme, id: 'f2', titulo: 'Um Sonho de Liberdade Muito Longo Para Caber Aqui', status: 'BREVE' }],
+        pagina: { pagina: 1, tamanho: 2, total: 5, tem_proxima: true },
+      },
+    })
+    expect(r[0].texto).toBe(
+      tabela(
+        '+----+----------------------------------+---------+---------------+--------+-----------+',
+        '| Id | Título                           | Duração | Classificação | Gênero | Status    |',
+        '+----+----------------------------------+---------+---------------+--------+-----------+',
+        '| f1 | The Matrix                       | 130 min | 14            | Ficção | Em cartaz |',
+        '| f2 | Um Sonho de Liberdade Muito Lon… | 130 min | 14            | Ficção | Em breve  |',
+        '+----+----------------------------------+---------+---------------+--------+-----------+',
+      ),
     )
-    expect(t).toEqual(['Nenhum registro encontrado.', '', 'Página 1 de 1 · 0 registros no total'])
+    expect(textos(r).slice(1)).toEqual(['Página 1 de 3 · 5 registros no total', 'Há mais resultados: use page=2.'])
   })
 
-  it('cinema', () => {
-    const t = textos(
-      formatarResposta(def('cinemas', 'obter'), {
-        status: 200,
-        corpo: { id: 'c1', nome: 'Cine Centro', cidade: 'Florianópolis', estado: 'SC', endereco: 'Rua A, 10', ativo: true },
-      }),
+  it('lista vazia não desenha tabela', () => {
+    const r = formatarResposta(def('cinemas', 'listar'), {
+      status: 200,
+      corpo: { itens: [], pagina: { pagina: 1, tamanho: 20, total: 0, tem_proxima: false } },
+    })
+    expect(r.some((l) => l.tipo === 'tabela')).toBe(false)
+    expect(textos(r)).toEqual(['Nenhum registro encontrado.', 'Página 1 de 1 · 0 registros no total'])
+  })
+
+  it('lista de cinemas', () => {
+    const r = formatarResposta(def('cinemas', 'listar'), {
+      status: 200,
+      corpo: {
+        itens: [{ id: 'c1', nome: 'Cine Centro', cidade: 'Florianópolis', estado: 'SC', endereco: 'Rua A, 10', ativo: true }],
+        pagina: { pagina: 1, tamanho: 20, total: 1, tem_proxima: false },
+      },
+    })
+    expect(r[0].texto).toBe(
+      tabela(
+        '+----+-------------+-----------+------------------+----------+',
+        '| Id | Nome        | Endereço  | Cidade/UF        | Situação |',
+        '+----+-------------+-----------+------------------+----------+',
+        '| c1 | Cine Centro | Rua A, 10 | Florianópolis/SC | Ativo    |',
+        '+----+-------------+-----------+------------------+----------+',
+      ),
     )
-    expect(t).toEqual(['Cine Centro', '  Rua A, 10, Florianópolis/SC · Ativo', '  Id: c1'])
   })
 
-  it('sala com planta e capacidade', () => {
-    const t = textos(
-      formatarResposta(def('salas', 'obter'), {
-        status: 200,
-        corpo: {
+  it('lista de salas com planta e capacidade', () => {
+    const r = formatarResposta(def('salas', 'listar'), {
+      status: 200,
+      corpo: {
+        itens: [{
           id: 's1', cinema_id: 'c1', numero: 3, tipo_tela: 'IMAX', capacidade_total: 22, ativo: false,
           fileiras: [{ fileira: 'A', assentos: 10 }, { fileira: 'B', assentos: 2, tipo: 'PCD' }],
-        },
-      }),
-    )
-    expect(t).toEqual([
-      'Sala 3 · IMAX · 22 lugares · Inativa',
-      '  Fileiras: A (10), B (2 PCD)',
-      '  Cinema: c1',
-      '  Id: s1',
-    ])
-  })
-
-  it('sessão na grade com data, preço e idioma', () => {
-    const t = textos(
-      formatarResposta(
-        def('sessoes', 'listar'),
-        {
-          status: 200,
-          corpo: {
-            itens: [{
-              id: 'x1', filme_id: 'f1', filme_titulo: 'The Matrix', cinema_id: 'c1', cinema_nome: 'Cine Centro',
-              sala_numero: 3, tipo_tela: '3D', data_hora_inicio: '2026-11-20T19:30:00Z', idioma: 'LEGENDADO',
-              preco_base: '42.00',
-            }],
-            pagina: { pagina: 1, tamanho: 20, total: 1, tem_proxima: false },
-          },
-        },
-        { fuso: 'UTC' },
+        }],
+        pagina: { pagina: 1, tamanho: 20, total: 1, tem_proxima: false },
+      },
+    })
+    expect(r[0].texto).toBe(
+      tabela(
+        '+----+--------+------+---------+----------+-------------------+--------+',
+        '| Id | Número | Tela | Lugares | Situação | Fileiras          | Cinema |',
+        '+----+--------+------+---------+----------+-------------------+--------+',
+        '| s1 | 3      | IMAX | 22      | Inativa  | A (10), B (2 PCD) | c1     |',
+        '+----+--------+------+---------+----------+-------------------+--------+',
       ),
     )
-    expect(t[0]).toMatch(/^The Matrix — 20\/11\/2026,? 19:30$/)
-    expect(t[1]).toBe('  Cine Centro · Sala 3 (3D) · Legendado · R$ 42,00')
-    expect(t).toContain('  Id: x1')
-    expect(t).toContain('  Filme: f1 · Cinema: c1')
   })
 
-  it('sessão gravada', () => {
-    const t = textos(
-      formatarResposta(
-        def('sessoes', 'obter'),
-        {
-          status: 200,
-          corpo: {
-            id: 'x1', filme_id: 'f1', sala_id: 's1', data_hora_inicio: '2026-11-20T19:30:00Z',
-            idioma: 'DUBLADO', preco_base: '30.5', status: 'AGENDADA',
-          },
+  it('grade de sessões com data, idioma e preço em pt-BR', () => {
+    const r = formatarResposta(
+      def('sessoes', 'listar'),
+      {
+        status: 200,
+        corpo: {
+          itens: [{
+            id: 'x1', filme_id: 'f1', filme_titulo: 'The Matrix', cinema_id: 'c1', cinema_nome: 'Cine Centro',
+            sala_numero: 3, tipo_tela: '3D', data_hora_inicio: '2026-11-20T19:30:00Z', idioma: 'LEGENDADO',
+            preco_base: '42.00',
+          }],
+          pagina: { pagina: 1, tamanho: 20, total: 1, tem_proxima: false },
         },
-        { fuso: 'UTC' },
+      },
+      { fuso: 'UTC' },
+    )
+    const linhas = r[0].texto.split('\n')
+    expect(linhas[1]).toBe('| Id | Filme      | Cinema      | Sala   | Início            | Idioma    | Preço    |')
+    expect(linhas[3]).toMatch(/^\| x1 \| The Matrix \| Cine Centro \| 3 \(3D\) \| 20\/11\/2026,? 19:30 \| Legendado \| R\$ 42,00 \|$/)
+    expect(linhas[3]).toContain('20/11/2026')
+    expect(linhas[3]).toContain('19:30')
+  })
+
+  it('uma sessão da grade (obter) inclui os ids do filme e do cinema', () => {
+    const r = formatarResposta(def('sessoes', 'obter'), {
+      status: 200,
+      corpo: {
+        id: 'x1', filme_id: 'f1', filme_titulo: 'The Matrix', cinema_id: 'c1', cinema_nome: 'Cine Centro',
+        sala_numero: 3, tipo_tela: '3D', data_hora_inicio: '2026-11-20T19:30:00Z', idioma: 'LEGENDADO', preco_base: '42.00',
+      },
+    })
+    expect(r[0].texto).toContain('| Filme (id)  | f1')
+    expect(r[0].texto).toContain('| Cinema (id) | c1')
+  })
+
+  it('sessão gravada em tabela Campo/Valor', () => {
+    const r = formatarResposta(
+      def('sessoes', 'obter'),
+      {
+        status: 200,
+        corpo: {
+          id: 'x1', filme_id: 'f1', sala_id: 's1', data_hora_inicio: '2026-11-20T19:30:00Z',
+          idioma: 'DUBLADO', preco_base: '30.5', status: 'AGENDADA',
+        },
+      },
+      { fuso: 'UTC' },
+    )
+    const t = r[0].texto
+    expect(t).toContain('| Idioma | Dublado')
+    expect(t).toContain('| Preço  | R$ 30,5')
+    expect(t).toContain('| Status | Agendada')
+    expect(t).toContain('| Filme  | f1')
+    expect(t).toContain('| Sala   | s1')
+  })
+
+  it('health em tabela', () => {
+    const r = formatarResposta(def('operacional', 'health'), {
+      status: 200,
+      corpo: { status: 'ok', dependencias: { banco: 'ok' } },
+    })
+    expect(r[0].texto).toBe(
+      tabela(
+        '+---------+-------+',
+        '| Campo   | Valor |',
+        '+---------+-------+',
+        '| Serviço | ok    |',
+        '| banco   | ok    |',
+        '+---------+-------+',
       ),
     )
-    expect(t[0]).toMatch(/^Sessão em 20\/11\/2026,? 19:30$/)
-    expect(t[1]).toBe('  Dublado · R$ 30,5 · Agendada')
-    expect(t.slice(2)).toEqual(['  Filme: f1', '  Sala: s1', '  Id: x1'])
   })
 
-  it('health em texto', () => {
-    const t = textos(
-      formatarResposta(def('operacional', 'health'), { status: 200, corpo: { status: 'ok', dependencias: { banco: 'ok' } } }),
-    )
-    expect(t).toEqual(['Serviço: ok', '  banco: ok'])
-  })
-
-  it('criar e atualizar anunciam o sucesso; criar mostra a localização', () => {
-    const c = textos(
-      formatarResposta(def('filmes', 'criar'), { status: 201, corpo: filme, location: '/api/v1/filmes/f1' }),
-    )
-    expect(c[0]).toBe('Cadastrado com sucesso.')
-    expect(c[c.length - 1]).toBe('Localização: /api/v1/filmes/f1')
-    expect(textos(formatarResposta(def('filmes', 'atualizar'), { status: 200, corpo: filme }))[0]).toBe(
-      'Atualizado com sucesso.',
-    )
+  it('criar e atualizar anunciam o sucesso e mostram a tabela; criar mostra a localização', () => {
+    const c = formatarResposta(def('filmes', 'criar'), { status: 201, corpo: filme, location: '/api/v1/filmes/f1' })
+    expect(c[0]).toEqual({ tipo: 'sistema', texto: 'Cadastrado com sucesso.' })
+    expect(c[1].tipo).toBe('tabela')
+    expect(c[c.length - 1]).toEqual({ tipo: 'sistema', texto: 'Localização: /api/v1/filmes/f1' })
+    const u = formatarResposta(def('filmes', 'atualizar'), { status: 200, corpo: filme })
+    expect(u[0]).toEqual({ tipo: 'sistema', texto: 'Atualizado com sucesso.' })
   })
 
   it('204 confirma a remoção', () => {
@@ -157,22 +212,31 @@ describe('formatarResposta - amigável', () => {
     ])
   })
 
-  it('formato desconhecido cai em chave: valor, sem chaves de JSON', () => {
-    const t = textos(
-      formatarResposta(def('filmes', 'obter'), { status: 200, corpo: undefined }),
-    )
-    expect(t).toEqual([])
-    const g = textos(
-      formatarResposta(def('operacional', 'health'), { status: 200, corpo: 'texto qualquer' }),
-    )
-    expect(g).toEqual(['texto qualquer'])
+  it('corpo de texto cai em linhas simples', () => {
+    expect(
+      textos(formatarResposta(def('operacional', 'health'), { status: 200, corpo: 'texto qualquer' })),
+    ).toEqual(['texto qualquer'])
   })
 
   it('mantém marcação como texto literal', () => {
-    const t = textos(
-      formatarResposta(def('filmes', 'obter'), { status: 200, corpo: { ...filme, titulo: '<b>oi</b>' } }),
+    const r = formatarResposta(def('filmes', 'obter'), { status: 200, corpo: { ...filme, titulo: '<b>oi</b>' } })
+    expect(r[0].texto).toContain('| Título        | <b>oi</b>')
+  })
+})
+
+describe('desenharTabela', () => {
+  it('alinha colunas e células com várias linhas', () => {
+    expect(desenharTabela(['A', 'BB'], [['x', 'um\ndois'], ['yyy', '']])).toBe(
+      tabela(
+        '+-----+------+',
+        '| A   | BB   |',
+        '+-----+------+',
+        '| x   | um   |',
+        '|     | dois |',
+        '| yyy |      |',
+        '+-----+------+',
+      ),
     )
-    expect(t[0]).toBe('<b>oi</b>')
   })
 })
 

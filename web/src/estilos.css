@@ -44,6 +44,23 @@ body {
   overflow-wrap: anywhere;
 }
 
+.linha-tabela {
+  margin: 6px 0;
+  overflow-x: auto;
+  overflow-wrap: normal;
+  white-space: pre;
+  scrollbar-width: thin;
+  scrollbar-color: var(--fosforo-fraco) transparent;
+}
+
+.linha-tabela::-webkit-scrollbar {
+  height: 6px;
+}
+
+.linha-tabela::-webkit-scrollbar-thumb {
+  background: var(--fosforo-fraco);
+}
+
 .linha-sistema {
   color: var(--fosforo-fraco);
 }

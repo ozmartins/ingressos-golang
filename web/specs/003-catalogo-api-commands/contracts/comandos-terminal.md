@@ -32,7 +32,7 @@ Os esquemas dos corpos (`FilmeEntrada`, `CinemaEntrada`, `SalaEntrada`, `SalaAtu
 
 ## Saída
 
-- **2xx com corpo**: texto amigável por recurso (por exemplo, `The Matrix` / `  130 min · 14 · Ficção · Em cartaz` / `  Id: ...`); listas com blocos separados e `Página X de Y · N registros no total`; `201` mostra "Cadastrado com sucesso." e `Localização: ...`; `200` de `atualizar` mostra "Atualizado com sucesso.". Nunca JSON bruto.
+- **2xx com corpo**: tabela de texto por recurso. Listagens: uma linha por registro, `Id` na primeira coluna, seguida de `Página X de Y · N registros no total` (e `Há mais resultados: use page=N.`); lista vazia: `Nenhum registro encontrado.`. Registro individual e `health`: tabela Campo/Valor. `201` mostra "Cadastrado com sucesso.", a tabela e `Localização: ...`; `200` de `atualizar` mostra "Atualizado com sucesso.". Nunca JSON bruto.
 - **204**: `Removido com sucesso`.
 - **Erro do serviço** (400, 401, 404, 409, 503 ou outro): linhas `erro` com `<status> <título>`, o detalhe e, se houver, `  campo: mensagem`.
 - **Falha local**: uso incorreto → sintaxe esperada; JSON inválido → erro de sintaxe sem requisição; sem token em comando protegido → orientação de `login`; rede/tempo esgotado → mensagem de serviço indisponível.

@@ -45,7 +45,9 @@ describe('despachar - leituras', () => {
     const { fn, chamadas } = fakeFetch(() => respostaJson(200, { status: 'ok', dependencias: { banco: 'ok' } }))
     const r = await despachar('health', ctx(fn))
     expect(chamadas[0].url).toBe('/catalogo/health')
-    expect(textos(r)).toEqual(['Serviço: ok', '  banco: ok'])
+    expect(r.linhas[0].tipo).toBe('tabela')
+    expect(r.linhas[0].texto).toContain('| Serviço | ok    |')
+    expect(r.linhas[0].texto).toContain('| banco   | ok    |')
   })
 
   it('controller e ação não diferenciam maiúsculas', async () => {

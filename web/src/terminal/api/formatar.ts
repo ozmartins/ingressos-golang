@@ -66,36 +66,6 @@ function juntar(partes: Array<string | undefined>, separador = ' · '): string {
   return partes.filter((p): p is string => p !== undefined && p !== '').join(separador)
 }
 
-function linhaId(o: Registro): string[] {
-  const id = texto(o, 'id')
-  return id ? [`  Id: ${id}`] : []
-}
-
-function formatarFilme(o: Registro): string[] {
-  const duracao = numero(o, 'duracao_minutos')
-  return [
-    texto(o, 'titulo') ?? '(sem título)',
-    `  ${juntar([
-      duracao === undefined ? undefined : `${duracao} min`,
-      texto(o, 'classificacao_etaria'),
-      texto(o, 'genero'),
-      rotulo(o.status),
-    ])}`,
-    ...(texto(o, 'sinopse') ? [`  ${texto(o, 'sinopse')}`] : []),
-    ...(texto(o, 'imagem_url') ? [`  Imagem: ${texto(o, 'imagem_url')}`] : []),
-    ...linhaId(o),
-  ]
-}
-
-function formatarCinema(o: Registro): string[] {
-  const local = juntar([texto(o, 'cidade'), texto(o, 'estado')], '/')
-  return [
-    texto(o, 'nome') ?? '(sem nome)',
-    `  ${juntar([juntar([texto(o, 'endereco'), local], ', '), o.ativo === false ? 'Inativo' : 'Ativo'])}`,
-    ...linhaId(o),
-  ]
-}
-
 function formatarFileiras(valor: unknown): string {
   if (!Array.isArray(valor)) return ''
   return valor
@@ -106,45 +76,6 @@ function formatarFileiras(valor: unknown): string {
       return `${texto(f, 'fileira') ?? '?'} (${numero(f, 'assentos') ?? '?'}${extra})`
     })
     .join(', ')
-}
-
-function formatarSala(o: Registro): string[] {
-  const lugares = numero(o, 'capacidade_total')
-  const fileiras = formatarFileiras(o.fileiras)
-  return [
-    juntar([
-      `Sala ${numero(o, 'numero') ?? '?'}`,
-      texto(o, 'tipo_tela'),
-      lugares === undefined ? undefined : `${lugares} lugares`,
-      o.ativo === false ? 'Inativa' : 'Ativa',
-    ]),
-    ...(fileiras ? [`  Fileiras: ${fileiras}`] : []),
-    ...(texto(o, 'cinema_id') ? [`  Cinema: ${texto(o, 'cinema_id')}`] : []),
-    ...linhaId(o),
-  ]
-}
-
-function formatarSessao(o: Registro, opcoes: OpcoesFormato): string[] {
-  const quando = dataHora(o.data_hora_inicio, opcoes.fuso)
-  if (texto(o, 'filme_titulo')) {
-    const sala = `Sala ${numero(o, 'sala_numero') ?? '?'}${texto(o, 'tipo_tela') ? ` (${texto(o, 'tipo_tela')})` : ''}`
-    return [
-      juntar([texto(o, 'filme_titulo'), quando], ' — '),
-      `  ${juntar([texto(o, 'cinema_nome'), sala, rotulo(o.idioma), preco(o.preco_base)])}`,
-      ...linhaId(o),
-      `  ${juntar([
-        texto(o, 'filme_id') ? `Filme: ${texto(o, 'filme_id')}` : undefined,
-        texto(o, 'cinema_id') ? `Cinema: ${texto(o, 'cinema_id')}` : undefined,
-      ])}`,
-    ]
-  }
-  return [
-    `Sessão em ${quando}`,
-    `  ${juntar([rotulo(o.idioma), preco(o.preco_base), rotulo(o.status)])}`,
-    ...(texto(o, 'filme_id') ? [`  Filme: ${texto(o, 'filme_id')}`] : []),
-    ...(texto(o, 'sala_id') ? [`  Sala: ${texto(o, 'sala_id')}`] : []),
-    ...linhaId(o),
-  ]
 }
 
 function formatarGenerico(valor: unknown, recuo = ''): string[] {
@@ -166,30 +97,6 @@ function formatarGenerico(valor: unknown, recuo = ''): string[] {
   return String(valor).split('\n')
 }
 
-function formatarHealth(o: Registro): string[] {
-  const dependencias = ehObjeto(o.dependencias) ? o.dependencias : {}
-  return [
-    `Serviço: ${texto(o, 'status') ?? '?'}`,
-    ...Object.entries(dependencias).map(([nome, estado]) => `  ${nome}: ${String(estado)}`),
-  ]
-}
-
-function formatarItem(controller: Controller, corpo: unknown, opcoes: OpcoesFormato): string[] {
-  if (!ehObjeto(corpo)) return formatarGenerico(corpo)
-  switch (controller) {
-    case 'filmes':
-      return formatarFilme(corpo)
-    case 'cinemas':
-      return formatarCinema(corpo)
-    case 'salas':
-      return formatarSala(corpo)
-    case 'sessoes':
-      return formatarSessao(corpo, opcoes)
-    case 'operacional':
-      return formatarHealth(corpo)
-  }
-}
-
 function formatarPagina(pagina: unknown, quantidade: number): string[] {
   if (!ehObjeto(pagina)) return []
   const atual = numero(pagina, 'pagina') ?? 1
@@ -201,16 +108,188 @@ function formatarPagina(pagina: unknown, quantidade: number): string[] {
   return linhas
 }
 
-function formatarLista(controller: Controller, corpo: Registro, opcoes: OpcoesFormato): string[] {
-  const itens = Array.isArray(corpo.itens) ? corpo.itens : []
+// ---- Tabelas -------------------------------------------------------------
+
+function comprimento(t: string): number {
+  return Array.from(t).length
+}
+
+function cortar(t: string, max?: number): string {
+  if (max === undefined || comprimento(t) <= max) return t
+  return `${Array.from(t).slice(0, max - 1).join('')}…`
+}
+
+function quebrar(t: string, largura: number): string {
   const linhas: string[] = []
-  itens.forEach((item, i) => {
-    if (i > 0) linhas.push('')
-    linhas.push(...formatarItem(controller, item, opcoes))
-  })
-  if (itens.length === 0) linhas.push('Nenhum registro encontrado.')
+  let atual = ''
+  for (const palavra of t.split(/\s+/).filter(Boolean)) {
+    if (atual === '') atual = palavra
+    else if (comprimento(atual) + 1 + comprimento(palavra) <= largura) atual += ` ${palavra}`
+    else {
+      linhas.push(atual)
+      atual = palavra
+    }
+  }
+  if (atual !== '') linhas.push(atual)
+  return linhas.join('\n')
+}
+
+export function desenharTabela(cabecalho: string[], linhas: string[][]): string {
+  const celulas = linhas.map((l) => l.map((c) => c.split('\n')))
+  const larguras = cabecalho.map((titulo, i) =>
+    Math.max(comprimento(titulo), ...celulas.map((l) => Math.max(...l[i].map(comprimento)))),
+  )
+  const separador = `+${larguras.map((w) => '-'.repeat(w + 2)).join('+')}+`
+  const linha = (partes: string[]) =>
+    `| ${partes.map((p, i) => p + ' '.repeat(larguras[i] - comprimento(p))).join(' | ')} |`
+  const saidaTexto = [separador, linha(cabecalho), separador]
+  for (const l of celulas) {
+    const altura = Math.max(...l.map((c) => c.length))
+    for (let k = 0; k < altura; k++) saidaTexto.push(linha(l.map((c) => c[k] ?? '')))
+  }
+  saidaTexto.push(separador)
+  return saidaTexto.join('\n')
+}
+
+const tabela = (texto: string): Linha => ({ tipo: 'tabela', texto })
+
+interface Campo {
+  rotulo: string
+  valor: (o: Registro, opcoes: OpcoesFormato) => string
+  lista?: boolean
+  max?: number
+  quebrar?: boolean
+}
+
+const situacao = (o: Registro, positivo: string, negativo: string) =>
+  o.ativo === false ? negativo : positivo
+
+const CAMPOS_FILME: Campo[] = [
+  { rotulo: 'Id', valor: (o) => texto(o, 'id') ?? '', lista: true },
+  { rotulo: 'Título', valor: (o) => texto(o, 'titulo') ?? '', lista: true, max: 32 },
+  {
+    rotulo: 'Duração',
+    valor: (o) => (numero(o, 'duracao_minutos') === undefined ? '' : `${numero(o, 'duracao_minutos')} min`),
+    lista: true,
+  },
+  { rotulo: 'Classificação', valor: (o) => texto(o, 'classificacao_etaria') ?? '', lista: true },
+  { rotulo: 'Gênero', valor: (o) => texto(o, 'genero') ?? '', lista: true, max: 18 },
+  { rotulo: 'Status', valor: (o) => rotulo(o.status), lista: true },
+  { rotulo: 'Sinopse', valor: (o) => texto(o, 'sinopse') ?? '', quebrar: true },
+  { rotulo: 'Imagem', valor: (o) => texto(o, 'imagem_url') ?? '' },
+]
+
+const CAMPOS_CINEMA: Campo[] = [
+  { rotulo: 'Id', valor: (o) => texto(o, 'id') ?? '', lista: true },
+  { rotulo: 'Nome', valor: (o) => texto(o, 'nome') ?? '', lista: true, max: 30 },
+  { rotulo: 'Endereço', valor: (o) => texto(o, 'endereco') ?? '', lista: true, max: 40 },
+  {
+    rotulo: 'Cidade/UF',
+    valor: (o) => juntar([texto(o, 'cidade'), texto(o, 'estado')], '/'),
+    lista: true,
+  },
+  { rotulo: 'Situação', valor: (o) => situacao(o, 'Ativo', 'Inativo'), lista: true },
+]
+
+const CAMPOS_SALA: Campo[] = [
+  { rotulo: 'Id', valor: (o) => texto(o, 'id') ?? '', lista: true },
+  { rotulo: 'Número', valor: (o) => String(numero(o, 'numero') ?? ''), lista: true },
+  { rotulo: 'Tela', valor: (o) => texto(o, 'tipo_tela') ?? '', lista: true },
+  {
+    rotulo: 'Lugares',
+    valor: (o) => String(numero(o, 'capacidade_total') ?? ''),
+    lista: true,
+  },
+  { rotulo: 'Situação', valor: (o) => situacao(o, 'Ativa', 'Inativa'), lista: true },
+  { rotulo: 'Fileiras', valor: (o) => formatarFileiras(o.fileiras), lista: true, max: 32 },
+  { rotulo: 'Cinema', valor: (o) => texto(o, 'cinema_id') ?? '', lista: true },
+]
+
+const salaDaGrade = (o: Registro) =>
+  `${numero(o, 'sala_numero') ?? '?'}${texto(o, 'tipo_tela') ? ` (${texto(o, 'tipo_tela')})` : ''}`
+
+const CAMPOS_SESSAO_GRADE: Campo[] = [
+  { rotulo: 'Id', valor: (o) => texto(o, 'id') ?? '', lista: true },
+  { rotulo: 'Filme', valor: (o) => texto(o, 'filme_titulo') ?? '', lista: true, max: 28 },
+  { rotulo: 'Cinema', valor: (o) => texto(o, 'cinema_nome') ?? '', lista: true, max: 24 },
+  { rotulo: 'Sala', valor: salaDaGrade, lista: true },
+  { rotulo: 'Início', valor: (o, op) => dataHora(o.data_hora_inicio, op.fuso), lista: true },
+  { rotulo: 'Idioma', valor: (o) => rotulo(o.idioma), lista: true },
+  { rotulo: 'Preço', valor: (o) => preco(o.preco_base), lista: true },
+  { rotulo: 'Filme (id)', valor: (o) => texto(o, 'filme_id') ?? '' },
+  { rotulo: 'Cinema (id)', valor: (o) => texto(o, 'cinema_id') ?? '' },
+]
+
+const CAMPOS_SESSAO: Campo[] = [
+  { rotulo: 'Id', valor: (o) => texto(o, 'id') ?? '', lista: true },
+  { rotulo: 'Início', valor: (o, op) => dataHora(o.data_hora_inicio, op.fuso), lista: true },
+  { rotulo: 'Idioma', valor: (o) => rotulo(o.idioma), lista: true },
+  { rotulo: 'Preço', valor: (o) => preco(o.preco_base), lista: true },
+  { rotulo: 'Status', valor: (o) => rotulo(o.status), lista: true },
+  { rotulo: 'Filme', valor: (o) => texto(o, 'filme_id') ?? '', lista: true },
+  { rotulo: 'Sala', valor: (o) => texto(o, 'sala_id') ?? '', lista: true },
+]
+
+function camposDe(controller: Controller, amostra: unknown): Campo[] {
+  switch (controller) {
+    case 'filmes':
+      return CAMPOS_FILME
+    case 'cinemas':
+      return CAMPOS_CINEMA
+    case 'salas':
+      return CAMPOS_SALA
+    case 'sessoes':
+      return ehObjeto(amostra) && texto(amostra, 'filme_titulo') ? CAMPOS_SESSAO_GRADE : CAMPOS_SESSAO
+    case 'operacional':
+      return []
+  }
+}
+
+const LARGURA_TEXTO_LONGO = 60
+
+function tabelaDeRegistro(campos: Campo[], o: Registro, opcoes: OpcoesFormato): string {
+  const linhas = campos
+    .map((c): [string, string] => {
+      const v = c.valor(o, opcoes)
+      return [c.rotulo, c.quebrar ? quebrar(v, LARGURA_TEXTO_LONGO) : v]
+    })
+    .filter(([, v]) => v !== '')
+  return desenharTabela(['Campo', 'Valor'], linhas)
+}
+
+function tabelaDeLista(campos: Campo[], itens: Registro[], opcoes: OpcoesFormato): string {
+  const colunas = campos.filter((c) => c.lista)
+  return desenharTabela(
+    colunas.map((c) => c.rotulo),
+    itens.map((o) => colunas.map((c) => cortar(c.valor(o, opcoes), c.max))),
+  )
+}
+
+function tabelaHealth(o: Registro): string {
+  const dependencias = ehObjeto(o.dependencias) ? o.dependencias : {}
+  return desenharTabela(
+    ['Campo', 'Valor'],
+    [
+      ['Serviço', texto(o, 'status') ?? '?'],
+      ...Object.entries(dependencias).map(([nome, estado]): [string, string] => [nome, String(estado)]),
+    ],
+  )
+}
+
+function formatarItem(controller: Controller, corpo: unknown, opcoes: OpcoesFormato): Linha[] {
+  if (!ehObjeto(corpo)) return formatarGenerico(corpo).map(saida)
+  if (controller === 'operacional') return [tabela(tabelaHealth(corpo))]
+  return [tabela(tabelaDeRegistro(camposDe(controller, corpo), corpo, opcoes))]
+}
+
+function formatarLista(controller: Controller, corpo: Registro, opcoes: OpcoesFormato): Linha[] {
+  const itens = Array.isArray(corpo.itens) ? corpo.itens.filter(ehObjeto) : []
+  const linhas: Linha[] =
+    itens.length === 0
+      ? [saida('Nenhum registro encontrado.')]
+      : [tabela(tabelaDeLista(camposDe(controller, itens[0]), itens, opcoes))]
   const pagina = formatarPagina(corpo.pagina, itens.length)
-  return pagina.length > 0 ? [...linhas, '', ...pagina] : linhas
+  return [...linhas, ...pagina.map(saida)]
 }
 
 export function formatarResposta(
@@ -224,11 +303,11 @@ export function formatarResposta(
   if (def.acao === 'criar') linhas.push(sistema('Cadastrado com sucesso.'))
   if (def.acao === 'atualizar') linhas.push(sistema('Atualizado com sucesso.'))
 
-  const formatado =
-    def.acao === 'listar' && ehObjeto(corpo)
+  linhas.push(
+    ...(def.acao === 'listar' && ehObjeto(corpo)
       ? formatarLista(def.controller, corpo, opcoes)
-      : formatarItem(def.controller, corpo, opcoes)
-  linhas.push(...formatado.map(saida))
+      : formatarItem(def.controller, corpo, opcoes)),
+  )
 
   if (resposta.status === 201 && resposta.location) {
     linhas.push(sistema(`Localização: ${resposta.location}`))

@@ -2,8 +2,8 @@
 
 Terminal retrô (monitor de fósforo) da plataforma de ingressos, feito com Vite + React + TypeScript.
 
-Os comandos do catálogo chamam a Servico-Catalogo API de verdade e mostram o resultado em texto
-legível (não em JSON). Localmente existem apenas `help` e `clear`. Digite `help` para ver tudo.
+Os comandos do catálogo chamam a Servico-Catalogo API de verdade e mostram o resultado em
+tabelas de texto (não em JSON); tabelas mais largas que a tela rolam na horizontal. Localmente existem apenas `help` e `clear`. Digite `help` para ver tudo.
 
 | Comando | O que faz |
 |---------|-----------|

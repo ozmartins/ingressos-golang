@@ -1,4 +1,4 @@
-export type TipoLinha = 'sistema' | 'entrada' | 'saida' | 'erro'
+export type TipoLinha = 'sistema' | 'entrada' | 'saida' | 'erro' | 'tabela'
 
 export interface Linha {
   tipo: TipoLinha

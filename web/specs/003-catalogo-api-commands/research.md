@@ -39,9 +39,9 @@
 
 ## Exibição
 
-- **Decision**: Sucesso em texto amigável, sem JSON bruto: um formatador por recurso (filme, cinema, sala, sessão e sessão na grade, health) com rótulos em português, valores traduzidos (`EM_CARTAZ` → "Em cartaz"), data/hora via `toLocaleString('pt-BR')` e preço `R$ 42,00`; listas com blocos separados e resumo de paginação ("Página 1 de 3 · 5 registros no total", "Há mais resultados: use page=2."); formato desconhecido cai em linhas `chave: valor`. `201` mostra "Cadastrado com sucesso." e a localização; `204` mostra "Removido com sucesso."; erro `application/problem+json`: título, status, detalhe e `errors[]` como `campo: mensagem`.
-- **Rationale**: A pessoa usuária lê o resultado sem interpretar JSON; sem dependências; tudo como texto puro (FR-013). Os ids continuam visíveis para encadear comandos.
-- **Alternatives considered**: Mostrar o JSON (rejeitado a pedido); tabelas ASCII largas (quebram em telas pequenas).
+- **Decision**: Sucesso em **tabelas ASCII** (`+---+`, `|`), sem JSON bruto. Cada recurso (filme, cinema, sala, sessão, sessão na grade, health) tem uma lista de campos com rótulo em português, extrator e, para a listagem, um limite de largura (texto cortado com `…`). Listagem: cabeçalho + uma linha por registro, `Id` na primeira coluna; registro individual: tabela Campo/Valor, com a sinopse quebrada em 60 colunas. Valores traduzidos (`EM_CARTAZ` → "Em cartaz"), data/hora via `toLocaleString('pt-BR')`, preço `R$ 42,00`; rodapé com `Página X de Y · N registros no total` e `Há mais resultados: use page=N.`; formato desconhecido cai em linhas `chave: valor`. `201` mostra "Cadastrado com sucesso." + tabela + localização; `200` de `atualizar` mostra "Atualizado com sucesso."; `204` mostra "Removido com sucesso."; erros seguem em linhas (título, detalhe, `campo: mensagem`).
+- **Rationale**: A pessoa usuária lê e compara registros sem interpretar JSON; sem dependências. A tabela é uma única linha de saída do tipo `tabela` (texto com quebras de linha, `white-space: pre`, rolagem horizontal própria), para que o alinhamento sobreviva a telas estreitas. O `Id` vem primeiro porque é o dado que se cola nos comandos seguintes e não pode ficar escondido pela rolagem.
+- **Alternatives considered**: Mostrar o JSON (rejeitado a pedido); blocos de texto por registro (versão anterior, substituída por tabelas a pedido); caracteres de moldura Unicode (menos fiéis ao visual retrô e dependentes da fonte).
 
 ## Segredo no eco e no histórico
 

@@ -24,7 +24,7 @@ npm run build
 
 O catálogo não envia cabeçalhos CORS. Em desenvolvimento (`npm run dev`) e no `npm run preview`, o Vite encaminha `/catalogo/*` para `http://localhost:8082/*` (ver `vite.config.ts`). Para apontar para outra base, defina `VITE_CATALOGO_URL` (padrão: `/catalogo`).
 
-Os dados são lidos das listagens públicas `GET /api/v1/filmes` e `GET /api/v1/cinemas`, percorrendo todas as páginas (100 itens por página). Filmes fora de cartaz e cinemas inativos não são exibidos.
+Os dados são lidos das listagens públicas `GET /api/v1/filmes` e `GET /api/v1/cinemas`, percorrendo todas as páginas (100 itens por página). Filmes fora de cartaz e cinemas inativos não são exibidos. As imagens vêm de URLs remotas devolvidas pela API: `imagem_url` nos filmes e `logo_url` nos cinemas (sem URL, um substituto neutro é exibido).
 
 ## Estrutura
 

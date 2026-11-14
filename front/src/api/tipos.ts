@@ -17,6 +17,8 @@ export interface Cinema {
   cidade: string
   estado: string
   endereco: string
+  /** URL remota do logo; `null` quando o cinema não tem logo. */
+  logo_url?: string | null
   ativo: boolean
 }
 

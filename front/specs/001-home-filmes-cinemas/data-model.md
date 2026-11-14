@@ -22,6 +22,7 @@ Somente leitura; os dados pertencem ao `catalogo`. O front mantém cópias em me
 | cidade | string | filtro dependente do estado |
 | estado | string (UF, 2 letras) | filtro |
 | endereco | string | exibido |
+| logo_url | string \| null | URL remota do logo (como `imagem_url` dos filmes); `null` → substituto neutro |
 | ativo | boolean | só `true` (pedido `ativo=true`) |
 
 ## Página da API

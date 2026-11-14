@@ -42,4 +42,17 @@ INSERT INTO filmes (id, titulo, sinopse, duracao_minutos, classificacao_etaria, 
   ('54ff2ab3-6423-5aa6-860d-af95dda1bf3a', 'Só Não Posso Dizer o Nome', 'Direção: Helvécio Ratton. Elenco: Lara Martinelli, Bruno Matos, Laura Del Picchia.', 90, 'Não informada', 'Não informado', 'https://br.web.img3.acsta.net/img/04/1b/041bc848aea43892d8221c4a9896f8cb.jpg', 'EM_CARTAZ'),
   ('9714c41b-5084-5dde-b418-dca42d0ed0df', 'Verity', 'Direção: Michael Showalter. Elenco: Anne Hathaway, Dakota Johnson, Josh Hartnett.', 90, 'Não informada', 'Não informado', 'https://br.web.img3.acsta.net/img/00/96/009634d622fca292cadae6921c2f76c7.png', 'EM_CARTAZ');
 
+-- Distribui os status entre os filmes (a fonte só traz filmes em cartaz): 60%
+-- EM_CARTAZ, 20% BREVE e 20% FORA_DE_CARTAZ. A ordem vem do md5 do id, então é
+-- determinística e não depende da ordem de inserção nem do título.
+WITH n AS (
+  SELECT id, ntile(10) OVER (ORDER BY md5(id::text)) AS g FROM filmes
+)
+UPDATE filmes f
+   SET status = CASE WHEN n.g <= 6 THEN 'EM_CARTAZ'
+                     WHEN n.g <= 8 THEN 'BREVE'
+                     ELSE 'FORA_DE_CARTAZ' END
+  FROM n
+ WHERE n.id = f.id;
+
 COMMIT;

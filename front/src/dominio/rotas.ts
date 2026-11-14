@@ -2,6 +2,7 @@ export type Rota =
   | { tipo: 'inicio' }
   | { tipo: 'cinema'; id: string }
   | { tipo: 'compra'; cinemaId: string; filmeId: string }
+  | { tipo: 'pagamento'; cinemaId: string; filmeId: string }
 
 export function caminhoCinema(id: string): string {
   return `/cinemas/${encodeURIComponent(id)}`
@@ -13,9 +14,14 @@ export function caminhoCompra(cinemaId: string, filmeId: string, sessaoId?: stri
   return sessaoId ? `${base}?sessao=${encodeURIComponent(sessaoId)}` : base
 }
 
+/** Página de pagamento com cartão (simulado), aberta após reservar os assentos. */
+export function caminhoPagamento(cinemaId: string, filmeId: string): string {
+  return `${caminhoCinema(cinemaId)}/filmes/${encodeURIComponent(filmeId)}/pagamento`
+}
+
 /**
- * Interpreta o `pathname`: `/cinemas/{id}` e `/cinemas/{id}/filmes/{id}/comprar`
- * são rotas próprias; o resto é a página inicial.
+ * Interpreta o `pathname`: `/cinemas/{id}`, `/cinemas/{id}/filmes/{id}/comprar` e
+ * `/cinemas/{id}/filmes/{id}/pagamento` são rotas próprias; o resto é a página inicial.
  */
 export function lerRota(pathname: string): Rota {
   const partes = pathname.split('/').filter(Boolean)
@@ -23,8 +29,9 @@ export function lerRota(pathname: string): Rota {
     if (partes.length === 2 && partes[0] === 'cinemas') {
       return { tipo: 'cinema', id: decodeURIComponent(partes[1]) }
     }
-    if (partes.length === 5 && partes[0] === 'cinemas' && partes[2] === 'filmes' && partes[4] === 'comprar') {
-      return { tipo: 'compra', cinemaId: decodeURIComponent(partes[1]), filmeId: decodeURIComponent(partes[3]) }
+    if (partes.length === 5 && partes[0] === 'cinemas' && partes[2] === 'filmes' && (partes[4] === 'comprar' || partes[4] === 'pagamento')) {
+      const tipo = partes[4] === 'comprar' ? 'compra' : 'pagamento'
+      return { tipo, cinemaId: decodeURIComponent(partes[1]), filmeId: decodeURIComponent(partes[3]) }
     }
   } catch {
     return { tipo: 'inicio' }

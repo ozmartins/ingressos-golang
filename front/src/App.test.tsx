@@ -97,4 +97,31 @@ describe('App', () => {
     render(<App {...props} carregadoresCompra={compra} />)
     expect(await screen.findByRole('button', { name: /Fileira A, assento 1, livre/ })).toBeInTheDocument()
   })
+
+  it('a rota /pagamento mostra a página de pagamento com a reserva guardada', async () => {
+    window.history.replaceState(null, '', '/cinemas/c1/filmes/f1/pagamento')
+    sessionStorage.setItem('oidc:sessao', JSON.stringify({ accessToken: 't', idToken: null, expiraEm: Date.now() + 60_000 }))
+    sessionStorage.setItem(
+      'pagamento:reserva',
+      JSON.stringify({
+        usuarioId: null,
+        cinemaId: 'c1',
+        filmeId: 'f1',
+        sessaoId: 's1',
+        filmeTitulo: 'Rocky',
+        posterUrl: null,
+        cinemaNome: 'Cine Centro',
+        sala: 3,
+        inicio: new Date().toISOString(),
+        rotulos: ['A1'],
+        precoCentavos: 3000,
+        taxaCentavos: 0,
+        totalCentavos: 3000,
+        expiraEm: new Date(Date.now() + 600_000).toISOString(),
+      }),
+    )
+    render(<App {...props} />)
+    expect(await screen.findByRole('heading', { level: 1, name: 'Pagamento' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Pagar' })).toBeInTheDocument()
+  })
 })

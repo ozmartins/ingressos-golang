@@ -151,3 +151,18 @@ export function urlLogout(sessao: Sessao): string {
   if (sessao.idToken !== null) consulta.set('id_token_hint', sessao.idToken)
   return `${oidc('logout')}?${consulta.toString()}`
 }
+
+/** Identificador do usuário (`sub`) no access token (JWT) informado; `null` se o token não for um JWT legível. */
+export function idDoUsuario(token: string | null): string | null {
+  if (!token) return null
+  try {
+    const carga = token.split('.')[1]
+    if (!carga) return null
+    const base64 = carga.replace(/-/g, '+').replace(/_/g, '/')
+    const json: unknown = JSON.parse(atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')))
+    const sub = typeof json === 'object' && json !== null ? (json as { sub?: unknown }).sub : undefined
+    return typeof sub === 'string' && sub !== '' ? sub : null
+  } catch {
+    return null
+  }
+}

@@ -9,11 +9,11 @@ import {
   SessaoIndisponivel,
 } from '../api/estoque'
 import type { Cinema, Filme, Poltrona, RespostaBloqueio, SessaoNaGrade } from '../api/tipos'
-import { formatarHora } from '../dominio/formatar'
-import { limparSessao, type Sessao } from '../dominio/keycloak'
+import { idDoUsuario, limparSessao, type Sessao } from '../dominio/keycloak'
 import { rotulosLivres } from '../dominio/mapaAssentos'
 import { alternarAssento, calcularPedido, LIMITE_ASSENTOS, precoEmCentavos } from '../dominio/pedido'
-import { caminhoCinema } from '../dominio/rotas'
+import { salvarReserva } from '../dominio/reservaPagamento'
+import { caminhoCinema, caminhoPagamento } from '../dominio/rotas'
 import { sessaoPadrao, sessoesDoFilme } from '../dominio/sessoesDoFilme'
 import { irParaLogin, useGuardaLogin } from '../hooks/useGuardaLogin'
 import { useRecurso } from '../hooks/useRecurso'
@@ -120,7 +120,7 @@ interface Interna {
 type Reserva =
   | { estado: 'ocioso' }
   | { estado: 'reservando' }
-  | { estado: 'reservado'; rotulos: string[]; expiraEm: Date }
+  | { estado: 'reservado' }
 
 function CompraAutenticada({ cinemaId, filmeId, token, c }: Interna) {
   const chave = `${cinemaId}/${filmeId}`
@@ -244,16 +244,34 @@ function CompraAutenticada({ cinemaId, filmeId, token, c }: Interna) {
   }
 
   function continuar() {
-    if (!atual || selecionados.length === 0 || reservando) return
+    if (!atual || !filme || selecionados.length === 0 || reservando) return
     const sessaoId = atual.id
     const rotulos = selecionados
+    const { titulo, imagem_url } = filme
     setReserva({ estado: 'reservando' })
     setAviso(null)
     setErroReserva(null)
     c.reservar(sessaoId, rotulos, token)
       .then((r) => {
         guardarSelecao(sessaoId, [])
-        setReserva({ estado: 'reservado', rotulos, expiraEm: new Date(r.expira_em) })
+        setReserva({ estado: 'reservado' })
+        salvarReserva({
+          usuarioId: idDoUsuario(token),
+          cinemaId,
+          filmeId,
+          sessaoId,
+          filmeTitulo: titulo,
+          posterUrl: imagem_url ?? null,
+          cinemaNome: atual.cinema_nome,
+          sala: atual.sala_numero,
+          inicio: atual.data_hora_inicio,
+          rotulos,
+          precoCentavos: pedido.precoCentavos,
+          taxaCentavos: pedido.taxaCentavos,
+          totalCentavos: pedido.totalCentavos,
+          expiraEm: r.expira_em,
+        })
+        navegar(caminhoPagamento(cinemaId, filmeId))
       })
       .catch((erro: unknown) => {
         setReserva({ estado: 'ocioso' })
@@ -322,13 +340,6 @@ function CompraAutenticada({ cinemaId, filmeId, token, c }: Interna) {
             reservado={reservado}
             onContinuar={continuar}
           />
-          {reserva.estado === 'reservado' ? (
-            <div className="estado reserva-confirmada" role="status">
-              <h2>Assentos reservados</h2>
-              <p>{reserva.rotulos.join(', ')}</p>
-              <p>Reserva válida até {formatarHora(reserva.expiraEm)}.</p>
-            </div>
-          ) : null}
         </div>
       </div>
     </div>

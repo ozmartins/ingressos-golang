@@ -4,6 +4,7 @@ import { BarraConta } from './componentes/BarraConta'
 import { PaginaCinema, type CarregadoresCinema } from './componentes/PaginaCinema'
 import { PaginaCompra, type CarregadoresCompra } from './componentes/PaginaCompra'
 import { PaginaInicial } from './componentes/PaginaInicial'
+import { PaginaPagamento } from './componentes/PaginaPagamento'
 import { useRota } from './hooks/useRota'
 import { useSessao } from './hooks/useSessao'
 
@@ -44,6 +45,9 @@ function App({ carregarFilmes, carregarCinemas, carregadoresCinema, carregadores
           sessao={sessao}
           carregadores={carregadoresCompra}
         />
+      ) : null}
+      {rota.tipo === 'pagamento' ? (
+        <PaginaPagamento key={`${rota.cinemaId}/${rota.filmeId}`} cinemaId={rota.cinemaId} filmeId={rota.filmeId} sessao={sessao} />
       ) : null}
     </>
   )

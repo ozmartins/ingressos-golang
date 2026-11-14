@@ -743,3 +743,72 @@ button {
 .reserva-confirmada {
   border-color: var(--ok);
 }
+
+/* Pagamento com cartão (simulado) */
+.formulario-cartao {
+  display: grid;
+  gap: var(--espaco);
+  padding: var(--espaco);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+}
+
+.formulario-cartao h2 {
+  margin: 0;
+}
+
+.aviso-simulacao {
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--aviso);
+  border-radius: var(--raio);
+  color: var(--aviso);
+  font-size: 0.9rem;
+}
+
+.campo {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.campo label {
+  color: var(--texto-suave);
+  font-size: 0.9rem;
+}
+
+.campo input {
+  min-width: 0;
+  padding: 10px 12px;
+  font: inherit;
+  color: var(--texto);
+  background: var(--fundo);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+}
+
+.campo input:focus-visible {
+  outline: 3px solid var(--foco);
+}
+
+.campo input[aria-invalid='true'] {
+  border-color: var(--erro);
+}
+
+.campo-erro {
+  margin: 0;
+  color: var(--erro);
+  font-size: 0.85rem;
+}
+
+.campos-linha {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--espaco);
+}
+
+.resumo-prazo {
+  margin: 0;
+  color: var(--texto-suave);
+}

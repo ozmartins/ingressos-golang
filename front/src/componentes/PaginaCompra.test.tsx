@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ConflitoPoltronas, NaoAutenticado, SessaoIndisponivel } from '../api/estoque'
 import type { Cinema, Filme, Poltrona, SessaoNaGrade } from '../api/tipos'
 import type { Sessao } from '../dominio/keycloak'
+import { lerReserva } from '../dominio/reservaPagamento'
 import { PaginaCompra, type CarregadoresCompra } from './PaginaCompra'
 
 const cinema: Cinema = { id: 'c1', nome: 'Cine Centro', cidade: 'Florianópolis', estado: 'SC', endereco: 'Rua A', ativo: true }
@@ -156,15 +157,22 @@ describe('PaginaCompra — página', () => {
 })
 
 describe('PaginaCompra — reserva', () => {
-  it('reserva os assentos e mostra a confirmação com o prazo', async () => {
+  it('reserva os assentos, guarda o instantâneo e abre o pagamento', async () => {
     const reservar = vi.fn(() => Promise.resolve({ reserva_id: 'r', expira_em: new Date(Date.now() + 600_000).toISOString(), mensagem: 'ok' }))
     renderizar({ reservar })
     await userEvent.click(await assento(/assento 1, livre/))
     await userEvent.click(screen.getByRole('button', { name: 'Continuar' }))
-    expect(await screen.findByRole('heading', { name: 'Assentos reservados' })).toBeInTheDocument()
+    await waitFor(() => expect(window.location.pathname).toBe('/cinemas/c1/filmes/f1/pagamento'))
     expect(reservar).toHaveBeenCalledWith('s1', ['A1'], 'tok')
-    expect(screen.getByText(/Reserva válida até/)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Continuar' })).not.toBeInTheDocument()
+    expect(lerReserva('c1', 'f1', null)).toMatchObject({
+      sessaoId: 's1',
+      filmeTitulo: 'Eu Sou O Rocky',
+      cinemaNome: 'Cine Centro',
+      sala: 3,
+      rotulos: ['A1'],
+      precoCentavos: 3000,
+      totalCentavos: 3000,
+    })
   })
 
   it('conflito: avisa, recarrega o mapa e mantém os assentos ainda livres', async () => {
@@ -215,6 +223,16 @@ describe('PaginaCompra — reserva', () => {
     await userEvent.dblClick(botao)
     expect(reservar).toHaveBeenCalledTimes(1)
     resolver({ reserva_id: 'r', expira_em: new Date(Date.now() + 1000).toISOString(), mensagem: 'ok' })
-    expect(await screen.findByRole('heading', { name: 'Assentos reservados' })).toBeInTheDocument()
+    await waitFor(() => expect(window.location.pathname).toBe('/cinemas/c1/filmes/f1/pagamento'))
+  })
+
+  it('conflito e erro não abrem o pagamento nem guardam reserva', async () => {
+    window.history.replaceState(null, '', '/cinemas/c1/filmes/f1/comprar')
+    renderizar({ reservar: () => Promise.reject(new ConflitoPoltronas()) })
+    await userEvent.click(await assento(/assento 1, livre/))
+    await userEvent.click(screen.getByRole('button', { name: 'Continuar' }))
+    expect(await screen.findByText(/acabaram de ser reservados/)).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/cinemas/c1/filmes/f1/comprar')
+    expect(lerReserva('c1', 'f1', null)).toBeNull()
   })
 })

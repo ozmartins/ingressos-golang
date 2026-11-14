@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   concluirAutenticacao,
+  idDoUsuario,
   lerSessao,
   retornoSeguro,
   salvarSessao,
@@ -58,5 +59,17 @@ describe('retornoSeguro', () => {
     expect(retornoSeguro('//evil.com')).toBe('/')
     expect(retornoSeguro('https://evil.com')).toBe('/')
     expect(retornoSeguro('/\\evil.com')).toBe('/')
+  })
+})
+
+describe('idDoUsuario', () => {
+  const jwt = (carga: object) => `h.${btoa(JSON.stringify(carga)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')}.s`
+
+  it('lê o sub do JWT (base64url sem preenchimento)', () => {
+    expect(idDoUsuario(jwt({ sub: 'abc-123' }))).toBe('abc-123')
+  })
+
+  it.each([null, '', 'tok', 'a.b.c', `x.${btoa('{"sub":42}')}.y`, `x.${btoa('{}')}.y`])('devolve null para %j', (token) => {
+    expect(idDoUsuario(token)).toBeNull()
   })
 })

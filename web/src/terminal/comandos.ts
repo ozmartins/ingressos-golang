@@ -5,6 +5,8 @@ export interface Resultado {
   linhas: Linha[]
   limpar: boolean
   sessao?: Sessao
+  /** URL para onde o navegador deve ir (login no Keycloak). */
+  redirecionar?: string
 }
 
 const saida = (texto: string): Linha => ({ tipo: 'saida', texto })

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { concluirLogin, temRetorno, type ConfigOidc } from './api/oidc'
 import { SEM_SESSAO, mascarar, type Sessao } from './api/sessao'
 import type { Base } from './api/cliente'
 import { despachar } from './despachar'
@@ -7,6 +8,17 @@ import { adicionarLinhas, type Linha } from './linhas'
 
 const PROMPT = '>'
 const BASE: Base = { catalogo: '/catalogo', identidade: '/identidade' }
+
+const URL_KEYCLOAK: string =
+  import.meta.env.VITE_KEYCLOAK_URL ?? 'http://keycloak:8081'
+
+function configOidc(): ConfigOidc {
+  return {
+    urlKeycloak: URL_KEYCLOAK,
+    redirectUri: `${window.location.origin}/`,
+    armazem: window.sessionStorage,
+  }
+}
 
 const BOAS_VINDAS: Linha[] = [
   { tipo: 'sistema', texto: 'Digite "help" para ver os comandos disponiveis.' },
@@ -21,6 +33,23 @@ export default function Terminal() {
   const [ocupado, setOcupado] = useState(false)
   const campo = useRef<HTMLInputElement>(null)
   const saida = useRef<HTMLDivElement>(null)
+
+  const retornoTratado = useRef(false)
+
+  // Volta da página de login do Keycloak: troca o code pelo token.
+  useEffect(() => {
+    if (retornoTratado.current || !temRetorno(window.location.search)) return
+    retornoTratado.current = true
+    const consulta = window.location.search
+    window.history.replaceState(null, '', window.location.pathname)
+    setOcupado(true)
+    void concluirLogin(fetch.bind(globalThis), BASE, configOidc(), consulta)
+      .then((r) => {
+        if (r.sessao) setSessao(r.sessao)
+        setLinhas((atuais) => adicionarLinhas(atuais, r.linhas))
+      })
+      .finally(() => setOcupado(false))
+  }, [])
 
   useEffect(() => {
     const el = saida.current
@@ -42,7 +71,12 @@ export default function Terminal() {
         fetchFn: fetch.bind(globalThis),
         base: BASE,
         sessao,
+        oidc: configOidc(),
       })
+      if (resultado.redirecionar) {
+        window.location.assign(resultado.redirecionar)
+        return
+      }
       if (resultado.sessao) setSessao(resultado.sessao)
       setLinhas((atuais) =>
         resultado.limpar ? [] : adicionarLinhas(atuais, resultado.linhas),

@@ -8,6 +8,7 @@ import {
   formatarResposta,
   formatarUso,
 } from './api/formatar'
+import { iniciarLogin, type ConfigOidc } from './api/oidc'
 import { SEM_SESSAO, login, logout, type Sessao } from './api/sessao'
 import { buscarDefinicao, ehControllerCrud, TABELA, type Definicao } from './api/tabela'
 import { executar, linhasAjudaLocal, type Resultado } from './comandos'
@@ -17,6 +18,8 @@ export interface Contexto {
   fetchFn: typeof fetch
   base: Base
   sessao: Sessao
+  /** Login pela página do Keycloak; sem isso, só o login por client_id/secret. */
+  oidc?: ConfigOidc
 }
 
 const erro = (texto: string): Linha => ({ tipo: 'erro', texto })
@@ -25,10 +28,20 @@ function resultado(linhas: Linha[], sessao?: Sessao): Resultado {
   return sessao === undefined ? { linhas, limpar: false } : { linhas, limpar: false, sessao }
 }
 
+async function executarLoginKeycloak(oidc: ConfigOidc): Promise<Resultado> {
+  const url = await iniciarLogin(oidc)
+  return {
+    linhas: [{ tipo: 'sistema', texto: 'Redirecionando para a página de login do Keycloak...' }],
+    limpar: false,
+    redirecionar: url,
+  }
+}
+
 async function executarLogin(resto: string, ctx: Contexto): Promise<Resultado> {
+  if (resto.trim() === '' && ctx.oidc !== undefined) return executarLoginKeycloak(ctx.oidc)
   const [clientId, segredo] = destacar(resto)
   if (clientId === '' || segredo === '') {
-    return resultado([erro('uso: login <client_id> <client_secret>')])
+    return resultado([erro('uso: login | login <client_id> <client_secret>')])
   }
   const r = await login(ctx.fetchFn, ctx.base, clientId, segredo)
   return resultado(r.linhas, r.sessao)
@@ -41,7 +54,7 @@ async function executarDefinicao(def: Definicao, resto: string, ctx: Contexto): 
   if (def.protegido && ctx.sessao.token === null) {
     return resultado([
       erro('este comando exige autenticação.'),
-      erro('use: login <client_id> <client_secret>'),
+      erro('use: login'),
     ])
   }
 

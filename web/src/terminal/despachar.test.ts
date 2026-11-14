@@ -102,7 +102,7 @@ describe('despachar - autenticação', () => {
     const { fn, chamadas } = fakeFetch(() => respostaJson(201, {}))
     const r = await despachar('filmes criar {"titulo":"X"}', ctx(fn))
     expect(chamadas).toHaveLength(0)
-    expect(textos(r).join('\n')).toContain('login <client_id> <client_secret>')
+    expect(textos(r).join('\n')).toContain('use: login')
     expect(r.sessao).toBeUndefined()
   })
 
@@ -137,7 +137,25 @@ describe('despachar - autenticação', () => {
     const { fn, chamadas } = fakeFetch(() => respostaJson(200, {}))
     const r = await despachar('login so-o-id', ctx(fn))
     expect(chamadas).toHaveLength(0)
-    expect(textos(r)).toEqual(['uso: login <client_id> <client_secret>'])
+    expect(textos(r)).toEqual(['uso: login | login <client_id> <client_secret>'])
+  })
+
+  it('login sem argumentos e com oidc pede o redirecionamento ao Keycloak', async () => {
+    const { fn, chamadas } = fakeFetch(() => respostaJson(200, {}))
+    const dados = new Map<string, string>()
+    const oidc = {
+      urlKeycloak: 'http://keycloak:8081',
+      redirectUri: 'http://localhost:5173/',
+      armazem: {
+        getItem: (k: string) => dados.get(k) ?? null,
+        setItem: (k: string, v: string) => void dados.set(k, v),
+        removeItem: (k: string) => void dados.delete(k),
+      },
+    }
+    const r = await despachar('login', { ...ctx(fn), oidc })
+    expect(chamadas).toHaveLength(0)
+    expect(r.redirecionar).toContain('http://keycloak:8081/realms/cinema/protocol/openid-connect/auth?')
+    expect(r.sessao).toBeUndefined()
   })
 
   it('logout devolve sessão sem token', async () => {

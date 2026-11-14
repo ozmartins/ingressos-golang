@@ -373,8 +373,10 @@ export function formatarAjuda(): Linha[] {
     }
   }
   linhas.push(saida('Sessão'))
+  linhas.push(saida('  login'))
+  linhas.push(sistema('      abre a página de login do Keycloak (usuário e senha)'))
   linhas.push(saida('  login <client_id> <client_secret>'))
-  linhas.push(sistema('      autentica para os comandos que exigem login'))
+  linhas.push(sistema('      autentica por client credentials, sem sair do terminal'))
   linhas.push(saida('  logout'))
   linhas.push(sistema('      encerra a sessão'))
   return linhas

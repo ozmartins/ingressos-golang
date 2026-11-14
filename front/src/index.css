@@ -812,3 +812,18 @@ button {
   margin: 0;
   color: var(--texto-suave);
 }
+
+.filme-poster {
+  width: 120px;
+  height: 170px;
+  object-fit: cover;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+}
+
+.filme-poster-vazio {
+  display: grid;
+  place-items: center;
+  font-size: 2.5rem;
+  background: var(--borda);
+}

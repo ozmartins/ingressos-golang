@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { caminhoCinema, caminhoCompra, caminhoPagamento, lerRota } from './rotas'
+import { caminhoCinema, caminhoCompra, caminhoFilme, caminhoPagamento, lerRota } from './rotas'
 
 describe('rotas', () => {
   it('monta o caminho do cinema', () => {
@@ -9,6 +9,12 @@ describe('rotas', () => {
   it('reconhece /cinemas/{id}, com ou sem barra final', () => {
     expect(lerRota('/cinemas/abc')).toEqual({ tipo: 'cinema', id: 'abc' })
     expect(lerRota('/cinemas/abc/')).toEqual({ tipo: 'cinema', id: 'abc' })
+  })
+
+  it('monta e reconhece o caminho do filme', () => {
+    expect(caminhoFilme('f 1')).toBe('/filmes/f%201')
+    expect(lerRota('/filmes/f%201')).toEqual({ tipo: 'filme', id: 'f 1' })
+    expect(lerRota('/filmes/f1/')).toEqual({ tipo: 'filme', id: 'f1' })
   })
 
   it('monta e reconhece o caminho da compra', () => {
@@ -23,7 +29,7 @@ describe('rotas', () => {
     expect(lerRota('/cinemas/a/filmes/%E0%A4%A/pagamento')).toEqual({ tipo: 'inicio' })
   })
 
-  it.each(['/', '', '/outra', '/cinemas', '/cinemas/a/b', '/cinemas/%E0%A4%A', '/cinemas/a/filmes/b', '/cinemas/a/filmes/b/outra', '/cinemas/a/filmes/%E0%A4%A/comprar'])(
+  it.each(['/', '', '/outra', '/cinemas', '/cinemas/a/b', '/cinemas/%E0%A4%A', '/cinemas/a/filmes/b', '/cinemas/a/filmes/b/outra', '/cinemas/a/filmes/%E0%A4%A/comprar', '/filmes', '/filmes/a/b', '/filmes/%E0%A4%A'])(
     'trata %j como página inicial',
     (caminho) => {
       expect(lerRota(caminho)).toEqual({ tipo: 'inicio' })

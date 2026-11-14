@@ -3,6 +3,7 @@ import type { Cinema, Filme } from './api/tipos'
 import { BarraConta } from './componentes/BarraConta'
 import { PaginaCinema, type CarregadoresCinema } from './componentes/PaginaCinema'
 import { PaginaCompra, type CarregadoresCompra } from './componentes/PaginaCompra'
+import { PaginaFilme, type CarregadoresFilme } from './componentes/PaginaFilme'
 import { PaginaInicial } from './componentes/PaginaInicial'
 import { PaginaPagamento } from './componentes/PaginaPagamento'
 import { useRota } from './hooks/useRota'
@@ -13,6 +14,7 @@ interface Props {
   carregarFilmes?: () => Promise<Filme[]>
   carregarCinemas?: () => Promise<Cinema[]>
   carregadoresCinema?: Partial<CarregadoresCinema>
+  carregadoresFilme?: Partial<CarregadoresFilme>
   carregadoresCompra?: Partial<CarregadoresCompra>
 }
 
@@ -20,7 +22,7 @@ interface Props {
  * A página inicial, uma vez aberta, permanece montada (oculta) enquanto o
  * detalhe de um cinema é exibido: assim aba, filtros e dados sobrevivem ao "voltar".
  */
-function App({ carregarFilmes, carregarCinemas, carregadoresCinema, carregadoresCompra }: Props) {
+function App({ carregarFilmes, carregarCinemas, carregadoresCinema, carregadoresFilme, carregadoresCompra }: Props) {
   const [rota] = useRota()
   const { sessao, sair } = useSessao()
   const [inicioAberto, setInicioAberto] = useState(rota.tipo === 'inicio')
@@ -37,6 +39,7 @@ function App({ carregarFilmes, carregarCinemas, carregadoresCinema, carregadores
       {rota.tipo === 'cinema' ? (
         <PaginaCinema key={rota.id} id={rota.id} carregadores={carregadoresCinema} />
       ) : null}
+      {rota.tipo === 'filme' ? <PaginaFilme key={rota.id} id={rota.id} carregadores={carregadoresFilme} /> : null}
       {rota.tipo === 'compra' ? (
         <PaginaCompra
           key={`${rota.cinemaId}/${rota.filmeId}`}

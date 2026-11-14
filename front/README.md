@@ -6,6 +6,7 @@ Aplicação React + TypeScript + Vite voltada ao público. A página inicial tem
 - **Cinemas:** busca por nome e filtros de estado e cidade (as cidades dependem do estado escolhido).
 - A aba ativa fica na URL (`/?aba=filmes` ou `/?aba=cinemas`) e os filtros de cada aba são mantidos ao alternar entre elas.
 
+- **Cinemas do filme (`/filmes/{id}`):** clicar no card de um filme abre a página com os dados do filme e os cinemas ativos que o têm em cartaz (ao menos uma sessão futura), com filtro por UF e cidade. Cada cinema tem o botão "Comprar Ingressos", com o mesmo comportamento do botão da página do cinema (login se necessário e abertura da compra do filme naquele cinema). Usa `GET /api/v1/filmes/{id}` e `/sessoes?filme_id=`. "Voltar" retorna à aba de filmes com os filtros preservados. Detalhes em `specs/005-cinemas-do-filme/`.
 - **Detalhe do cinema (`/cinemas/{id}`):** clicar no card de um cinema abre a página com os dados do cinema, suas salas ativas e a programação (sessões agrupadas por filme, com filtro por dia). Só aparecem filmes **em cartaz**. "Voltar" retorna à aba de cinemas com os filtros preservados. Em hospedagem estática, `/cinemas/*` deve cair no `index.html` (o Vite dev/preview já faz isso).
 
 Especificação, plano e tarefas: [`specs/001-home-filmes-cinemas/`](specs/001-home-filmes-cinemas/) e [`specs/002-detalhe-cinema/`](specs/002-detalhe-cinema/).

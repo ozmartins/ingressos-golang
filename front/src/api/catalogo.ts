@@ -82,3 +82,29 @@ export function buscarSalas(cinemaId: string): Promise<Sala[]> {
 export function buscarSessoes(cinemaId: string): Promise<SessaoNaGrade[]> {
   return buscarTodas<SessaoNaGrade>('/api/v1/sessoes', { cinema_id: cinemaId })
 }
+
+/** O filme pedido não existe (ou o identificador é inválido). */
+export class FilmeNaoEncontrado extends Error {
+  constructor() {
+    super('Filme não encontrado.')
+    this.name = 'FilmeNaoEncontrado'
+  }
+}
+
+export async function buscarFilme(id: string): Promise<Filme> {
+  const resposta = await fetch(`${base()}/api/v1/filmes/${encodeURIComponent(id)}`)
+  if (resposta.status === 404 || resposta.status === 400) throw new FilmeNaoEncontrado()
+  if (!resposta.ok) {
+    throw new Error(`Falha ao consultar o catálogo (HTTP ${resposta.status}).`)
+  }
+  const corpo: unknown = await resposta.json()
+  if (typeof corpo !== 'object' || corpo === null || typeof (corpo as Filme).id !== 'string') {
+    throw new Error('Resposta inesperada do catálogo.')
+  }
+  return corpo as Filme
+}
+
+/** Sessões do filme em todos os cinemas (a filtragem por futuras e cinemas ativos é do domínio). */
+export function buscarSessoesDoFilme(filmeId: string): Promise<SessaoNaGrade[]> {
+  return buscarTodas<SessaoNaGrade>('/api/v1/sessoes', { filme_id: filmeId })
+}

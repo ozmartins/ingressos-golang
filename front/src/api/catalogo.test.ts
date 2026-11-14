@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   buscarCinema,
   buscarCinemas,
+  buscarFilme,
   buscarFilmes,
+  buscarSessoesDoFilme,
+  FilmeNaoEncontrado,
   buscarSalas,
   buscarSessoes,
   buscarTodosFilmes,
@@ -129,5 +132,41 @@ describe('detalhe do cinema', () => {
   it('buscarTodosFilmes mantém os fora de cartaz', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(resposta(pagina([filme('1', 'FORA_DE_CARTAZ')], 1, false))))
     expect((await buscarTodosFilmes()).map((f) => f.id)).toEqual(['1'])
+  })
+})
+
+describe('buscarFilme', () => {
+  it('devolve o filme pelo id', async () => {
+    const fetchSimulado = vi.fn().mockResolvedValue(resposta(filme('f 1')))
+    vi.stubGlobal('fetch', fetchSimulado)
+    expect((await buscarFilme('f 1')).id).toBe('f 1')
+    expect(String(fetchSimulado.mock.calls[0][0])).toContain('/api/v1/filmes/f%201')
+  })
+
+  it.each([404, 400])('HTTP %i vira FilmeNaoEncontrado', async (status) => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(resposta({}, status)))
+    await expect(buscarFilme('x')).rejects.toBeInstanceOf(FilmeNaoEncontrado)
+  })
+
+  it('falha em outros status e em corpo inesperado', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(resposta({}, 500)))
+    await expect(buscarFilme('x')).rejects.toThrow('HTTP 500')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(resposta({ nome: 'sem id' })))
+    await expect(buscarFilme('x')).rejects.toThrow('inesperada')
+  })
+})
+
+describe('buscarSessoesDoFilme', () => {
+  it('consulta a grade filtrando por filme em todas as páginas', async () => {
+    const fetchSimulado = vi
+      .fn()
+      .mockResolvedValueOnce(resposta(pagina([{ id: 's1' }], 1, true)))
+      .mockResolvedValueOnce(resposta(pagina([{ id: 's2' }], 2, false)))
+    vi.stubGlobal('fetch', fetchSimulado)
+    const sessoes = await buscarSessoesDoFilme('f1')
+    expect(sessoes.map((s) => s.id)).toEqual(['s1', 's2'])
+    expect(String(fetchSimulado.mock.calls[0][0])).toContain('/api/v1/sessoes')
+    expect(String(fetchSimulado.mock.calls[0][0])).toContain('filme_id=f1')
+    expect(String(fetchSimulado.mock.calls[0][0])).not.toContain('cinema_id')
   })
 })

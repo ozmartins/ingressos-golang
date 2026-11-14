@@ -1,0 +1,119 @@
+:root {
+  --fundo: #050805;
+  --fosforo: #33ff66;
+  --fosforo-fraco: #1fa84a;
+  --erro: #ffb347;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, 'Courier New', monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--fundo);
+  color: var(--fosforo);
+  font-size: 18px;
+  line-height: 1.35;
+  text-shadow: 0 0 6px rgba(51, 255, 102, 0.55);
+}
+
+.terminal {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px;
+}
+
+.saida {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+}
+
+.linha {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.linha-sistema {
+  color: var(--fosforo-fraco);
+}
+
+.linha-entrada {
+  color: var(--fosforo);
+}
+
+.linha-erro {
+  color: var(--erro);
+  text-shadow: 0 0 6px rgba(255, 179, 71, 0.5);
+}
+
+.entrada {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 0.6ch;
+  padding-top: 8px;
+  border-top: 1px solid var(--fosforo-fraco);
+  min-height: 2em;
+}
+
+.espelho {
+  white-space: pre;
+  overflow-wrap: anywhere;
+}
+
+.cursor {
+  display: inline-block;
+  width: 0.6em;
+  height: 1.1em;
+  background: var(--fosforo);
+  box-shadow: 0 0 8px var(--fosforo);
+  transform: translateY(0.2em);
+  animation: piscar 1s steps(1) infinite;
+}
+
+.campo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  border: 0;
+  background: transparent;
+  color: transparent;
+  font: inherit;
+}
+
+.terminal::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0) 0,
+    rgba(0, 0, 0, 0) 2px,
+    rgba(0, 0, 0, 0.22) 3px
+  );
+}
+
+@keyframes piscar {
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cursor {
+    animation: none;
+  }
+}

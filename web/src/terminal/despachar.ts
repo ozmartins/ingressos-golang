@@ -3,6 +3,7 @@ import { FalhaRequisicao, requisitar, type Base } from './api/cliente'
 import {
   formatarAcoes,
   formatarAjuda,
+  formatarAjudaController,
   formatarErro,
   formatarFalha,
   formatarResposta,
@@ -134,11 +135,13 @@ export async function despachar(entrada: string, ctx: Contexto): Promise<Resulta
     return resultado(r.linhas, r.sessao)
   }
   if (chave === 'health') {
+    if (resto.trim().toLowerCase() === 'help') return resultado(formatarAjudaController('operacional'))
     const def = TABELA.find((d) => d.acao === 'health')
     if (def) return executarDefinicao(def, resto, ctx)
   }
   if (ehControllerCrud(chave)) {
     const [acao, argumentos] = destacar(resto)
+    if (acao.toLowerCase() === 'help') return resultado(formatarAjudaController(chave))
     const def = acao === '' ? undefined : buscarDefinicao(chave, acao)
     if (!def) {
       const prefixo = acao === '' ? [] : [erro(`ação desconhecida: ${acao}`)]

@@ -339,23 +339,77 @@ describe('despachar - remover', () => {
 })
 
 describe('despachar - help e uso', () => {
-  it('help junta os comandos locais e os de API', async () => {
-    const { fn } = fakeFetch(() => respostaJson(200, {}))
-    const t = textos(await despachar('help', ctx(fn))).join('\n')
+  it('help mostra só os nomes dos controllers, em até 20 linhas', async () => {
+    const { fn, chamadas } = fakeFetch(() => respostaJson(200, {}))
+    const r = await despachar('help', ctx(fn))
+    const t = textos(r).join('\n')
     for (const removido of ['echo', 'whoami', 'about']) expect(t).not.toContain(removido)
-    for (const c of ['help', 'clear', 'filmes listar', 'sessoes remover <id>', 'health', 'login', 'logout']) {
+    for (const c of ['help', 'clear', 'filmes', 'cinemas', 'salas', 'sessoes', 'health', 'login', 'logout']) {
       expect(t).toContain(c)
     }
+    expect(t).not.toContain('sessoes remover <id>')
+    expect(t).not.toContain('filmes listar')
+    expect(r.linhas.length).toBeLessThanOrEqual(20)
+    expect(chamadas).toHaveLength(0)
   })
 
-  it('controller sem ação lista as ações válidas', async () => {
+  it('help <controller> mostra o mesmo help geral, sem erro', async () => {
+    const { fn } = fakeFetch(() => respostaJson(200, {}))
+    const geral = textos(await despachar('help', ctx(fn)))
+    expect(textos(await despachar('help filmes', ctx(fn)))).toEqual(geral)
+  })
+
+  it.each(['filmes', 'cinemas', 'salas', 'sessoes'])('%s help mostra só as ações do controller, sem requisição', async (c) => {
+    const { fn, chamadas } = fakeFetch(() => respostaJson(200, {}))
+    const t = textos(await despachar(`${c} help`, ctx(fn))).join('\n')
+    for (const acao of ['listar', 'criar', 'obter', 'atualizar', 'remover']) expect(t).toContain(`${c} ${acao}`)
+    for (const outro of ['filmes', 'cinemas', 'salas', 'sessoes'].filter((x) => x !== c)) {
+      expect(t).not.toContain(`${outro} listar`)
+    }
+    expect(chamadas).toHaveLength(0)
+  })
+
+  it('health help mostra só o health, sem requisição', async () => {
+    const { fn, chamadas } = fakeFetch(() => respostaJson(200, {}))
+    const t = textos(await despachar('health help', ctx(fn))).join('\n')
+    expect(t).toContain('health')
+    expect(t).toContain('apto a receber tráfego')
+    expect(t).not.toContain('filmes')
+    expect(chamadas).toHaveLength(0)
+  })
+
+  it('ignora caixa, espaços e texto extra em <controller> help', async () => {
+    const { fn, chamadas } = fakeFetch(() => respostaJson(200, {}))
+    const esperado = textos(await despachar('filmes help', ctx(fn)))
+    expect(textos(await despachar('FILMES   help', ctx(fn)))).toEqual(esperado)
+    expect(textos(await despachar('filmes HELP', ctx(fn)))).toEqual(esperado)
+    expect(textos(await despachar('filmes help extra', ctx(fn)))).toEqual(esperado)
+    expect(chamadas).toHaveLength(0)
+  })
+
+  it('clear help mantém o comportamento atual: clear ignora o resto', async () => {
+    const { fn } = fakeFetch(() => respostaJson(200, {}))
+    const r = await despachar('clear help', ctx(fn))
+    expect(r.limpar).toBe(true)
+  })
+
+  it('login help mantém o comportamento atual (uso do login)', async () => {
+    const { fn, chamadas } = fakeFetch(() => respostaJson(200, {}))
+    const r = await despachar('login help', ctx(fn))
+    expect(textos(r)).toEqual(['uso: login | login <client_id> <client_secret>'])
+    expect(chamadas).toHaveLength(0)
+  })
+
+  it('controller sem ação lista as ações válidas e a dica do help', async () => {
     const { fn, chamadas } = fakeFetch(() => respostaJson(200, {}))
     expect(textos(await despachar('filmes', ctx(fn)))).toEqual([
       'ações de filmes: listar, criar, obter, atualizar, remover',
+      'use: filmes help para ver os detalhes.',
     ])
     expect(textos(await despachar('filmes xpto', ctx(fn)))).toEqual([
       'ação desconhecida: xpto',
       'ações de filmes: listar, criar, obter, atualizar, remover',
+      'use: filmes help para ver os detalhes.',
     ])
     expect(chamadas).toHaveLength(0)
   })

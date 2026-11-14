@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { TABELA, buscarDefinicao } from './tabela'
+import { TABELA, buscarDefinicao, nomesDeComandos } from './tabela'
 
 describe('tabela de comandos', () => {
   it('tem exatamente 21 endpoints', () => {
@@ -45,5 +45,9 @@ describe('tabela de comandos', () => {
   it('buscarDefinicao ignora maiúsculas e devolve undefined para desconhecidos', () => {
     expect(buscarDefinicao('FILMES', 'Obter')?.metodo).toBe('GET')
     expect(buscarDefinicao('filmes', 'xpto')).toBeUndefined()
+  })
+
+  it('nomesDeComandos devolve os controllers e o health, na ordem da ajuda', () => {
+    expect(nomesDeComandos()).toEqual(['filmes', 'cinemas', 'salas', 'sessoes', 'health'])
   })
 })

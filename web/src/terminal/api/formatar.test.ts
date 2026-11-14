@@ -4,12 +4,13 @@ import {
   desenharTabela,
   formatarAcoes,
   formatarAjuda,
+  formatarAjudaController,
   formatarErro,
   formatarFalha,
   formatarResposta,
   formatarUso,
 } from './formatar'
-import { TABELA, buscarDefinicao } from './tabela'
+import { CONTROLLERS_CRUD, TABELA, buscarDefinicao, definicoesDe, nomesDeComandos } from './tabela'
 
 const textos = (linhas: { texto: string }[]) => linhas.map((l) => l.texto)
 
@@ -28,7 +29,7 @@ const tabela = (...linhas: string[]) => linhas.join('\n')
 
 describe('formatarResposta - tabelas', () => {
   it('a ajuda não traz exemplos com JSON e explica o fluxo guiado', () => {
-    const t = textos(formatarAjuda()).join('\n')
+    const t = textos(formatarAjudaController('filmes')).join('\n')
     expect(t).not.toContain('<json>')
     expect(t).toContain('perguntam os campos')
     expect(t).toContain('filmes criar')
@@ -283,14 +284,38 @@ describe('formatarFalha', () => {
 })
 
 describe('ajuda', () => {
-  it('formatarAjuda lista os 21 comandos, login e logout', () => {
-    const t = textos(formatarAjuda()).join('\n')
-    for (const d of TABELA) expect(t).toContain(d.uso)
-    expect(t).toContain('login <client_id> <client_secret>')
-    expect(t).toContain('logout')
-    for (const grupo of ['Filmes', 'Cinemas', 'Salas', 'Sessões', 'Operacional']) expect(t).toContain(grupo)
+  it('formatarAjuda lista só os nomes dos controllers, a dica, login e logout', () => {
+    const t = textos(formatarAjuda())
+    const j = t.join('\n')
+    expect(j).toContain('Comandos da API do catálogo:')
+    for (const nome of nomesDeComandos()) expect(t).toContain(`  ${nome}`)
+    expect(j).not.toContain('filmes listar')
+    for (const d of TABELA) expect(j).not.toContain(d.descricao)
+    expect(j).toContain('"<controller> help"')
+    expect(j).toContain('filmes help')
+    expect(j).toContain('login <client_id> <client_secret>')
+    expect(j).toContain('logout')
   })
 
+  it('formatarAjudaController lista exatamente as ações do controller', () => {
+    for (const c of CONTROLLERS_CRUD) {
+      const t = textos(formatarAjudaController(c)).join('\n')
+      const defs = definicoesDe(c)
+      for (const d of defs) {
+        expect(t).toContain(d.uso)
+        expect(t).toContain(d.descricao)
+      }
+      for (const outro of CONTROLLERS_CRUD.filter((x) => x !== c)) expect(t).not.toContain(`${outro} listar`)
+      expect(t).toContain('cancelar')
+    }
+  })
+
+  it('formatarAjudaController de operacional mostra o health', () => {
+    const t = textos(formatarAjudaController('operacional')).join('\n')
+    expect(t).toContain('health')
+    expect(t).toContain('apto a receber tráfego')
+    expect(t).not.toContain('filmes')
+  })
   it('formatarUso mostra a sintaxe', () => {
     const def = buscarDefinicao('filmes', 'obter')
     if (!def) throw new Error('sem definição')
@@ -298,6 +323,9 @@ describe('ajuda', () => {
   })
 
   it('formatarAcoes lista as ações válidas', () => {
-    expect(textos(formatarAcoes('filmes'))).toEqual(['ações de filmes: listar, criar, obter, atualizar, remover'])
+    expect(textos(formatarAcoes('filmes'))).toEqual([
+      'ações de filmes: listar, criar, obter, atualizar, remover',
+      'use: filmes help para ver os detalhes.',
+    ])
   })
 })

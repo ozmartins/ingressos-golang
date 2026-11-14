@@ -3,7 +3,7 @@
 Terminal retrô (monitor de fósforo) da plataforma de ingressos, feito com Vite + React + TypeScript.
 
 Os comandos do catálogo chamam a Servico-Catalogo API de verdade e mostram o resultado em
-tabelas de texto (não em JSON); tabelas mais largas que a tela rolam na horizontal. Localmente existem apenas `help` e `clear`. Digite `help` para ver tudo.
+tabelas de texto (não em JSON); tabelas mais largas que a tela rolam na horizontal. Localmente existem apenas `help` e `clear`. Digite `help` para ver os controllers (`filmes`, `cinemas`, `salas`, `sessoes`, `health`) e `<controller> help` (ex.: `filmes help`) para ver as opções de cada um.
 
 | Comando | O que faz |
 |---------|-----------|

@@ -1,9 +1,9 @@
 import type { Linha } from '../linhas'
 import { FalhaRequisicao, TIMEOUT_MS, type RespostaApi } from './cliente'
 import {
-  CONTROLLERS_CRUD,
   NOMES_CONTROLLER,
   definicoesDe,
+  nomesDeComandos,
   type Controller,
   type Definicao,
 } from './tabela'
@@ -360,20 +360,29 @@ export function formatarUso(def: Definicao): Linha[] {
 
 export function formatarAcoes(controller: Controller): Linha[] {
   const acoes = definicoesDe(controller).map((d) => d.acao)
-  return [erro(`ações de ${controller}: ${acoes.join(', ')}`)]
+  return [
+    erro(`ações de ${controller}: ${acoes.join(', ')}`),
+    erro(`use: ${controller} help para ver os detalhes.`),
+  ]
+}
+
+/** Opções de um controller: sintaxe e descrição de cada ação. */
+export function formatarAjudaController(controller: Controller): Linha[] {
+  const linhas: Linha[] = [saida(NOMES_CONTROLLER[controller])]
+  for (const def of definicoesDe(controller)) {
+    linhas.push(saida(`  ${def.uso}`))
+    linhas.push(sistema(`      ${def.descricao}`))
+  }
+  if (definicoesDe(controller).some((d) => d.usaCorpo)) {
+    linhas.push(sistema('criar e atualizar perguntam os campos um a um; digite "cancelar" (ou Esc) para abortar.'))
+  }
+  return linhas
 }
 
 export function formatarAjuda(): Linha[] {
   const linhas: Linha[] = [saida(''), saida('Comandos da API do catálogo:')]
-  for (const controller of [...CONTROLLERS_CRUD, 'operacional' as const]) {
-    linhas.push(saida(`${NOMES_CONTROLLER[controller]}`))
-    for (const def of definicoesDe(controller)) {
-      linhas.push(saida(`  ${def.uso}`))
-      linhas.push(sistema(`      ${def.descricao}`))
-    }
-  }
-  linhas.push(saida(''))
-  linhas.push(sistema('criar e atualizar perguntam os campos um a um; digite "cancelar" (ou Esc) para abortar.'))
+  for (const nome of nomesDeComandos()) linhas.push(saida(`  ${nome}`))
+  linhas.push(sistema('Digite "<controller> help" para ver as opções (ex.: filmes help).'))
   linhas.push(saida('Sessão'))
   linhas.push(saida('  login'))
   linhas.push(sistema('      abre a página de login do Keycloak (usuário e senha)'))

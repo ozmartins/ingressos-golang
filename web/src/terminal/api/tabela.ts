@@ -164,6 +164,11 @@ export function definicoesDe(controller: Controller): Definicao[] {
   return TABELA.filter((d) => d.controller === controller)
 }
 
+/** Nomes digitáveis que têm ajuda própria: os controllers CRUD e o health. */
+export function nomesDeComandos(): string[] {
+  return [...CONTROLLERS_CRUD, 'health']
+}
+
 export function ehControllerCrud(nome: string): nome is Controller {
   return (CONTROLLERS_CRUD as string[]).includes(nome.toLowerCase())
 }

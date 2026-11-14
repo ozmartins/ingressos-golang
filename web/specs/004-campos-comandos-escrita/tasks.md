@@ -129,7 +129,7 @@
 - [X] T031 [P] Atualizar `help` em `src/terminal/api/formatar.ts` (e teste) para descrever o fluxo guiado e a palavra `cancelar`; conferir que não há mais exemplos com JSON (FR-013)
 - [X] T032 [P] Atualizar `README.md` de `ingressos-golang/web/` se ele documentar os comandos com `<json>`
 - [X] T033 Rodar `npm test` (as suítes existentes de leitura, `remover`, `health`, `login` e `logout` são a verificação de regressão do FR-014) e `npm run build` (saída 0, sem avisos) e abrir o app sem erros no console (constituição IV)
-- [ ] T034 Executar o roteiro de [quickstart.md](quickstart.md) contra o catálogo real (passos 1–11) e anotar o resultado
+- [X] T034 Executar o roteiro de [quickstart.md](quickstart.md) contra o catálogo real (passos 1–11) e anotar o resultado
 
 ---
 

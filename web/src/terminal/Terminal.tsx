@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { executar } from './comandos'
+import { SEM_SESSAO, mascarar, type Sessao } from './api/sessao'
+import type { Base } from './api/cliente'
+import { despachar } from './despachar'
 import { adicionar, anterior, criar, proximo } from './historico'
 import { adicionarLinhas, type Linha } from './linhas'
 
 const PROMPT = '>'
+const BASE: Base = { catalogo: '/catalogo', identidade: '/identidade' }
 
 const BOAS_VINDAS: Linha[] = [
-  { tipo: 'sistema', texto: 'TERMINAL RETRO v1.0' },
   { tipo: 'sistema', texto: 'Digite "help" para ver os comandos disponiveis.' },
   { tipo: 'sistema', texto: '' },
 ]
@@ -15,6 +17,8 @@ export default function Terminal() {
   const [linhas, setLinhas] = useState<Linha[]>(BOAS_VINDAS)
   const [valor, setValor] = useState('')
   const [historico, setHistorico] = useState(criar)
+  const [sessao, setSessao] = useState<Sessao>(SEM_SESSAO)
+  const [ocupado, setOcupado] = useState(false)
   const campo = useRef<HTMLInputElement>(null)
   const saida = useRef<HTMLDivElement>(null)
 
@@ -23,22 +27,39 @@ export default function Terminal() {
     if (el) el.scrollTop = el.scrollHeight
   }, [linhas])
 
-  function enviar() {
-    const resultado = executar(valor, new Date())
-    const eco: Linha = { tipo: 'entrada', texto: `${PROMPT} ${valor}` }
-    setLinhas((atuais) =>
-      resultado.limpar
-        ? []
-        : adicionarLinhas(atuais, valor.trim() === '' ? [eco] : [eco, ...resultado.linhas]),
-    )
-    setHistorico((h) => adicionar(h, valor))
+  async function enviar() {
+    if (ocupado) return
+    const entrada = valor
+    const eco: Linha = { tipo: 'entrada', texto: `${PROMPT} ${mascarar(entrada)}` }
     setValor('')
+    setHistorico((h) => adicionar(h, mascarar(entrada)))
+    setLinhas((atuais) => adicionarLinhas(atuais, [eco]))
+    if (entrada.trim() === '') return
+
+    setOcupado(true)
+    try {
+      const resultado = await despachar(entrada, {
+        fetchFn: fetch.bind(globalThis),
+        base: BASE,
+        sessao,
+      })
+      if (resultado.sessao) setSessao(resultado.sessao)
+      setLinhas((atuais) =>
+        resultado.limpar ? [] : adicionarLinhas(atuais, resultado.linhas),
+      )
+    } finally {
+      setOcupado(false)
+    }
   }
 
   function aoPressionar(e: KeyboardEvent<HTMLInputElement>) {
+    if (ocupado) {
+      e.preventDefault()
+      return
+    }
     if (e.key === 'Enter') {
       e.preventDefault()
-      enviar()
+      void enviar()
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
       const r = anterior(historico)
@@ -67,7 +88,7 @@ export default function Terminal() {
         ))}
       </div>
       <div className="entrada">
-        <span className="prompt">{PROMPT}</span>
+        <span className="prompt">{ocupado ? '…' : PROMPT}</span>
         <span className="espelho" aria-hidden="true">
           {valor}
         </span>
@@ -77,6 +98,7 @@ export default function Terminal() {
           className="campo"
           value={valor}
           onChange={(e) => setValor(e.target.value)}
+          readOnly={ocupado}
           onKeyDown={aoPressionar}
           autoFocus
           autoCapitalize="off"

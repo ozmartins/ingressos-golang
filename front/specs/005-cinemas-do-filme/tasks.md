@@ -53,7 +53,7 @@
 ## Phase 6: Polish & transversais
 
 - [X] T014 [P] Estilos em `src/index.css` só se faltarem (cabeçalho do filme na página, layout 360 px), reaproveitando tokens/classes (`cartao`, `grade`, `filtros`, `link-voltar`, `botao-comprar`); validar sem rolagem horizontal em 360 px (FR-013)
-- [ ] T015 Rodar `npm test`, `npm run lint`, `npm run build` e executar o roteiro de `specs/005-cinemas-do-filme/quickstart.md` contra a plataforma local; registrar desvios
+- [X] T015 Rodar `npm test`, `npm run lint`, `npm run build` e executar o roteiro de `specs/005-cinemas-do-filme/quickstart.md` contra a plataforma local; registrar desvios
 - [X] T016 [P] Atualizar `README.md` do front (se listar rotas/páginas) com a rota `/filmes/{id}`
 
 ## Dependências e ordem

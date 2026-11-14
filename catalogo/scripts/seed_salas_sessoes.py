@@ -13,8 +13,11 @@ Cria:
     plausíveis, não os dados reais dos filmes);
   * 2 salas por cinema: sala 1 (2D) e sala 2 (3D), com 5 fileiras de 8
     poltronas (A-D NORMAL, E NAMORADEIRA);
-  * sessões nos próximos 3 dias (a partir de amanhã), às 16:00 e 20:00 no
-    horário de Brasília, em cada sala, com filme e idioma variando.
+  * sessões nos próximos 3 dias (a partir de amanhã), às 10:00, 13:00, 16:00,
+    20:00 e 22:30 no horário de Brasília, em cada sala, com idioma variando e
+    o filme sorteado entre TODOS os filmes em cartaz do catálogo (inclusive os
+    importados por scripts/seed_filmes.py). Horários cujo filme não cabe antes
+    da próxima sessão da sala voltam 409 e são pulados.
 
 Pode ser repetido: filmes e salas já existentes são reaproveitados e sessões
 que colidem com uma já existente (HTTP 409) são puladas, então uma nova
@@ -40,7 +43,7 @@ from zoneinfo import ZoneInfo
 CATALOGO = os.environ.get("CATALOGO_URL", "http://localhost:8082").rstrip("/") + "/api/v1"
 KEYCLOAK = os.environ.get("KEYCLOAK_URL", "http://localhost:8081").rstrip("/")
 SECRET = os.environ.get("CLIENT_SECRET", "segredo-de-desenvolvimento")
-DIAS, HORARIOS, TRABALHADORES = 3, (time(16, 0), time(20, 0)), 8
+DIAS, HORARIOS, TRABALHADORES = 3, (time(10, 0), time(13, 0), time(16, 0), time(20, 0), time(22, 30)), 8
 FUSO = ZoneInfo("America/Sao_Paulo")
 
 FILMES = [
@@ -107,7 +110,6 @@ def exigir(status, dados, o_que):
 
 def garantir_filmes():
     existentes = {f["titulo"]: f["id"] for f in listar("/filmes")}
-    ids = []
     for titulo, sinopse, minutos, classificacao, genero, imagem in FILMES:
         if titulo not in existentes:
             f = exigir(*chamar("POST", "/filmes", {
@@ -115,8 +117,7 @@ def garantir_filmes():
                 "classificacao_etaria": classificacao, "genero": genero,
                 "imagem_url": imagem, "status": "EM_CARTAZ"}), f"filme {titulo}")
             existentes[titulo] = f["id"]
-        ids.append(existentes[titulo])
-    return ids
+    return sorted(f["id"] for f in listar("/filmes") if f["status"] == "EM_CARTAZ")
 
 
 def garantir_salas():

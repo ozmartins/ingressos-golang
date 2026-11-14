@@ -30,6 +30,12 @@ describe('executar', () => {
     expect(executar('  CLEAR  ')).toEqual({ linhas: [], limpar: true })
   })
 
+  it('exit pede para fechar a aba', () => {
+    const r = executar('exit')
+    expect(r.fechar).toBe(true)
+    expect(r.limpar).toBe(false)
+  })
+
   it('clear devolve limpar: true e nenhuma linha', () => {
     expect(executar('clear')).toEqual({ linhas: [], limpar: true })
   })

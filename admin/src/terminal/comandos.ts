@@ -8,6 +8,8 @@ export interface Resultado {
   sessao?: Sessao
   /** URL para onde o navegador deve ir (login no Keycloak). */
   redirecionar?: string
+  /** Pede para fechar a aba do navegador (comando exit). */
+  fechar?: boolean
   /** Diálogo de preenchimento: objeto = ativo/atualizado, null = encerrado, ausente = sem mudança. */
   dialogo?: Dialogo | null
 }
@@ -17,6 +19,7 @@ const saida = (texto: string): Linha => ({ tipo: 'saida', texto })
 export const AJUDA_LOCAL: Array<[string, string]> = [
   ['help', 'lista os comandos disponíveis'],
   ['clear', 'limpa a tela'],
+  ['exit', 'fecha a aba do navegador'],
 ]
 
 export function linhasAjudaLocal(): Linha[] {
@@ -38,6 +41,12 @@ export function executar(entrada: string): Resultado {
       return { linhas: linhasAjudaLocal(), limpar: false }
     case 'clear':
       return { linhas: [], limpar: true }
+    case 'exit':
+      return {
+        linhas: [{ tipo: 'sistema', texto: 'Fechando a aba...' }],
+        limpar: false,
+        fechar: true,
+      }
     default:
       return {
         linhas: [{ tipo: 'erro', texto: `comando não encontrado: ${nome}` }],

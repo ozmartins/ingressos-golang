@@ -84,6 +84,17 @@ export default function Terminal() {
         window.location.assign(resultado.redirecionar)
         return
       }
+      if (resultado.fechar) {
+        setLinhas((atuais) => adicionarLinhas(atuais, resultado.linhas))
+        window.close()
+        // O navegador só deixa fechar abas abertas por script; nas demais, avisa.
+        setLinhas((atuais) =>
+          adicionarLinhas(atuais, [
+            { tipo: 'erro', texto: 'o navegador bloqueou o fechamento: feche a aba manualmente (Ctrl+W).' },
+          ]),
+        )
+        return
+      }
       if (resultado.sessao) setSessao(resultado.sessao)
       setLinhas((atuais) =>
         resultado.limpar ? [] : adicionarLinhas(atuais, resultado.linhas),

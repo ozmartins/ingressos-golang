@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import type { Cinema, Filme } from './api/tipos'
+import { BarraConta } from './componentes/BarraConta'
 import { PaginaCinema, type CarregadoresCinema } from './componentes/PaginaCinema'
 import { PaginaInicial } from './componentes/PaginaInicial'
 import { useRota } from './hooks/useRota'
+import { useSessao } from './hooks/useSessao'
 
 interface Props {
   /** Injetáveis para testes; por padrão consultam o catálogo. */
@@ -17,11 +19,13 @@ interface Props {
  */
 function App({ carregarFilmes, carregarCinemas, carregadoresCinema }: Props) {
   const [rota] = useRota()
+  const { sessao, sair } = useSessao()
   const [inicioAberto, setInicioAberto] = useState(rota.tipo === 'inicio')
   if (rota.tipo === 'inicio' && !inicioAberto) setInicioAberto(true)
 
   return (
     <>
+      <BarraConta sessao={sessao} onSair={sair} />
       {inicioAberto ? (
         <div hidden={rota.tipo !== 'inicio'}>
           <PaginaInicial carregarFilmes={carregarFilmes} carregarCinemas={carregarCinemas} />

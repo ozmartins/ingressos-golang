@@ -1,0 +1,52 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  concluirAutenticacao,
+  lerSessao,
+  salvarSessao,
+  temRetorno,
+  urlAutenticacao,
+  urlLogout,
+} from './keycloak'
+
+afterEach(() => sessionStorage.clear())
+
+describe('keycloak', () => {
+  it('monta as URLs de login e registro com PKCE', async () => {
+    const login = new URL(await urlAutenticacao('login', '/x'))
+    expect(login.pathname).toBe('/realms/cinema/protocol/openid-connect/auth')
+    expect(login.searchParams.get('code_challenge_method')).toBe('S256')
+    const reg = new URL(await urlAutenticacao('registro', '/x'))
+    expect(reg.pathname).toBe('/realms/cinema/protocol/openid-connect/registrations')
+  })
+
+  it('conclui a autenticação trocando o code pelo token', async () => {
+    const url = new URL(await urlAutenticacao('login', '/cinemas/c1'))
+    const estado = url.searchParams.get('state')!
+    const fetchFn = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ access_token: 'a', id_token: 'i', expires_in: 60 })),
+    )
+    const r = await concluirAutenticacao(`?state=${estado}&code=abc`, fetchFn)
+    expect(r?.sessao.accessToken).toBe('a')
+    expect(r?.retorno).toBe('/cinemas/c1')
+  })
+
+  it('recusa state inválido', async () => {
+    await urlAutenticacao('login', '/')
+    const fetchFn = vi.fn()
+    expect(await concluirAutenticacao('?state=outro&code=abc', fetchFn)).toBeNull()
+    expect(fetchFn).not.toHaveBeenCalled()
+  })
+
+  it('só devolve sessão não expirada', () => {
+    salvarSessao({ accessToken: 'a', idToken: null, expiraEm: 1000 })
+    expect(lerSessao(500)?.accessToken).toBe('a')
+    expect(lerSessao(2000)).toBeNull()
+  })
+
+  it('detecta retorno e monta o logout', () => {
+    expect(temRetorno('?state=s&code=c')).toBe(true)
+    expect(temRetorno('?aba=cinemas')).toBe(false)
+    const u = new URL(urlLogout({ accessToken: 'a', idToken: 'i', expiraEm: 1 }))
+    expect(u.searchParams.get('id_token_hint')).toBe('i')
+  })
+})

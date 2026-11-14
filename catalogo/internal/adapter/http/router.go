@@ -17,6 +17,8 @@ type Dependencias struct {
 	Handlers    Handlers
 	Saude       http.HandlerFunc
 	Verificador middleware.VerificadorDeCredencial
+	// Imagens, quando não nulo, atende GET /imagens/* (arquivos estáticos).
+	Imagens http.Handler
 }
 
 type Rota struct {
@@ -105,6 +107,10 @@ func novoRouter(tabela []Rota, d Dependencias) http.Handler {
 			h = protegida(h)
 		}
 		r.Method(rota.Metodo, rota.Caminho, comPadrao(rota, h))
+	}
+
+	if d.Imagens != nil {
+		r.Method("GET", "/imagens/*", d.Imagens)
 	}
 
 	return r

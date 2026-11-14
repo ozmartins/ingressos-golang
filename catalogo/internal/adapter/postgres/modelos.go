@@ -16,12 +16,13 @@ type filmeRow struct {
 func (filmeRow) TableName() string { return "filmes" }
 
 type cinemaRow struct {
-	ID       string `gorm:"column:id;primaryKey"`
-	Nome     string `gorm:"column:nome"`
-	Cidade   string `gorm:"column:cidade"`
-	Estado   string `gorm:"column:estado"`
-	Endereco string `gorm:"column:endereco"`
-	Ativo    bool   `gorm:"column:ativo"`
+	ID       string  `gorm:"column:id;primaryKey"`
+	Nome     string  `gorm:"column:nome"`
+	Cidade   string  `gorm:"column:cidade"`
+	Estado   string  `gorm:"column:estado"`
+	Endereco string  `gorm:"column:endereco"`
+	LogoURL  *string `gorm:"column:logo_url"`
+	Ativo    bool    `gorm:"column:ativo"`
 }
 
 func (cinemaRow) TableName() string { return "cinemas" }

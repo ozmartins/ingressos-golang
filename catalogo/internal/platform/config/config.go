@@ -14,6 +14,9 @@ type Config struct {
 
 	DatabaseURL string
 
+	// ImagensDir é o diretório servido em GET /imagens/* (pôsteres e logos).
+	ImagensDir string
+
 	KeycloakIssuerURL string
 	KeycloakAudience  string
 
@@ -35,6 +38,7 @@ func Carregar() (Config, error) {
 
 	c := Config{
 		HTTPPort:          comPadrao("HTTP_PORT", "8080"),
+		ImagensDir:        comPadrao("IMAGENS_DIR", "imagens-cinemas"),
 		DatabaseURL:       os.Getenv("DATABASE_URL"),
 		KeycloakIssuerURL: os.Getenv("KEYCLOAK_ISSUER_URL"),
 		KeycloakAudience:  os.Getenv("KEYCLOAK_AUDIENCE"),

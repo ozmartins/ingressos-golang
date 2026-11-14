@@ -1,5 +1,5 @@
--- Carga dos filmes descritos em filmes_em_cartaz.json, filmes_em_breve.json e
--- filmes_fora_cartaz.json. Script avulso: não faz parte das migrations, rode
+-- Carga dos filmes em cartaz lidos das páginas salvas do AdoroCinema
+-- (~/Downloads/cinemas). Script avulso: não faz parte das migrations, rode
 -- quando quiser, quantas vezes quiser.
 --
 --   psql "$DATABASE_URL" -f scripts/seed_filmes.sql
@@ -10,7 +10,15 @@
 -- transação: ou apaga e insere, ou não faz nada.
 --
 -- Os IDs são UUIDv5 derivados do título, então o resultado é sempre o mesmo
--- conjunto de 10 filmes, com os mesmos ids, a cada execução.
+-- conjunto de 13 filmes, com os mesmos ids, a cada execução.
+--
+-- As páginas só informam título, direção e elenco (a sinopse guarda os dois
+-- últimos). Duração, classificação e gênero são obrigatórios no catálogo e não
+-- constam da fonte: ficam com valores padrão (90 min, 'Não informada', 'Não
+-- informado') até serem corrigidos pela API (PUT /api/v1/filmes/{id}).
+--
+-- `imagem_url` aponta para os pôsteres em imagens-cinemas/filmes/, servidos pelo
+-- catálogo em GET /imagens/filmes/<arquivo> (porta padrão do compose: 8082).
 SET search_path TO catalogo;
 
 BEGIN;
@@ -20,18 +28,18 @@ DELETE FROM sessoes;
 DELETE FROM filmes;
 
 INSERT INTO filmes (id, titulo, sinopse, duracao_minutos, classificacao_etaria, genero, imagem_url, status) VALUES
--- EM_CARTAZ (filmes_em_cartaz.json)
-  ('84e1d004-6db0-53f9-9d4a-166964ff1b42', 'O Sorveteiro', 'Uma pacata cidade litorânea mergulha no caos quando um misterioso vendedor de sorvetes distribui doces amaldiçoados que transformam crianças em criaturas violentas.', 86, '18', 'Terror', 'https://placehold.co/500x750?text=O+Sorveteiro', 'EM_CARTAZ'),
-  ('8b65b766-b508-5912-87a4-fc2bf47234c2', 'Idiotas', 'Um trabalho aparentemente simples rapidamente se transforma em uma viagem completamente fora de controle para dois homens encarregados de uma missão incomum.', 99, '18', 'Comédia', 'https://placehold.co/500x750?text=Idiotas', 'EM_CARTAZ'),
-  ('5c0c96f1-b89d-5222-b449-9e248fb817e7', 'Pressão', 'Nas horas que antecedem o Dia D, um meteorologista precisa fornecer uma previsão capaz de determinar o destino de uma das maiores operações militares da Segunda Guerra Mundial.', 100, '14', 'Guerra, Histórico, Suspense', 'https://placehold.co/500x750?text=Pressao', 'EM_CARTAZ'),
--- BREVE (filmes_em_breve.json)
-  ('859407cb-fc15-5186-8089-6d1a8b36795d', 'Código: Vingança', 'Após testemunhar o assassinato de seu chefe bilionário e ser acusado injustamente pelo crime, Cole Reed entra em uma jornada de vingança e descobre uma perigosa conspiração internacional.', 95, '16', 'Ação, Thriller', 'https://placehold.co/500x750?text=Codigo+Vinganca', 'BREVE'),
-  ('5de239bb-116b-5383-a0fe-566f83326ecf', 'Da Magia à Sedução: Feitiço de Amor', 'Sally e Gillian Owens precisam confrontar novamente a antiga maldição de sua família quando forças sombrias ameaçam destruir definitivamente o clã.', 130, '12', 'Fantasia, Romance', 'https://placehold.co/500x750?text=Da+Magia+a+Seducao', 'BREVE'),
-  ('618ff32a-657c-5cd8-82c0-96249773b63b', 'Coração Selvagem', 'Depois de sofrer um acidente de avião em uma região isolada do Alasca, um ex-soldado das Forças Especiais e seu cão precisam lutar para sobreviver e encontrar o caminho de volta para casa.', 101, '14', 'Aventura, Ação', 'https://placehold.co/500x750?text=Coracao+Selvagem', 'BREVE'),
--- FORA_DE_CARTAZ (filmes_fora_cartaz.json)
-  ('364494ab-87e2-51ba-a15e-bcff2d81bb82', 'Mestres do Universo', 'Adam recupera a espada que o conecta ao planeta Eternia e retorna ao seu mundo natal para impedir que Esqueleto domine o reino.', 140, '14', 'Ação, Aventura, Fantasia, Ficção Científica', 'https://placehold.co/500x750?text=Mestres+do+Universo', 'FORA_DE_CARTAZ'),
-  ('d9f25619-23c7-53eb-ae3d-a79f431b615d', 'Todo Mundo em Pânico', 'Mais de duas décadas depois, Cindy, Brenda, Shorty e Ray acabam novamente envolvidos em uma confusão com assassinos, monstros e fenômenos sobrenaturais.', 96, '18', 'Comédia, Terror', 'https://placehold.co/500x750?text=Todo+Mundo+em+Panico', 'FORA_DE_CARTAZ'),
-  ('1eae7a62-eb3e-5d25-a80c-4bfd27c2660e', 'Minions & Monstros', 'Depois de libertarem acidentalmente criaturas monstruosas durante sua passagem por Hollywood, os Minions precisam se unir para impedir que os monstros destruam o mundo.', 90, '10', 'Animação, Aventura, Comédia, Família', 'https://placehold.co/500x750?text=Minions+e+Monstros', 'FORA_DE_CARTAZ'),
-  ('f7143722-6e72-533d-be6f-090f419d84b4', 'Supergirl', 'Kara Zor-El enfrenta os traumas da destruição de Krypton enquanto se envolve na busca de uma jovem alienígena por vingança contra o mercenário responsável pela morte de seu pai.', 108, '14', 'Ação, Aventura, Ficção Científica', 'https://placehold.co/500x750?text=Supergirl', 'FORA_DE_CARTAZ');
+  ('32dee210-f9f3-5091-84e9-6ae1f44be96b', 'A Virada: Ignição da Alma', 'Direção: Alessandro Barros. Elenco: Mario Bregieira, Pérola Faria, Gui Tavares.', 90, 'Não informada', 'Não informado', 'http://localhost:8082/imagens/filmes/a-virada-ignicao-da-alma.jpg', 'EM_CARTAZ'),
+  ('2dcebe56-e4ea-5778-aa85-6c3b93d944ce', 'Apenas uma Ilusão', 'Direção: Olivier Nakache, Eric Toledano. Elenco: Louis Garrel, Camille Cottin, Pierre Lottin.', 90, 'Não informada', 'Não informado', 'http://localhost:8082/imagens/filmes/apenas-uma-ilusao.jpg', 'EM_CARTAZ'),
+  ('4f2966d9-aa4b-50bc-b96e-a1d2aec74f0e', 'Boiúna: Terror no Amazonas', 'Direção: Mike P. Nelson. Elenco: Kiana Madeira, Jessica Rothe, Logan Marshall-Green.', 90, 'Não informada', 'Não informado', 'http://localhost:8082/imagens/filmes/boiuna-terror-no-amazonas.jpg', 'EM_CARTAZ'),
+  ('63af20a3-f387-5de1-95c4-3ccffc6027d9', 'Cara-de-Barro', 'Direção: James Watkins. Elenco: Tom Rhys Harries, Naomi Ackie, Eddie Marsan.', 90, 'Não informada', 'Não informado', 'http://localhost:8082/imagens/filmes/cara-de-barro.png', 'EM_CARTAZ'),
+  ('cb6ba173-8c6d-5abb-a460-3aec00641dbb', 'Contos Paralelos', 'Direção: Asghar Farhadi. Elenco: Isabelle Huppert, Virginie Efira, Pierre Niney.', 90, 'Não informada', 'Não informado', 'http://localhost:8082/imagens/filmes/contos-paralelos.jpg', 'EM_CARTAZ'),
+  ('eebe2b41-9a3e-5162-83fc-589b13580970', 'Deixe-me Viver', 'Direção: Walther Neto. Elenco: Mônica Carvalho, Cat Dantas, Humberto Martins.', 90, 'Não informada', 'Não informado', 'http://localhost:8082/imagens/filmes/deixe-me-viver.jpg', 'EM_CARTAZ'),
+  ('a873c49f-5665-5dc7-be9e-a00addfc0929', 'Ebenezer e os Fantasmas do Natal', 'Direção: Ti West. Elenco: Johnny Depp, Rupert Grint, Daisy Ridley.', 90, 'Não informada', 'Não informado', 'http://localhost:8082/imagens/filmes/ebenezer-e-os-fantasmas-do-natal.jpg', 'EM_CARTAZ'),
+  ('5febf49d-4bac-5fa3-a86f-9847324fcd83', 'Godzilla Minus Zero', 'Direção: Takashi Yamazaki. Elenco: Ryûnosuke Kamiki, Minami Hamabe, Yamada Yuki.', 90, 'Não informada', 'Não informado', 'http://localhost:8082/imagens/filmes/godzilla-minus-zero.png', 'EM_CARTAZ'),
+  ('d13195d3-6ca9-5bdf-9e66-2111916a85fd', 'Lago dos Ossos', 'Direção: Mercedes Bryce Morgan. Elenco: Maddie Hasson, Alex Roe, Marco Pigossi.', 90, 'Não informada', 'Não informado', 'http://localhost:8082/imagens/filmes/lago-dos-ossos.jpg', 'EM_CARTAZ'),
+  ('c0fc662d-e8f7-5a89-8fdd-a239940c8d2f', 'O Bosque Selvagem', 'Direção: Travis Knight. Elenco: Peyton Elizabeth Lee, Jacob Tremblay, Mahershala Ali.', 90, 'Não informada', 'Não informado', 'http://localhost:8082/imagens/filmes/o-bosque-selvagem.jpg', 'EM_CARTAZ'),
+  ('62cd1cbd-f755-5a76-8a67-dce8c4c261d6', 'Pinóquio: Maldição de Madeira', 'Direção: Rhys Frake-Waterfield. Elenco: Robert Englund, Richard Brake, Jude Evan Lloyd.', 90, 'Não informada', 'Não informado', 'http://localhost:8082/imagens/filmes/pinoquio-maldicao-de-madeira.jpg', 'EM_CARTAZ'),
+  ('54ff2ab3-6423-5aa6-860d-af95dda1bf3a', 'Só Não Posso Dizer o Nome', 'Direção: Helvécio Ratton. Elenco: Lara Martinelli, Bruno Matos, Laura Del Picchia.', 90, 'Não informada', 'Não informado', 'http://localhost:8082/imagens/filmes/so-nao-posso-dizer-o-nome.jpg', 'EM_CARTAZ'),
+  ('9714c41b-5084-5dde-b418-dca42d0ed0df', 'Verity', 'Direção: Michael Showalter. Elenco: Anne Hathaway, Dakota Johnson, Josh Hartnett.', 90, 'Não informada', 'Não informado', 'http://localhost:8082/imagens/filmes/verity.png', 'EM_CARTAZ');
 
 COMMIT;

@@ -91,12 +91,18 @@ type cinemaDTO struct {
 	Cidade   string `json:"cidade"`
 	Estado   string `json:"estado"`
 	Endereco string `json:"endereco"`
-	Ativo    bool   `json:"ativo"`
+	// LogoURL é sempre emitido: null quando o cinema não tem logo.
+	LogoURL *string `json:"logo_url"`
+	Ativo   bool    `json:"ativo"`
 }
 
 func paraCinemaDTO(c catalogo.Cinema) cinemaDTO {
+	var logo *string
+	if c.LogoURL != "" {
+		logo = &c.LogoURL
+	}
 	return cinemaDTO{ID: c.ID, Nome: c.Nome, Cidade: c.Cidade, Estado: c.Estado,
-		Endereco: c.Endereco, Ativo: c.Ativo}
+		Endereco: c.Endereco, LogoURL: logo, Ativo: c.Ativo}
 }
 
 type cinemaEntradaDTO struct {
@@ -104,6 +110,7 @@ type cinemaEntradaDTO struct {
 	Cidade   *string `json:"cidade"`
 	Estado   *string `json:"estado"`
 	Endereco *string `json:"endereco"`
+	LogoURL  *string `json:"logo_url"`
 	Ativo    *bool   `json:"ativo"`
 }
 
@@ -120,6 +127,9 @@ func (d cinemaEntradaDTO) paraDadosCinema() catalogo.DadosCinema {
 	}
 	if d.Endereco != nil {
 		dados.Endereco = *d.Endereco
+	}
+	if d.LogoURL != nil {
+		dados.LogoURL = *d.LogoURL
 	}
 	return dados
 }

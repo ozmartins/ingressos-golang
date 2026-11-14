@@ -52,6 +52,32 @@ func TestGetCinemasRetornaLocalizacao(t *testing.T) {
 	}
 }
 
+func TestGetCinemasSempreEmiteLogoURL(t *testing.T) {
+	rede := append(redeDeTeste(), catalogo.Cinema{
+		ID: "b1b2c3d4-0000-4000-8000-000000000002", Nome: "Cine Logo", Cidade: "Florianópolis",
+		Estado: "SC", Endereco: "Rua W, 1", LogoURL: "https://cdn.exemplo.com/logo.png", Ativo: true,
+	})
+	amb := montarComCinemas(t, rede)
+
+	_, corpo := obter(t, amb.servidor, "/api/v1/cinemas")
+	e := decodificarEnvelope(t, corpo)
+	if v, ok := e.Itens[0]["logo_url"]; !ok || v != nil {
+		t.Errorf("cinema sem logo deveria trazer logo_url null, veio %v (presente=%v)", v, ok)
+	}
+	if e.Itens[1]["logo_url"] != "https://cdn.exemplo.com/logo.png" {
+		t.Errorf("logo_url inesperado: %v", e.Itens[1]["logo_url"])
+	}
+
+	_, corpo = obter(t, amb.servidor, "/api/v1/cinemas/b1b2c3d4-0000-4000-8000-000000000002")
+	if decodificarCinema(t, corpo)["logo_url"] != "https://cdn.exemplo.com/logo.png" {
+		t.Errorf("detalhe sem logo_url: %s", corpo)
+	}
+	_, corpo = obter(t, amb.servidor, "/api/v1/cinemas/"+cinemaID)
+	if v, ok := decodificarCinema(t, corpo)["logo_url"]; !ok || v != nil {
+		t.Errorf("detalhe sem logo deveria trazer logo_url null: %s", corpo)
+	}
+}
+
 func TestGetCinemasRecusaAtivoDesconhecido(t *testing.T) {
 	amb := montarComCinemas(t, redeDeTeste())
 	resp, corpo := obter(t, amb.servidor, "/api/v1/cinemas?ativo=sim")
@@ -194,6 +220,60 @@ func TestPutCinemaSubstituiOCinemaInteiro(t *testing.T) {
 	}
 	if cinema["ativo"] != true {
 		t.Errorf("sem `ativo` no corpo, o cinema deveria ficar ativo, veio %v", cinema["ativo"])
+	}
+}
+
+func TestPostEPutCinemaGravamLogoURL(t *testing.T) {
+	amb := montarComCinemas(t, redeDeTeste())
+	comLogo := `{"nome":"CineMark - Beiramar","cidade":"Florianópolis","estado":"SC",` +
+		`"endereco":"Rua Y, 200","logo_url":"  https://cdn.exemplo.com/a.png "}`
+
+	resp, corpo := requisitar(t, amb.servidor, http.MethodPost, "/api/v1/cinemas", "token-bom", comLogo)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("POST: status %d (corpo: %s)", resp.StatusCode, corpo)
+	}
+	if got := decodificarCinema(t, corpo)["logo_url"]; got != "https://cdn.exemplo.com/a.png" {
+		t.Fatalf("logo_url criado = %v", got)
+	}
+
+	nova := `{"nome":"X","cidade":"Y","estado":"SC","endereco":"Z","logo_url":"https://cdn.exemplo.com/b.png"}`
+	resp, corpo = requisitar(t, amb.servidor, http.MethodPut, "/api/v1/cinemas/"+cinemaID, "token-bom", nova)
+	if resp.StatusCode != http.StatusOK || decodificarCinema(t, corpo)["logo_url"] != "https://cdn.exemplo.com/b.png" {
+		t.Fatalf("PUT com logo: status %d, corpo %s", resp.StatusCode, corpo)
+	}
+
+	semLogo := `{"nome":"X","cidade":"Y","estado":"SC","endereco":"Z"}`
+	resp, corpo = requisitar(t, amb.servidor, http.MethodPut, "/api/v1/cinemas/"+cinemaID, "token-bom", semLogo)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("PUT sem logo: status %d (corpo: %s)", resp.StatusCode, corpo)
+	}
+	if v, ok := decodificarCinema(t, corpo)["logo_url"]; !ok || v != nil {
+		t.Fatalf("PUT sem logo_url deveria remover o logo (null), veio %v", v)
+	}
+}
+
+func TestPostCinemaRecusaLogoURLInvalida(t *testing.T) {
+	casos := map[string]string{
+		"javascript":      `javascript:alert(1)`,
+		"ftp":             `ftp://x.com/a.png`,
+		"sem host":        `https://`,
+		"espaço interno":  `https://a b.com/x.png`,
+		"texto livre":     `nao e url`,
+		"2049 caracteres": `https://a.co/` + strings.Repeat("x", 2049-len("https://a.co/")),
+	}
+	for nome, logo := range casos {
+		t.Run(nome, func(t *testing.T) {
+			amb := montarComCinemas(t, nil)
+			corpoEnviado := `{"nome":"X","cidade":"Y","estado":"SC","endereco":"Z","logo_url":"` + logo + `"}`
+			resp, corpo := requisitar(t, amb.servidor, http.MethodPost, "/api/v1/cinemas", "token-bom", corpoEnviado)
+
+			if resp.StatusCode != http.StatusBadRequest {
+				t.Fatalf("status %d, esperava 400 (corpo: %s)", resp.StatusCode, corpo)
+			}
+			if p := decodificarProblem(t, resp, corpo); !strings.Contains(p.Detail, "logo_url") {
+				t.Fatalf("o detalhe deveria citar logo_url: %q", p.Detail)
+			}
+		})
 	}
 }
 

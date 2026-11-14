@@ -14,10 +14,22 @@ type CinemaRepository struct{ banco *Banco }
 func NovoCinemaRepository(b *Banco) *CinemaRepository { return &CinemaRepository{banco: b} }
 
 func (r cinemaRow) paraDominio() (catalogo.Cinema, error) {
+	logo := ""
+	if r.LogoURL != nil {
+		logo = *r.LogoURL
+	}
 	return catalogo.Cinema{
 		ID: r.ID, Nome: r.Nome, Cidade: r.Cidade, Estado: r.Estado,
-		Endereco: r.Endereco, Ativo: r.Ativo,
+		Endereco: r.Endereco, LogoURL: logo, Ativo: r.Ativo,
 	}, nil
+}
+
+// logoOuNulo grava a ausência de logo como NULL, não como string vazia.
+func logoOuNulo(logo string) *string {
+	if logo == "" {
+		return nil
+	}
+	return &logo
 }
 
 func (r *CinemaRepository) Listar(
@@ -45,7 +57,7 @@ func (r *CinemaRepository) BuscarPorID(ctx context.Context, cinemaID string) (ca
 
 func (r *CinemaRepository) Criar(ctx context.Context, c catalogo.Cinema) error {
 	linha := cinemaRow{ID: c.ID, Nome: c.Nome, Cidade: c.Cidade, Estado: c.Estado,
-		Endereco: c.Endereco, Ativo: c.Ativo}
+		Endereco: c.Endereco, LogoURL: logoOuNulo(c.LogoURL), Ativo: c.Ativo}
 	if err := r.banco.conn(ctx).Create(&linha).Error; err != nil {
 		return fmt.Errorf("inserindo cinema: %w", err)
 	}
@@ -55,7 +67,7 @@ func (r *CinemaRepository) Criar(ctx context.Context, c catalogo.Cinema) error {
 func (r *CinemaRepository) Atualizar(ctx context.Context, c catalogo.Cinema) error {
 	res := r.banco.conn(ctx).Model(&cinemaRow{}).Where("id = ?", c.ID).Updates(map[string]any{
 		"nome": c.Nome, "cidade": c.Cidade, "estado": c.Estado, "endereco": c.Endereco,
-		"ativo": c.Ativo, "atualizado_em": gormAgora,
+		"logo_url": logoOuNulo(c.LogoURL), "ativo": c.Ativo, "atualizado_em": gormAgora,
 	})
 	if res.Error != nil {
 		return fmt.Errorf("atualizando cinema: %w", res.Error)

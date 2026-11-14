@@ -325,6 +325,53 @@ func TestCicloDeVidaDoCinema(t *testing.T) {
 	}
 }
 
+func TestLogoDoCinemaIdaEVolta(t *testing.T) {
+	carregarFixtures(t)
+	repo := pgadapter.NovoCinemaRepository(banco)
+	ctx := context.Background()
+	const id = "b1b2c3d4-0000-4000-8000-0000000000ab"
+
+	// Cinema das fixtures, anterior à coluna: sem logo (NULL lido como vazio).
+	legado, err := repo.BuscarPorID(ctx, "b1b2c3d4-0000-4000-8000-000000000001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if legado.LogoURL != "" {
+		t.Fatalf("cinema legado deveria vir sem logo, veio %q", legado.LogoURL)
+	}
+
+	dados := dadosCinema()
+	dados.LogoURL = "https://cdn.exemplo.com/logo.png"
+	novo, err := catalogo.NovoCinema(id, dados)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.Criar(ctx, novo); err != nil {
+		t.Fatalf("Criar: %v", err)
+	}
+	if lido, _ := repo.BuscarPorID(ctx, id); lido.LogoURL != dados.LogoURL {
+		t.Fatalf("logo gravado = %q", lido.LogoURL)
+	}
+
+	dados.LogoURL = "https://cdn.exemplo.com/novo.png"
+	alterado, _ := catalogo.NovoCinema(id, dados)
+	if err := repo.Atualizar(ctx, alterado); err != nil {
+		t.Fatalf("Atualizar: %v", err)
+	}
+	if lido, _ := repo.BuscarPorID(ctx, id); lido.LogoURL != dados.LogoURL {
+		t.Fatalf("logo atualizado = %q", lido.LogoURL)
+	}
+
+	dados.LogoURL = ""
+	removido, _ := catalogo.NovoCinema(id, dados)
+	if err := repo.Atualizar(ctx, removido); err != nil {
+		t.Fatalf("Atualizar sem logo: %v", err)
+	}
+	if lido, _ := repo.BuscarPorID(ctx, id); lido.LogoURL != "" {
+		t.Fatalf("logo deveria ter sido removido, veio %q", lido.LogoURL)
+	}
+}
+
 func TestEscritaDeCinemaInexistenteDevolveNaoEncontrado(t *testing.T) {
 	carregarFixtures(t)
 	repo := pgadapter.NovoCinemaRepository(banco)

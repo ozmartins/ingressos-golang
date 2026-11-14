@@ -71,6 +71,7 @@ func aplicarMigracoes(ctx context.Context) error {
 		"../../migrations/000004_escrita_salas_sessoes.up.sql",
 		"../../migrations/000005_layout_das_salas.up.sql",
 		"../../migrations/000006_caixa_de_saida.up.sql",
+		"../../migrations/000007_logo_do_cinema.up.sql",
 	} {
 		sql, err := os.ReadFile(arquivo)
 		if err != nil {

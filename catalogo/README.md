@@ -83,6 +83,7 @@ fatos (`sessao.criada`, `sessao.cancelada`), não por chamada.
 | `PUT` | `/api/v1/salas/{id}` | Bearer |
 | `DELETE` | `/api/v1/salas/{id}` | Bearer |
 | `GET` | `/api/v1/sessoes` | pública |
+| `GET` | `/imagens/*` | pública (estática) |
 | `GET` | `/health` | pública |
 
 Sobre a escrita de filmes: o identificador é gerado pelo serviço e volta no
@@ -96,6 +97,15 @@ remoção marca o cinema como inativo em vez de apagar a linha, porque as salas 
 referenciam e as sessões referenciam as salas. O cinema some de
 `GET /cinemas`, segue legível em `GET /cinemas/{id}` e é alcançável pelo filtro
 `GET /cinemas?ativo=false`.
+
+O cinema tem um `logo_url` opcional (URL http/https de até 2048 caracteres):
+sempre aparece na resposta, `null` quando não há logo, e, como o `PUT` é
+substituição total, omiti-lo remove o logo existente.
+
+Os pôsteres dos filmes (`imagem_url`) e os logos dos cinemas (`logo_url`) dos
+scripts `scripts/seed_*.sql` apontam para os arquivos de `imagens-cinemas/`
+(`filmes/` e `cinemas/`), servidos pelo próprio catálogo em `GET /imagens/*`
+(diretório configurável por `IMAGENS_DIR`; listagem de diretório não existe).
 
 As salas moram fora do caminho do cinema: cada uma é endereçada por
 `/salas/{id}`, e o cinema é o filtro opcional `GET /salas?cinema_id=<uuid>` — sem

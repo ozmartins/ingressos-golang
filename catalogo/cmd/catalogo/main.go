@@ -79,6 +79,7 @@ func executar() error {
 	publicador.Iniciar(ctx)
 
 	router := adapterhttp.NovoRouter(adapterhttp.Dependencias{
+		Imagens: adapterhttp.HandlerImagens(cfg.ImagensDir),
 		Handlers: adapterhttp.Handlers{
 			ListarFilmes:     usecase.ListarFilmes{Repo: filmes},
 			BuscarFilme:      usecase.BuscarFilme{Repo: filmes},

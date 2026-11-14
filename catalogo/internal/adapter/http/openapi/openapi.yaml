@@ -487,6 +487,12 @@ components:
         cidade: { type: string }
         estado: { type: string, minLength: 2, maxLength: 2 }
         endereco: { type: string }
+        logo_url:
+          type: string
+          format: uri
+          maxLength: 2048
+          nullable: true
+          description: URL do logo do cinema; `null` quando não há logo. Sempre presente na resposta.
         ativo: { type: boolean }
 
     CinemaEntrada:
@@ -502,6 +508,14 @@ components:
           maxLength: 2
           description: Sigla da unidade federativa, normalizada para maiúsculas
         endereco: { type: string, minLength: 1 }
+        logo_url:
+          type: string
+          maxLength: 2048
+          nullable: true
+          description: |
+            Opcional. URL http/https do logo, aparada; vazio, `null` ou omitido
+            significa sem logo. O PUT substitui o cinema inteiro, então omitir
+            o campo remove o logo existente.
         ativo: { type: boolean, default: true }
       additionalProperties: false
 

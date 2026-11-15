@@ -56,6 +56,27 @@ PostgreSQL (porta 5434 no host)
 Redis (porta 6379)
   redis://localhost:6379/0
 
+OBSERVABILIDADE
+---------------
+Jaeger (traces distribuídos, porta 16686)
+  http://localhost:16686/                        Busque por serviço (front, catalogo, estoque, pagamento, notificacao)
+  http://localhost:4318/v1/traces                Receptor OTLP/HTTP (POST); o frontend envia por /otlp, proxy do Vite
+
+Prometheus (métricas, porta 9091 no host)
+  http://localhost:9091/targets                  Estado da raspagem dos quatro serviços
+  http://localhost:9091/graph                    Ex.: sum by (route, status) (rate(http_requests_total[1m]))
+
+Grafana (painéis, porta 3000; acesso anônimo, sem login)
+  http://localhost:3000/                         Pasta "Ingressos" > "Ingressos — visão geral"
+  http://localhost:3000/explore                  Fontes Prometheus e Jaeger já provisionadas
+
+/metrics dos serviços: porta 9090 de cada contêiner, só na rede do compose
+(OBS_ADDR). Para ver à mão: docker compose exec prometheus wget -qO- http://estoque:9090/metrics
+
+Painéis do Grafana e fontes (Prometheus, Jaeger) são provisionados por infra/grafana.
+
+Logs: JSON em stdout, com trace_id/span_id. Ex.: docker compose logs estoque | grep <trace_id>
+
 SERVIÇOS SEM URL
 ----------------
 migrate-catalogo, migrate-estoque, migrate-notificacao, migrate-pagamento

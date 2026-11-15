@@ -1,0 +1,14 @@
+# Cada serviço expõe /metrics numa porta própria (OBS_ADDR, :9090), só dentro da
+# rede do compose: não é publicada no host e não passa pela autenticação.
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: catalogo
+    static_configs: [{ targets: ["catalogo:9090"] }]
+  - job_name: estoque
+    static_configs: [{ targets: ["estoque:9090"] }]
+  - job_name: pagamento
+    static_configs: [{ targets: ["pagamento:9090"] }]
+  - job_name: notificacao
+    static_configs: [{ targets: ["notificacao:9090"] }]

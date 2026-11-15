@@ -60,6 +60,35 @@ services:
       timeout: 3s
       retries: 30
   
+  # Observabilidade: os serviços enviam spans (OTLP/HTTP) ao Jaeger e expõem
+  # /metrics, que o Prometheus raspa pela rede interna.
+  jaeger:
+    image: jaegertracing/all-in-one:1.76.0
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "${PORTA_JAEGER:-16686}:16686"
+      # OTLP/HTTP: o frontend (proxy do Vite em /otlp) envia os spans do navegador aqui.
+      - "${PORTA_JAEGER_OTLP:-4318}:4318"
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    volumes: ["./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro"]
+    ports: ["${PORTA_PROMETHEUS:-9091}:9090"]
+
+  grafana:
+    image: grafana/grafana:12.1.0
+    environment:
+      # Ambiente de desenvolvimento: acesso anônimo como administrador, sem login.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports: ["${PORTA_GRAFANA:-3000}:3000"]
+    depends_on: [prometheus, jaeger]
+
   migrate-catalogo:
     image: migrate/migrate:v4.17.1
     volumes: ["./catalogo/migrations:/migrations:ro"]
@@ -108,12 +137,16 @@ services:
     build:
       context: ./catalogo
     environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OBS_ADDR: ":9090"
       DATABASE_URL: postgres://catalogo:catalogo@postgres:5432/cinema?sslmode=disable
       KEYCLOAK_ISSUER_URL: http://keycloak:8081/realms/cinema
       KEYCLOAK_AUDIENCE: cinema-app
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
     ports: ["${PORTA_CATALOGO:-8082}:8080"]
     depends_on:
+      jaeger:
+        condition: service_started
       migrate-catalogo:
         condition: service_completed_successfully
       keycloak:
@@ -128,6 +161,8 @@ services:
     build:
       context: ./estoque
     environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OBS_ADDR: ":9090"
       DATABASE_URL: postgres://estoque:estoque@postgres:5432/cinema?sslmode=disable
       REDIS_URL: redis://redis:6379/0
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
@@ -147,6 +182,8 @@ services:
       - "${PORTA_ESTOQUE_ADMIN:-8090}:8090"
       - "${PORTA_ESTOQUE_REST:-8085}:8085"
     depends_on:
+      jaeger:
+        condition: service_started
       migrate-estoque:
         condition: service_completed_successfully
       redis:
@@ -164,6 +201,8 @@ services:
     build:
       context: ./pagamento
     environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OBS_ADDR: ":9090"
       DATABASE_URL: postgres://pagamento:pagamento@postgres:5432/cinema?sslmode=disable
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       JWKS_URL: http://keycloak:8081/realms/cinema/protocol/openid-connect/certs
@@ -171,6 +210,8 @@ services:
       JWT_AUDIENCE: cinema-app
     ports: ["${PORTA_PAGAMENTO:-8083}:8080"]
     depends_on:
+      jaeger:
+        condition: service_started
       migrate-pagamento:
         condition: service_completed_successfully
       rabbitmq:
@@ -182,6 +223,8 @@ services:
     build:
       context: ./notificacao
     environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OBS_ADDR: ":9090"
       DATABASE_URL: postgres://notificacao:notificacao@postgres:5432/cinema?sslmode=disable
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       JWKS_URL: http://keycloak:8081/realms/cinema/protocol/openid-connect/certs
@@ -192,6 +235,8 @@ services:
       NOTIFICADOR_MODO: enviar
     ports: ["${PORTA_NOTIFICACAO:-8084}:8080"]
     depends_on:
+      jaeger:
+        condition: service_started
       migrate-notificacao:
         condition: service_completed_successfully
       rabbitmq:

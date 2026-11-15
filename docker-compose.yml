@@ -251,12 +251,14 @@ services:
   front:
     build:
       context: ./front
+    restart: on-failure
     ports: ["${PORTA_FRONT:-5173}:80"]
     depends_on: [catalogo, estoque, jaeger]
 
   admin:
     build:
       context: ./admin
+    restart: on-failure
     ports: ["${PORTA_ADMIN:-5174}:80"]
     depends_on: [catalogo, keycloak]
 

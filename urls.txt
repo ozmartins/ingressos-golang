@@ -39,6 +39,12 @@ Notificação (HTTP, porta 8084)
   http://localhost:8084/api/v1/ingressos/meus-ingressos        (GET)
   http://localhost:8084/api/v1/ingressos/validar               (POST)
 
+Front (loja, porta 5173)
+  http://localhost:5173/
+
+Admin (painel, porta 5174)
+  http://localhost:5174/
+
 INFRAESTRUTURA
 --------------
 Keycloak (porta 8081)

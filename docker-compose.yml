@@ -248,6 +248,18 @@ services:
       keycloak:
         condition: service_healthy
 
+  front:
+    build:
+      context: ./front
+    ports: ["${PORTA_FRONT:-5173}:80"]
+    depends_on: [catalogo, estoque, jaeger]
+
+  admin:
+    build:
+      context: ./admin
+    ports: ["${PORTA_ADMIN:-5174}:80"]
+    depends_on: [catalogo, keycloak]
+
 volumes:
   postgres-dados:
   redis-dados:

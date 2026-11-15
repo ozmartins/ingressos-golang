@@ -21,7 +21,8 @@ type Config struct {
 	JWTIssuer   string
 	JWTAudience string
 
-	CatalogoURL      string
+	// CatalogoGRPCAddr é o endereço gRPC do catálogo (host:porta).
+	CatalogoGRPCAddr string
 	CatalogoTimeout  time.Duration
 	BreakerFalhas    int
 	BreakerIntervalo time.Duration
@@ -95,7 +96,7 @@ func Carregar() (*Config, error) {
 		JWTIssuer:   c.obrigatoria("JWT_ISSUER"),
 		JWTAudience: c.obrigatoria("JWT_AUDIENCE"),
 
-		CatalogoURL:      c.obrigatoria("CATALOGO_URL"),
+		CatalogoGRPCAddr: c.obrigatoria("CATALOGO_GRPC_ADDR"),
 		CatalogoTimeout:  c.duracao("CATALOGO_TIMEOUT", "2s"),
 		BreakerFalhas:    c.inteiro("BREAKER_FALHAS_CONSECUTIVAS", "5"),
 		BreakerIntervalo: c.duracao("BREAKER_INTERVALO_ABERTO", "30s"),

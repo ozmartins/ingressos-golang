@@ -8,8 +8,8 @@ PostgreSQL, Redis, RabbitMQ e Keycloak, orquestrados por um único
 
 | Serviço | Papel | Superfícies |
 |---|---|---|
-| [`catalogo/`](catalogo/README.md) | Navegação e cadastro de filmes, cinemas, salas e sessões; dono do preço da sessão | REST (JWT), produtor AMQP |
-| [`estoque/`](estoque/README.md) | Dono da disponibilidade das poltronas; reserva (consultando preço e status da sessão no catálogo), confirma e libera assentos | REST (JWT), cliente REST do catálogo, consumidor/produtor AMQP |
+| [`catalogo/`](catalogo/README.md) | Navegação e cadastro de filmes, cinemas, salas e sessões; dono do preço da sessão | REST (JWT), servidor gRPC, produtor AMQP |
+| [`estoque/`](estoque/README.md) | Dono da disponibilidade das poltronas; reserva (consultando preço e status da sessão no catálogo), confirma e libera assentos | REST (JWT), cliente gRPC do catálogo, consumidor/produtor AMQP |
 | [`pagamento/`](pagamento/README.md) | Cobra de forma assíncrona a reserva criada | REST (JWT), consumidor/produtor AMQP |
 | [`notificacao/`](notificacao/README.md) | Emite o ingresso digital e valida na portaria | REST (JWT e `X-API-Key`), consumidor AMQP |
 
@@ -30,9 +30,9 @@ AMQP/HTTP e clientes do front), não só das specs.
           REST + Bearer JWT  │                    JWKS (valida JWT)│ (todas as APIs)
         ┌────────────────────┼─────────────────┐                   │
         ▼                    ▼                 │                   │
-  ┌──────────┐  GET /sessoes/{id}  ┌──────────┐│
+  ┌──────────┐  ObterSessao (gRPC) ┌──────────┐│
   │ catalogo │◀────────────────────│ estoque  ││
-  └────┬─────┘      (REST)         └──┬───▲───┘│
+  └────┬─────┘                     └──┬───▲───┘│
        │ sessao.criada / .cancelada    │   │ pagamento.sucesso / .falhou
        └──────────────▶ RabbitMQ ◀─────┘   │
                   (exchange cinema.eventos)│
@@ -42,11 +42,13 @@ AMQP/HTTP e clientes do front), não só das specs.
                                                                └─────────────┘
 ```
 
-Há dois estilos de comunicação, escolhidos por finalidade:
+Há três estilos de comunicação, escolhidos por finalidade:
 
-- **REST síncrono** quando quem chama precisa da resposta *agora* para decidir:
-  o navegador consultando/gravando, e o `estoque` lendo preço e status da sessão
-  no `catalogo`.
+- **REST síncrono** entre o navegador e as APIs (consultar/gravar).
+- **gRPC síncrono** entre serviços, quando quem chama precisa da resposta *agora*
+  para decidir: o `estoque` lendo preço e status da sessão no `catalogo`
+  (`catalogo.v1.CatalogoService/ObterSessao`, contrato em
+  `catalogo/proto/catalogo/v1/catalogo.proto`, com cópia idêntica em `estoque/proto`).
 - **Eventos assíncronos no RabbitMQ** (exchange `topic` `cinema.eventos`) quando
   um serviço apenas *anuncia um fato* e outros reagem no seu tempo. Nenhum
   serviço chama `pagamento` ou `notificacao` por HTTP.
@@ -74,8 +76,8 @@ Há dois estilos de comunicação, escolhidos por finalidade:
 - **REST** (JWT): `GET /api/v1/sessoes/{id}/poltronas` (mapa com status) e
   `POST /api/v1/sessoes/{id}/bloqueios` (reserva temporária; devolve `reserva_id`
   e `expira_em`, 10 min por padrão, no máximo 10 poltronas).
-- **Chama o `catalogo` por REST** (`GET /api/v1/sessoes/{id}`, rota pública, com
-  timeout e disjuntor) para confirmar que a sessão aceita reservas e calcular o
+- **Chama o `catalogo` por gRPC** (`CatalogoService/ObterSessao`, com timeout e
+  disjuntor) para confirmar que a sessão aceita reservas e calcular o
   `valor_total`. Assim o preço nunca vem do cliente.
 - **Consome:** `sessao.criada` (cria a matriz de poltronas da sessão),
   `sessao.cancelada` (cancela as reservas pendentes), `pagamento.sucesso`
@@ -187,7 +189,7 @@ feito por schema e por papel:
   (`internal/adapter/postgres`) quanto nas migrations (a tabela
   `schema_migrations` também fica no schema do serviço).
 - Nenhuma query ou migration referencia o schema de outro serviço. A troca de
-  dados entre serviços acontece só por REST e por mensagens AMQP.
+  dados entre serviços acontece só por gRPC (consulta da sessão) e por mensagens AMQP.
 - Separar em bancos físicos distintos exigiria apenas trocar a `DATABASE_URL` de
   cada serviço no `docker-compose.yml`; o código não muda.
 

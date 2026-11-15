@@ -1,0 +1,29 @@
+// Contrato gRPC do catálogo, consumido pelo estoque para precificar e validar
+// uma reserva. Esta cópia deve ficar idêntica à do outro serviço
+// (catalogo/proto e estoque/proto): não há módulo compartilhado.
+syntax = "proto3";
+
+package catalogo.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/oseias/ingressos-golang/estoque/gen/pb/catalogo/v1;catalogov1";
+
+service CatalogoService {
+  // ObterSessao devolve o necessário para reservar poltronas numa sessão.
+  // NOT_FOUND se a sessão não existe; INVALID_ARGUMENT se o id não é UUID.
+  rpc ObterSessao(ObterSessaoRequest) returns (Sessao);
+}
+
+message ObterSessaoRequest {
+  string id = 1;
+}
+
+message Sessao {
+  string id = 1;
+  // AGENDADA, EM_ANDAMENTO, FINALIZADA ou CANCELADA.
+  string status = 2;
+  google.protobuf.Timestamp data_hora_inicio = 3;
+  // Decimal exato com até 2 casas (ex.: "32.50"); string de propósito, nunca float.
+  string preco_base = 4;
+}

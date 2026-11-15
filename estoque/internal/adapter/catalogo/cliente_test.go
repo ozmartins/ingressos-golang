@@ -3,88 +3,141 @@ package catalogo
 import (
 	"context"
 	"errors"
-	"net/http"
-	"net/http/httptest"
+	"net"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
+	"google.golang.org/grpc/test/bufconn"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	pb "github.com/oseias/ingressos-golang/estoque/gen/pb/catalogo/v1"
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/shared"
 )
 
-const corpoValido = `{"id":"s1","filme_id":"f","sala_id":"x","data_hora_inicio":"2026-09-20T19:30:00Z","idioma":"DUBLADO","preco_base":"42.00","status":"AGENDADA"}`
+// servidorFalso implementa o CatalogoService com a resposta que o teste quiser.
+type servidorFalso struct {
+	pb.UnimplementedCatalogoServiceServer
+	resp     func(ctx context.Context, id string) (*pb.Sessao, error)
+	chamadas atomic.Int32
+	ultimoID atomic.Value
+}
 
-func servidor(t *testing.T, h http.HandlerFunc) *Cliente {
+func (s *servidorFalso) ObterSessao(ctx context.Context, r *pb.ObterSessaoRequest) (*pb.Sessao, error) {
+	s.chamadas.Add(1)
+	s.ultimoID.Store(r.GetId())
+	return s.resp(ctx, r.GetId())
+}
+
+func sessaoValida() *pb.Sessao {
+	return &pb.Sessao{
+		Id: "s1", Status: "AGENDADA", PrecoBase: "42.00",
+		DataHoraInicio: timestamppb.New(time.Date(2026, 9, 20, 19, 30, 0, 0, time.UTC)),
+	}
+}
+
+func clienteCom(t *testing.T, resp func(ctx context.Context, id string) (*pb.Sessao, error)) (*Cliente, *servidorFalso) {
 	t.Helper()
-	srv := httptest.NewServer(h)
-	t.Cleanup(srv.Close)
-	return NovoCliente(Opcoes{URLBase: srv.URL, Timeout: 200 * time.Millisecond, FalhasParaAbrir: 2, IntervaloAberto: time.Hour})
+	falso := &servidorFalso{resp: resp}
+	lis := bufconn.Listen(1 << 20)
+	srv := grpc.NewServer()
+	pb.RegisterCatalogoServiceServer(srv, falso)
+	go func() { _ = srv.Serve(lis) }()
+	t.Cleanup(srv.Stop)
+
+	conn, err := grpc.NewClient("passthrough:///bufnet",
+		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return lis.Dial() }),
+		grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+
+	return NovoClienteComAPI(Opcoes{Timeout: 200 * time.Millisecond, FalhasParaAbrir: 2, IntervaloAberto: time.Hour},
+		pb.NewCatalogoServiceClient(conn)), falso
 }
 
 func TestBuscarSessaoLeOsCamposDoCatalogo(t *testing.T) {
-	var caminho string
-	c := servidor(t, func(w http.ResponseWriter, r *http.Request) {
-		caminho = r.URL.Path
-		_, _ = w.Write([]byte(corpoValido))
-	})
+	c, falso := clienteCom(t, func(context.Context, string) (*pb.Sessao, error) { return sessaoValida(), nil })
 
 	s, err := c.BuscarSessao(context.Background(), "s1")
 	if err != nil {
 		t.Fatalf("erro inesperado: %v", err)
 	}
-	if caminho != "/api/v1/sessoes/s1" {
-		t.Errorf("caminho = %q", caminho)
+	if id := falso.ultimoID.Load(); id != "s1" {
+		t.Errorf("id enviado = %v", id)
 	}
-	if s.Status != "AGENDADA" || s.PrecoBase != "42.00" || s.Inicio.Format(time.RFC3339) != "2026-09-20T19:30:00Z" {
+	if s.ID != "s1" || s.Status != "AGENDADA" || s.PrecoBase != "42.00" ||
+		s.Inicio.Format(time.RFC3339) != "2026-09-20T19:30:00Z" {
 		t.Errorf("sessão = %+v", s)
 	}
 }
 
 func TestBuscarSessaoTraduzErros(t *testing.T) {
 	casos := map[string]struct {
-		h        http.HandlerFunc
+		resp     func(context.Context, string) (*pb.Sessao, error)
 		esperado error
 	}{
-		"404":               {func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(404) }, shared.ErrSessaoNaoEncontrada},
-		"503":               {func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(503) }, shared.ErrCatalogoIndisponivel},
-		"400":               {func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(400) }, shared.ErrRespostaInvalidaDoCatalogo},
-		"json quebrado":     {func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("{")) }, shared.ErrRespostaInvalidaDoCatalogo},
-		"sessão incompleta": {func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(`{"status":"AGENDADA"}`)) }, shared.ErrRespostaInvalidaDoCatalogo},
-		"lento":             {func(w http.ResponseWriter, _ *http.Request) { time.Sleep(500 * time.Millisecond) }, shared.ErrCatalogoIndisponivel},
+		"not found": {func(context.Context, string) (*pb.Sessao, error) {
+			return nil, status.Error(codes.NotFound, "x")
+		}, shared.ErrSessaoNaoEncontrada},
+		"unavailable": {func(context.Context, string) (*pb.Sessao, error) {
+			return nil, status.Error(codes.Unavailable, "x")
+		}, shared.ErrCatalogoIndisponivel},
+		"internal": {func(context.Context, string) (*pb.Sessao, error) {
+			return nil, status.Error(codes.Internal, "x")
+		}, shared.ErrRespostaInvalidaDoCatalogo},
+		"invalid argument": {func(context.Context, string) (*pb.Sessao, error) {
+			return nil, status.Error(codes.InvalidArgument, "x")
+		}, shared.ErrRespostaInvalidaDoCatalogo},
+		"sessão incompleta": {func(context.Context, string) (*pb.Sessao, error) {
+			return &pb.Sessao{Status: "AGENDADA"}, nil
+		}, shared.ErrRespostaInvalidaDoCatalogo},
+		"lento": {func(ctx context.Context, _ string) (*pb.Sessao, error) {
+			select {
+			case <-time.After(2 * time.Second):
+				return sessaoValida(), nil
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+		}, shared.ErrCatalogoIndisponivel},
 	}
-	for nome, c := range casos {
+	for nome, tc := range casos {
 		t.Run(nome, func(t *testing.T) {
-			_, err := servidor(t, c.h).BuscarSessao(context.Background(), "s1")
-			if !errors.Is(err, c.esperado) {
-				t.Errorf("err = %v, esperado %v", err, c.esperado)
+			c, _ := clienteCom(t, tc.resp)
+			_, err := c.BuscarSessao(context.Background(), "s1")
+			if !errors.Is(err, tc.esperado) {
+				t.Errorf("err = %v, esperado %v", err, tc.esperado)
 			}
 		})
 	}
 }
 
 func TestBreakerAbreComFalhasConsecutivasENaoComSessaoInexistente(t *testing.T) {
-	var chamadas atomic.Int32
-	status := http.StatusNotFound
-	c := servidor(t, func(w http.ResponseWriter, _ *http.Request) {
-		chamadas.Add(1)
-		w.WriteHeader(status)
+	codigo := codes.NotFound
+	c, falso := clienteCom(t, func(context.Context, string) (*pb.Sessao, error) {
+		return nil, status.Error(codigo, "x")
 	})
 
 	for range 5 {
 		_, _ = c.BuscarSessao(context.Background(), "s1")
 	}
-	if chamadas.Load() != 5 {
-		t.Fatalf("404 não deve abrir o breaker; chamadas = %d", chamadas.Load())
+	if falso.chamadas.Load() != 5 {
+		t.Fatalf("NotFound não deve abrir o breaker; chamadas = %d", falso.chamadas.Load())
 	}
 
-	status = http.StatusInternalServerError
+	codigo = codes.Unavailable
 	for range 5 {
 		_, err := c.BuscarSessao(context.Background(), "s1")
 		if !errors.Is(err, shared.ErrCatalogoIndisponivel) {
 			t.Fatalf("err = %v, esperado ErrCatalogoIndisponivel", err)
 		}
 	}
-	if got := chamadas.Load(); got != 7 {
+	if got := falso.chamadas.Load(); got != 7 {
 		t.Errorf("chamadas = %d, esperado 7 (5 + 2 falhas até abrir; o resto recusado sem rede)", got)
 	}
 }

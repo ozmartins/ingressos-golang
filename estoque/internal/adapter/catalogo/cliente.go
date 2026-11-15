@@ -1,48 +1,63 @@
+// Package catalogo é o adaptador de saída que consulta o serviço de catálogo
+// por gRPC (CatalogoService.ObterSessao) para precificar e validar reservas.
 package catalogo
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
-	"net/http"
-	"net/url"
-	"strings"
 	"time"
 
 	"github.com/sony/gobreaker/v2"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 
+	pb "github.com/oseias/ingressos-golang/estoque/gen/pb/catalogo/v1"
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/sessao"
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/shared"
 	"github.com/oseias/ingressos-golang/estoque/internal/platform/obs"
 )
 
 type Opcoes struct {
-	URLBase         string
+	// Endereco do servidor gRPC do catálogo (host:porta).
+	Endereco        string
 	Timeout         time.Duration
 	FalhasParaAbrir uint32
 	IntervaloAberto time.Duration
 }
 
 type Cliente struct {
-	base    string
-	http    *http.Client
+	conn    *grpc.ClientConn
+	api     pb.CatalogoServiceClient
+	timeout time.Duration
 	breaker *gobreaker.CircuitBreaker[sessao.Sessao]
 }
 
-func NovoCliente(opts Opcoes) *Cliente {
-	// otelhttp abre um span de cliente e injeta o traceparent na chamada ao
-	// catálogo: é assim que o trace da reserva atravessa os dois serviços.
-	return NovoClienteComTransporte(opts, otelhttp.NewTransport(http.DefaultTransport))
+// NovoCliente prepara a conexão (preguiçosa: não falha se o catálogo ainda não
+// subiu). O otelgrpc abre um span de cliente e injeta o traceparent na chamada:
+// é assim que o trace da reserva atravessa os dois serviços.
+func NovoCliente(opts Opcoes) (*Cliente, error) {
+	conn, err := grpc.NewClient(opts.Endereco,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("catálogo gRPC %q: %w", opts.Endereco, err)
+	}
+	c := NovoClienteComAPI(opts, pb.NewCatalogoServiceClient(conn))
+	c.conn = conn
+	return c, nil
 }
 
-func NovoClienteComTransporte(opts Opcoes, transporte http.RoundTripper) *Cliente {
+// NovoClienteComAPI permite injetar o cliente gerado (testes usam bufconn).
+func NovoClienteComAPI(opts Opcoes, api pb.CatalogoServiceClient) *Cliente {
 	return &Cliente{
-		base: strings.TrimRight(opts.URLBase, "/"),
-		http: &http.Client{Transport: transporte, Timeout: opts.Timeout},
+		api:     api,
+		timeout: opts.Timeout,
 		breaker: gobreaker.NewCircuitBreaker[sessao.Sessao](gobreaker.Settings{
 			Name:        "catalogo.sessao",
 			MaxRequests: 1,
@@ -61,11 +76,12 @@ func NovoClienteComTransporte(opts Opcoes, transporte http.RoundTripper) *Client
 	}
 }
 
-type sessaoJSON struct {
-	ID             string `json:"id"`
-	Status         string `json:"status"`
-	DataHoraInicio string `json:"data_hora_inicio"`
-	PrecoBase      string `json:"preco_base"`
+// Fechar encerra a conexão gRPC.
+func (c *Cliente) Fechar() error {
+	if c.conn == nil {
+		return nil
+	}
+	return c.conn.Close()
 }
 
 func (c *Cliente) BuscarSessao(ctx context.Context, sessaoID string) (sessao.Sessao, error) {
@@ -77,35 +93,35 @@ func (c *Cliente) BuscarSessao(ctx context.Context, sessaoID string) (sessao.Ses
 }
 
 func (c *Cliente) buscar(ctx context.Context, sessaoID string) (sessao.Sessao, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		c.base+"/api/v1/sessoes/"+url.PathEscape(sessaoID), nil)
+	ctx, cancelar := context.WithTimeout(ctx, c.timeout)
+	defer cancelar()
+
+	resp, err := c.api.ObterSessao(ctx, &pb.ObterSessaoRequest{Id: sessaoID})
 	if err != nil {
-		return sessao.Sessao{}, fmt.Errorf("%w: %v", shared.ErrCatalogoIndisponivel, err)
-	}
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return sessao.Sessao{}, fmt.Errorf("%w: %v", shared.ErrCatalogoIndisponivel, err)
-	}
-	defer resp.Body.Close()
-
-	switch {
-	case resp.StatusCode == http.StatusNotFound:
-		return sessao.Sessao{}, fmt.Errorf("%w: %s", shared.ErrSessaoNaoEncontrada, sessaoID)
-	case resp.StatusCode >= 500:
-		return sessao.Sessao{}, fmt.Errorf("%w: catálogo respondeu %d", shared.ErrCatalogoIndisponivel, resp.StatusCode)
-	case resp.StatusCode != http.StatusOK:
-		return sessao.Sessao{}, fmt.Errorf("%w: catálogo respondeu %d", shared.ErrRespostaInvalidaDoCatalogo, resp.StatusCode)
+		return sessao.Sessao{}, traduzirErro(err, sessaoID)
 	}
 
-	var corpo sessaoJSON
-	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&corpo); err != nil {
-		return sessao.Sessao{}, fmt.Errorf("%w: %v", shared.ErrRespostaInvalidaDoCatalogo, err)
-	}
-	inicio, err := time.Parse(time.RFC3339, corpo.DataHoraInicio)
-	if err != nil || corpo.Status == "" || corpo.PrecoBase == "" {
+	if resp.GetStatus() == "" || resp.GetPrecoBase() == "" ||
+		resp.GetDataHoraInicio() == nil || resp.GetDataHoraInicio().CheckValid() != nil {
 		return sessao.Sessao{}, fmt.Errorf("%w: sessão %s incompleta", shared.ErrRespostaInvalidaDoCatalogo, sessaoID)
 	}
-	return sessao.Sessao{ID: sessaoID, Status: corpo.Status, Inicio: inicio, PrecoBase: corpo.PrecoBase}, nil
+	return sessao.Sessao{
+		ID:        sessaoID,
+		Status:    resp.GetStatus(),
+		Inicio:    resp.GetDataHoraInicio().AsTime(),
+		PrecoBase: resp.GetPrecoBase(),
+	}, nil
+}
+
+func traduzirErro(err error, sessaoID string) error {
+	switch status.Code(err) {
+	case codes.NotFound:
+		return fmt.Errorf("%w: %s", shared.ErrSessaoNaoEncontrada, sessaoID)
+	case codes.Unavailable, codes.DeadlineExceeded, codes.Canceled, codes.ResourceExhausted, codes.Aborted:
+		return fmt.Errorf("%w: %v", shared.ErrCatalogoIndisponivel, err)
+	default:
+		// Internal, InvalidArgument, Unknown etc.: o catálogo respondeu, mas
+		// não algo que o estoque saiba usar.
+		return fmt.Errorf("%w: %v", shared.ErrRespostaInvalidaDoCatalogo, err)
+	}
 }

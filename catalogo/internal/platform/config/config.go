@@ -11,6 +11,8 @@ import (
 
 type Config struct {
 	HTTPPort string
+	// GRPCAddr é onde o servidor gRPC escuta (consumido pelo estoque).
+	GRPCAddr string
 
 	DatabaseURL string
 
@@ -35,6 +37,7 @@ func Carregar() (Config, error) {
 
 	c := Config{
 		HTTPPort:          comPadrao("HTTP_PORT", "8080"),
+		GRPCAddr:          comPadrao("GRPC_ADDR", ":9091"),
 		DatabaseURL:       os.Getenv("DATABASE_URL"),
 		KeycloakIssuerURL: os.Getenv("KEYCLOAK_ISSUER_URL"),
 		KeycloakAudience:  os.Getenv("KEYCLOAK_AUDIENCE"),

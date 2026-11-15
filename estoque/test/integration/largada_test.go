@@ -48,13 +48,12 @@ func TestProcessoSobeApenasComConfiguracaoExterna(t *testing.T) {
 		"DATABASE_URL=" + ambiente.DatabaseURL,
 		"REDIS_URL=" + ambiente.RedisURL,
 		"RABBITMQ_URL=" + ambiente.RabbitURL,
-		"GRPC_ADDR=127.0.0.1:15051",
+		"CATALOGO_GRPC_ADDR=127.0.0.1:15091",
 		"ADMIN_ADDR=127.0.0.1:18090",
 		"HTTP_ADDR=127.0.0.1:18085",
 		"JWKS_URL=" + jwks.URL,
 		"JWT_ISSUER=http://keycloak.test/realms/cinema",
 		"JWT_AUDIENCE=cinema-app",
-		"TLS_CLIENT_AUTH=off",
 	}
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("iniciar processo: %v", err)

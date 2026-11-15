@@ -7,7 +7,7 @@ decide se um assento pode ser vendido.
 - Expõe uma **API REST** autenticada por JWT do Keycloak com duas operações —
   reservar (bloquear) poltronas de forma atômica e consultar o mapa de uma
   sessão. A documentação interativa fica em `/docs`.
-- Para reservar, consulta a sessão no **Servico-Catalogo** (`GET /api/v1/sessoes/{id}`,
+- Para reservar, consulta a sessão no **Servico-Catalogo** (gRPC `CatalogoService/ObterSessao`,
   com timeout e circuit breaker), recusa se ela não aceita reserva e calcula o
   valor como `preco_base × quantidade`.
 - Reage a três fatos do **RabbitMQ**: `sessao.criada` (provisiona a matriz),
@@ -100,7 +100,7 @@ ou malformada.
 | `JWKS_URL` | — (obrigatória) | chaves do Keycloak, carregadas na largada, que validam o JWT da API REST |
 | `JWT_ISSUER` | — (obrigatória) | emissor aceito no token |
 | `JWT_AUDIENCE` | — (obrigatória) | público aceito no token |
-| `CATALOGO_URL` | — (obrigatória) | base HTTP do Servico-Catalogo, de onde vêm preço e status da sessão |
+| `CATALOGO_GRPC_ADDR` | — (obrigatória) | endereço gRPC (`host:porta`, ex.: `catalogo:9091`) do Servico-Catalogo, de onde vêm preço e status da sessão |
 | `CATALOGO_TIMEOUT` | `2s` | tempo máximo de cada consulta ao catálogo |
 | `BREAKER_FALHAS_CONSECUTIVAS` | `5` | falhas seguidas que abrem o circuit breaker do catálogo |
 | `BREAKER_INTERVALO_ABERTO` | `30s` | quanto o breaker fica aberto antes de testar de novo |
@@ -117,7 +117,7 @@ cmd/estoque/       composição única do binário
 cmd/publicar/      ferramenta de linha de comando para publicar fatos à mão
 internal/domain/   núcleo: poltrona, reserva, invariantes — sem infraestrutura
 internal/usecase/  orquestração e portas
-internal/adapter/  HTTP (API e cliente do catálogo), PostgreSQL, AMQP, Redis
+internal/adapter/  HTTP (API), gRPC (cliente do catálogo), PostgreSQL, AMQP, Redis
 internal/platform/ configuração, saúde
 migrations/        esquema versionado
 test/              integração (Testcontainers), arquitetura

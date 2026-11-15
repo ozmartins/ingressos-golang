@@ -10,7 +10,7 @@ func ambienteValido(t *testing.T) {
 	t.Helper()
 	t.Setenv("DATABASE_URL", "postgres://u:p@localhost:5432/estoque")
 	t.Setenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
-	t.Setenv("CATALOGO_URL", "http://catalogo:8082")
+	t.Setenv("CATALOGO_GRPC_ADDR", "catalogo:9091")
 	t.Setenv("JWKS_URL", "http://keycloak:8081/realms/cinema/protocol/openid-connect/certs")
 	t.Setenv("JWT_ISSUER", "http://keycloak:8081/realms/cinema")
 	t.Setenv("JWT_AUDIENCE", "cinema-app")
@@ -46,13 +46,13 @@ func TestCarregarAplicaPadroes(t *testing.T) {
 func TestCarregarRecusaVariavelObrigatoriaAusente(t *testing.T) {
 	t.Setenv("DATABASE_URL", "")
 	t.Setenv("RABBITMQ_URL", "")
-	t.Setenv("CATALOGO_URL", "")
+	t.Setenv("CATALOGO_GRPC_ADDR", "")
 
 	_, err := Carregar()
 	if err == nil {
 		t.Fatal("esperava recusa por variável obrigatória ausente")
 	}
-	for _, esperado := range []string{"DATABASE_URL", "RABBITMQ_URL", "CATALOGO_URL"} {
+	for _, esperado := range []string{"DATABASE_URL", "RABBITMQ_URL", "CATALOGO_GRPC_ADDR"} {
 		if !strings.Contains(err.Error(), esperado) {
 			t.Errorf("erro não menciona %s: %v", esperado, err)
 		}

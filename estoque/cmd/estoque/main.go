@@ -99,13 +99,19 @@ func executar() error {
 		TTL:    cfg.ReservaTTL,
 		Limite: cfg.PoltronasMaxPorBloqueio,
 	}
+	catalogo, err := adaptadorcatalogo.NovoCliente(adaptadorcatalogo.Opcoes{
+		Endereco:        cfg.CatalogoGRPCAddr,
+		Timeout:         cfg.CatalogoTimeout,
+		FalhasParaAbrir: uint32(cfg.BreakerFalhas),
+		IntervaloAberto: cfg.BreakerIntervalo,
+	})
+	if err != nil {
+		return err
+	}
+	defer func() { _ = catalogo.Fechar() }()
+
 	reservar := usecase.ReservarPoltronas{
-		Sessoes: adaptadorcatalogo.NovoCliente(adaptadorcatalogo.Opcoes{
-			URLBase:         cfg.CatalogoURL,
-			Timeout:         cfg.CatalogoTimeout,
-			FalhasParaAbrir: uint32(cfg.BreakerFalhas),
-			IntervaloAberto: cfg.BreakerIntervalo,
-		}),
+		Sessoes:  catalogo,
 		Bloqueio: bloquear,
 		Relogio:  relogio,
 	}

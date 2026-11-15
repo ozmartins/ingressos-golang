@@ -1,7 +1,12 @@
 GO ?= go
 PKG := ./...
 
-.PHONY: build test test-integration lint migrate-up migrate-down run
+# Regenera gen/pb a partir de proto/ (precisa de buf, protoc-gen-go e protoc-gen-go-grpc no PATH;
+# costumam estar em ~/go/bin). O código gerado é commitado: o Dockerfile não roda buf.
+.PHONY: proto build test test-integration lint migrate-up migrate-down run
+
+proto:
+	buf generate
 
 build:
 	$(GO) build -o bin/catalogo ./cmd/catalogo

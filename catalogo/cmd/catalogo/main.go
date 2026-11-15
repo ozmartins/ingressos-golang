@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,8 +14,14 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"google.golang.org/grpc"
+	saudegrpc "google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
+	pb "github.com/oseias/ingressos-golang/catalogo/gen/pb/catalogo/v1"
 	adaptadoramqp "github.com/oseias/ingressos-golang/catalogo/internal/adapter/amqp"
+	adaptadorgrpc "github.com/oseias/ingressos-golang/catalogo/internal/adapter/grpc"
 	adapterhttp "github.com/oseias/ingressos-golang/catalogo/internal/adapter/http"
 	"github.com/oseias/ingressos-golang/catalogo/internal/adapter/identidade"
 	"github.com/oseias/ingressos-golang/catalogo/internal/adapter/postgres"
@@ -141,9 +148,30 @@ func executar() error {
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
-	erros := make(chan error, 1)
+	// gRPC: canal serviço a serviço (o estoque consulta preço e status da
+	// sessão). Reutiliza o mesmo caso de uso do REST.
+	servidorGRPC := grpc.NewServer(grpc.StatsHandler(otelgrpc.NewServerHandler()))
+	pb.RegisterCatalogoServiceServer(servidorGRPC, &adaptadorgrpc.Servidor{
+		BuscarSessao: usecase.BuscarSessao{Repo: sessoes},
+	})
+	saudeGRPC := saudegrpc.NewServer()
+	healthpb.RegisterHealthServer(servidorGRPC, saudeGRPC)
 
-	slog.Info("catalogo no ar", "http", servidor.Addr, "metricas", obs.EnderecoMetricas())
+	var escuta net.ListenConfig
+	ouvinteGRPC, err := escuta.Listen(ctx, "tcp", cfg.GRPCAddr)
+	if err != nil {
+		return fmt.Errorf("gRPC: %w", err)
+	}
+
+	erros := make(chan error, 2)
+
+	slog.Info("catalogo no ar", "http", servidor.Addr, "grpc", cfg.GRPCAddr, "metricas", obs.EnderecoMetricas())
+
+	go func() {
+		if err := servidorGRPC.Serve(ouvinteGRPC); err != nil {
+			erros <- err
+		}
+	}()
 
 	go func() {
 		if err := servidor.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -160,6 +188,9 @@ func executar() error {
 	ctxDesligamento, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 
 	defer cancel()
+
+	saudeGRPC.Shutdown()
+	servidorGRPC.GracefulStop()
 
 	return servidor.Shutdown(ctxDesligamento)
 }

@@ -143,7 +143,11 @@ services:
       KEYCLOAK_ISSUER_URL: http://keycloak:8081/realms/cinema
       KEYCLOAK_AUDIENCE: cinema-app
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
-    ports: ["${PORTA_CATALOGO:-8082}:8080"]
+      # gRPC serviço a serviço: o estoque consulta preço e status da sessão aqui.
+      GRPC_ADDR: ":9091"
+    ports:
+      - "${PORTA_CATALOGO:-8082}:8080"
+      - "${PORTA_CATALOGO_GRPC:-9091}:9091"
     depends_on:
       jaeger:
         condition: service_started
@@ -171,8 +175,8 @@ services:
       JWKS_URL: http://keycloak:8081/realms/cinema/protocol/openid-connect/certs
       JWT_ISSUER: http://keycloak:8081/realms/cinema
       JWT_AUDIENCE: cinema-app
-      # A reserva consulta preço e status da sessão no catálogo (rota pública).
-      CATALOGO_URL: http://catalogo:8080
+      # A reserva consulta preço e status da sessão no catálogo por gRPC.
+      CATALOGO_GRPC_ADDR: catalogo:9091
       CATALOGO_TIMEOUT: 2s
       RESERVA_TTL: 10m
       POLTRONAS_MAX_POR_BLOQUEIO: "10"

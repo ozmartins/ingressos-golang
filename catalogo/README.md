@@ -3,8 +3,8 @@
 Ponto de entrada para clientes navegarem pelo catálogo de filmes, cinemas, salas
 e sessões. Expõe uma API REST pública e anuncia no RabbitMQ a sessão criada, com
 a planta da sala. A reserva de poltronas não é daqui: é do `Servico-Estoque`,
-que consulta a sessão neste serviço (`GET /api/v1/sessoes/{id}`) para saber
-preço e status.
+que consulta a sessão neste serviço por gRPC (`CatalogoService/ObterSessao`)
+para saber preço e status.
 
 Regras que valem para quem for mexer no código: a entrega de um fato é ao menos
 uma vez, e nunca exatamente uma; nada de complexidade além da necessária; domínio e
@@ -51,11 +51,11 @@ broker confirmar. Disso decorrem três coisas que quem integra precisa saber:
 ## A reserva mora no estoque
 
 Este serviço não reserva nada e não chama nenhum outro serviço de forma
-síncrona; o único tráfego HTTP de saída é a descoberta do emissor Keycloak,
+síncrona (ele é só servidor gRPC do `estoque`); o único tráfego HTTP de saída é a descoberta do emissor Keycloak,
 feita pela biblioteca `go-oidc`. Quem reserva é o `Servico-Estoque`
 (`POST /api/v1/sessoes/{id}/bloqueios`), que:
 
-- lê aqui a sessão (`preco_base`, `status`, `data_hora_inicio`) — rota pública;
+- lê aqui a sessão (`preco_base`, `status`, `data_hora_inicio`) — via gRPC (`ObterSessao`, porta `GRPC_ADDR`); o REST público equivalente continua disponível;
 - recusa a reserva se a sessão não está `AGENDADA` ou já começou;
 - calcula `valor_total` como `preco_base × número de poltronas`.
 
@@ -253,7 +253,8 @@ Opcionais, com padrão:
 
 | Variável | Padrão | Descrição |
 |---|---|---|
-| `HTTP_PORT` | `8080` | Porta do servidor |
+| `HTTP_PORT` | `8080` | Porta do servidor HTTP |
+| `GRPC_ADDR` | `:9091` | Endereço do servidor gRPC (consumido pelo `estoque`) |
 | `PAGINACAO_TAMANHO_PADRAO` | `20` | Tamanho de página quando não informado |
 | `PAGINACAO_TAMANHO_MAXIMO` | `100` | Teto de `page_size`; acima disso a requisição é recusada |
 | `OUTBOX_INTERVALO` | `1s` | De quanto em quanto tempo a caixa de saída é drenada |

@@ -12,6 +12,7 @@ Catálogo (HTTP, porta 8082)
   http://localhost:8082/api/v1/cinemas
   http://localhost:8082/api/v1/cinemas/{id}/salas
   http://localhost:8082/api/v1/sessoes
+  localhost:9091                                 gRPC (grpcurl -plaintext localhost:9091 list)
 
 Estoque (REST, porta 8085)
   http://localhost:8085/docs                     Swagger UI

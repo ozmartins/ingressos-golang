@@ -55,6 +55,8 @@ linters:
               desc: "domain/usecase não podem importar adaptadores"
             - pkg: "github.com/oseias/ingressos-golang/catalogo/internal/platform"
               desc: "domain/usecase não podem importar infraestrutura de plataforma"
+            - pkg: "github.com/oseias/ingressos-golang/catalogo/gen/pb"
+              desc: "tipos gerados do protobuf são detalhe do adaptador gRPC"
             - pkg: "github.com/jackc/pgx"
               desc: "driver de banco é detalhe de adaptador"
             - pkg: "gorm.io"

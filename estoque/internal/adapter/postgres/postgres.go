@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/oseias/ingressos-golang/estoque/internal/platform/obs"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -45,6 +46,10 @@ func Abrir(ctx context.Context, url string) (*Banco, error) {
 	if err != nil {
 		_ = conexoes.Close()
 		return nil, fmt.Errorf("abrir pool: %w", err)
+	}
+	if err := obs.Gorm(db); err != nil {
+		_ = conexoes.Close()
+		return nil, fmt.Errorf("instrumentar o gorm: %w", err)
 	}
 	if err := conexoes.PingContext(ctx); err != nil {
 		_ = conexoes.Close()

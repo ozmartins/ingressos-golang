@@ -191,6 +191,52 @@ feito por schema e por papel:
 - Separar em bancos físicos distintos exigiria apenas trocar a `DATABASE_URL` de
   cada serviço no `docker-compose.yml`; o código não muda.
 
+## Observabilidade
+
+Os quatro serviços emitem os três pilares, cada um em `internal/platform/obs`
+(infraestrutura: o núcleo não a importa):
+
+- **Logs**: `log/slog` em JSON no stdout, com `service` e, quando há span no
+  contexto, `trace_id` e `span_id`. `LOG_LEVEL` aceita `debug|warn|error`.
+- **Métricas** (`prometheus/client_golang`): `GET /metrics` na porta `OBS_ADDR`
+  (`:9090`, só na rede do compose, fora da autenticação e do OpenAPI).
+  `http_requests_total`, `http_request_duration_seconds` e
+  `http_requests_in_flight` rotulam pelo **padrão da rota**, nunca pela URL;
+  `amqp_messages_consumed_total`, `amqp_messages_published_total`,
+  `amqp_message_processing_seconds`; no estoque também
+  `estoque_reservas_expiradas_total` e `circuit_breaker_state`.
+- **Traces** (OpenTelemetry, W3C Trace Context): exportados por OTLP/HTTP para
+  `OTEL_EXPORTER_OTLP_ENDPOINT` (o Jaeger, no compose). Sem a variável os ids
+  continuam sendo gerados, então os logs seguem com `trace_id`, mas nada sai.
+
+O trace atravessa o RabbitMQ: o publicador injeta o `traceparent` nos headers da
+mensagem e o consumidor o extrai. Como `reserva.criada` e os fatos do catálogo
+passam pela caixa de saída, o `traceparent` da requisição é gravado na coluna
+`outbox_eventos.traceparent` (migrações `estoque/000004` e `catalogo/000008`) e o
+publicador continua o mesmo trace. Assim, uma reserva aparece num trace só:
+`estoque POST /bloqueios` → `catalogo GET /sessoes/{id}` → `reserva.criada
+publish` → `pagamento ... process`.
+
+Também geram spans, sempre filhos do span em andamento: as consultas do GORM (sem
+os valores das variáveis), os comandos do Redis (sem o texto do comando, que leva
+o id da reserva) e a expiração de reservas por evento do Redis. O polling da
+caixa de saída e as varreduras, que não têm span-pai, **não** geram trace (ver
+`amostrador` em `obs.go`); senão cada consulta de 1 s viraria um trace de um span.
+
+No frontend, `front/src/infra/telemetria.ts` instrumenta o `fetch`: o trace começa
+no navegador e o `traceparent` segue pelo proxy do Vite até o catálogo e o
+estoque. Os spans do navegador vão por `/otlp` (proxy do Vite) à porta 4318 do
+Jaeger. `VITE_TELEMETRIA=off` desliga. O Keycloak, em outra origem, gera span
+mas não recebe o cabeçalho.
+
+**Limite conhecido**: a cobrança é feita pela varredura do `pagamento`, depois de
+quem paga escolher a forma; esse trecho (`pagamento.sucesso|falhou` → estoque e
+notificação) forma um segundo trace, sem ligação com o primeiro. Ligá-los exigiria
+guardar o `traceparent` na transação de pagamento, o que toca o domínio.
+
+O Grafana (`:3000`, anônimo) já sobe com as fontes Prometheus e Jaeger e o painel
+"Ingressos — visão geral" (`infra/grafana`). URLs: `urls.txt`.
+
 ## Subir tudo
 
 ```bash

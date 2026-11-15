@@ -12,6 +12,7 @@ import (
 	"github.com/oseias/ingressos-golang/pagamento/internal/adapter/http/openapi"
 	"github.com/oseias/ingressos-golang/pagamento/internal/domain/transacao"
 	"github.com/oseias/ingressos-golang/pagamento/internal/platform/health"
+	"github.com/oseias/ingressos-golang/pagamento/internal/platform/obs"
 	"github.com/oseias/ingressos-golang/pagamento/internal/usecase"
 )
 
@@ -69,6 +70,7 @@ type API struct {
 
 func (a *API) Rotas() http.Handler {
 	r := chi.NewRouter()
+	r.Use(obs.MiddlewareHTTP)
 	get := func(caminho string, h http.HandlerFunc) {
 		r.Get(caminho, h)
 		r.Head(caminho, h)

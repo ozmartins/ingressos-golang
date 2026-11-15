@@ -72,6 +72,8 @@ type outboxRow struct {
 	MessageID  string `gorm:"column:message_id"`
 	RoutingKey string `gorm:"column:routing_key"`
 	Payload    []byte `gorm:"column:payload;type:jsonb"`
+
+	Traceparent string `gorm:"column:traceparent"`
 }
 
 func (outboxRow) TableName() string { return "outbox_eventos" }

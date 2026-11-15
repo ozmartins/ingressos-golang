@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -18,6 +20,7 @@ import (
 	"github.com/oseias/ingressos-golang/pagamento/internal/adapter/postgres"
 	"github.com/oseias/ingressos-golang/pagamento/internal/platform/config"
 	"github.com/oseias/ingressos-golang/pagamento/internal/platform/health"
+	"github.com/oseias/ingressos-golang/pagamento/internal/platform/obs"
 	"github.com/oseias/ingressos-golang/pagamento/internal/usecase"
 )
 
@@ -44,6 +47,22 @@ func executar() error {
 
 	ctx, parar := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer parar()
+
+	telemetria, err := obs.Iniciar(ctx, "pagamento")
+	if err != nil {
+		return fmt.Errorf("observabilidade: %w", err)
+	}
+	defer func() {
+		ctxDescarga, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancelar()
+		_ = telemetria.Desligar(ctxDescarga)
+	}()
+	pararMetricas := obs.ServirMetricas(obs.EnderecoMetricas())
+	defer func() {
+		ctxDesligar, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancelar()
+		_ = pararMetricas(ctxDesligar)
+	}()
 
 	banco, err := postgres.Conectar(ctx, cfg.DatabaseURL)
 	if err != nil {
@@ -110,6 +129,7 @@ func executar() error {
 	}
 	postgres.RotinaPeriodica(ctx, "varredura-cobrancas", cfg.VarreduraIntervalo,
 		varrer.Executar, func(nome string, err error) {
+			slog.Error("rotina periódica falhou", "rotina", nome, "erro", err)
 		})
 
 	auth, err := adapthttp.NovoAutenticador(cfg.JWKSURL, cfg.JWTIssuer, cfg.JWTAud)
@@ -140,6 +160,7 @@ func executar() error {
 	}
 
 	erros := make(chan error, 2)
+	slog.Info("pagamento no ar", "http", servidor.Addr, "metricas", obs.EnderecoMetricas())
 	go func() {
 		if err := servidor.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			erros <- err

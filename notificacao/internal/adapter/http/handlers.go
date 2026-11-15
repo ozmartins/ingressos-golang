@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/oseias/ingressos-golang/notificacao/internal/adapter/http/openapi"
 	"github.com/oseias/ingressos-golang/notificacao/internal/platform/health"
+	"github.com/oseias/ingressos-golang/notificacao/internal/platform/obs"
 	"github.com/oseias/ingressos-golang/notificacao/internal/usecase"
 )
 
@@ -25,7 +26,7 @@ type API struct {
 
 func (a *API) Rotas() http.Handler {
 	r := chi.NewRouter()
-	r.Use(middleware.GetHead)
+	r.Use(obs.MiddlewareHTTP, middleware.GetHead)
 	r.MethodNotAllowed(metodoNaoPermitido(r))
 
 	r.Get("/api/v1/ingressos/meus-ingressos", a.listar)

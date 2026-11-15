@@ -7,6 +7,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"github.com/oseias/ingressos-golang/catalogo/internal/platform/obs"
 	"github.com/oseias/ingressos-golang/catalogo/internal/usecase"
 )
 
@@ -15,7 +16,12 @@ type CaixaDeSaida struct{ banco *Banco }
 func NovaCaixaDeSaida(b *Banco) *CaixaDeSaida { return &CaixaDeSaida{banco: b} }
 
 func enfileirarFato(tx *gorm.DB, fato usecase.FatoPendente) error {
-	linha := outboxRow{MessageID: fato.MessageID, RoutingKey: fato.RoutingKey, Payload: fato.Payload}
+	// Guarda o trace da requisição que gerou o fato: o publicador roda depois,
+	// fora dela, e continua este mesmo trace.
+	linha := outboxRow{
+		MessageID: fato.MessageID, RoutingKey: fato.RoutingKey, Payload: fato.Payload,
+		Traceparent: obs.Traceparent(tx.Statement.Context),
+	}
 
 	err := tx.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "message_id"}},
@@ -32,6 +38,8 @@ type FatoNaCaixa struct {
 	MessageID  string
 	RoutingKey string
 	Payload    []byte
+
+	Traceparent string
 }
 
 func (c *CaixaDeSaida) Drenar(ctx context.Context, limite int, publicar func(FatoNaCaixa) error) (int, error) {
@@ -49,7 +57,7 @@ func (c *CaixaDeSaida) Drenar(ctx context.Context, limite int, publicar func(Fat
 		}
 
 		for _, p := range pendentes {
-			f := FatoNaCaixa{ID: p.ID, MessageID: p.MessageID, RoutingKey: p.RoutingKey, Payload: p.Payload}
+			f := FatoNaCaixa{ID: p.ID, MessageID: p.MessageID, RoutingKey: p.RoutingKey, Payload: p.Payload, Traceparent: p.Traceparent}
 
 			fato := tx.Model(&outboxRow{}).Where("id = ?", f.ID)
 			if err := publicar(f); err != nil {

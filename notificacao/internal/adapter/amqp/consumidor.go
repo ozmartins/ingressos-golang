@@ -2,12 +2,14 @@ package amqp
 
 import (
 	"context"
-
+	"log/slog"
 	"sync"
 	"time"
 
+	"github.com/oseias/ingressos-golang/notificacao/internal/platform/obs"
 	"github.com/oseias/ingressos-golang/notificacao/internal/usecase"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"go.opentelemetry.io/otel/codes"
 )
 
 type Gesto int
@@ -62,7 +64,19 @@ func (c *Consumidor) Consumir(ctx context.Context) error {
 }
 
 func (c *Consumidor) tratar(ctx context.Context, d amqp.Delivery) {
+	// Continua o trace de quem publicou a mensagem (traceparent nos headers).
+	ctx, span := obs.IniciarConsumo(ctx, c.Fila, d)
+	defer span.End()
+	inicio := time.Now()
+
 	gesto := c.Classificar(ctx, d.Body)
+	obs.RegistrarConsumo(c.Fila, gesto.String(), time.Since(inicio))
+	if gesto == Confirmar {
+		slog.InfoContext(ctx, "mensagem tratada", "queue", c.Fila, "message_id", d.MessageId, "gesto", gesto.String())
+	} else {
+		span.SetStatus(codes.Error, gesto.String())
+		slog.ErrorContext(ctx, "mensagem não confirmada", "queue", c.Fila, "message_id", d.MessageId, "gesto", gesto.String())
+	}
 
 	switch gesto {
 	case Confirmar:
@@ -83,10 +97,14 @@ func (c *Consumidor) tratar(ctx context.Context, d amqp.Delivery) {
 func (c *Consumidor) Classificar(ctx context.Context, corpo []byte) Gesto {
 	a, err := usecase.DecodificarAnuncio(corpo)
 	if err != nil {
+		slog.ErrorContext(ctx, "anúncio de pagamento inválido", "erro", err)
 		return Quarentena
 	}
 
 	desfecho, err := c.Caso.Executar(ctx, a)
+	if err != nil {
+		slog.ErrorContext(ctx, "falha ao emitir ingresso", "erro", err)
+	}
 	switch desfecho {
 	case usecase.Confirmar:
 		return Confirmar

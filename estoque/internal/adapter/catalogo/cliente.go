@@ -6,15 +6,18 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
 	"github.com/sony/gobreaker/v2"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/sessao"
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/shared"
+	"github.com/oseias/ingressos-golang/estoque/internal/platform/obs"
 )
 
 type Opcoes struct {
@@ -31,7 +34,9 @@ type Cliente struct {
 }
 
 func NovoCliente(opts Opcoes) *Cliente {
-	return NovoClienteComTransporte(opts, http.DefaultTransport)
+	// otelhttp abre um span de cliente e injeta o traceparent na chamada ao
+	// catálogo: é assim que o trace da reserva atravessa os dois serviços.
+	return NovoClienteComTransporte(opts, otelhttp.NewTransport(http.DefaultTransport))
 }
 
 func NovoClienteComTransporte(opts Opcoes, transporte http.RoundTripper) *Cliente {
@@ -42,6 +47,10 @@ func NovoClienteComTransporte(opts Opcoes, transporte http.RoundTripper) *Client
 			Name:        "catalogo.sessao",
 			MaxRequests: 1,
 			Timeout:     opts.IntervaloAberto,
+			OnStateChange: func(nome string, de, para gobreaker.State) {
+				obs.EstadoDoBreaker(nome, para.String())
+				slog.Warn("disjuntor mudou de estado", "breaker", nome, "de", de.String(), "para", para.String())
+			},
 			ReadyToTrip: func(c gobreaker.Counts) bool {
 				return c.ConsecutiveFailures >= opts.FalhasParaAbrir
 			},

@@ -2,12 +2,13 @@ package amqp
 
 import (
 	"context"
-
+	"log/slog"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 
 	"github.com/oseias/ingressos-golang/catalogo/internal/adapter/postgres"
+	"github.com/oseias/ingressos-golang/catalogo/internal/platform/obs"
 )
 
 const (
@@ -60,7 +61,22 @@ func (p *Publicador) drenar(ctx context.Context, lote int) {
 	})
 }
 
-func (p *Publicador) publicar(ctx context.Context, fato postgres.FatoNaCaixa) error {
+func (p *Publicador) publicar(ctx context.Context, fato postgres.FatoNaCaixa) (err error) {
+	// O fato foi gravado na requisição que o originou; o traceparent guardado na
+	// caixa de saída faz esta publicação continuar o mesmo trace.
+	ctx = obs.ComTraceparent(ctx, fato.Traceparent)
+	ctx, span, headers := obs.IniciarPublicacao(ctx, Exchange, fato.RoutingKey)
+	defer func() {
+		obs.FalharSpan(span, err)
+		span.End()
+		obs.RegistrarPublicacao(fato.RoutingKey, err)
+		if err != nil {
+			slog.ErrorContext(ctx, "falha ao publicar fato", "routing_key", fato.RoutingKey, "message_id", fato.MessageID, "erro", err)
+		} else {
+			slog.InfoContext(ctx, "fato publicado", "routing_key", fato.RoutingKey, "message_id", fato.MessageID)
+		}
+	}()
+
 	canal, confirmacoes, err := p.Conexao.canalDePublicacao()
 
 	if err != nil {
@@ -77,6 +93,7 @@ func (p *Publicador) publicar(ctx context.Context, fato postgres.FatoNaCaixa) er
 			ContentType:  "application/json",
 			DeliveryMode: amqp.Persistent,
 			MessageId:    fato.MessageID,
+			Headers:      headers,
 			Timestamp:    time.Now().UTC(),
 			Body:         fato.Payload,
 		})

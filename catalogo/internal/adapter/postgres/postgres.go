@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/oseias/ingressos-golang/catalogo/internal/platform/obs"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -60,6 +61,11 @@ func Abrir(ctx context.Context, databaseURL string, opcoes ...Opcao) (*Banco, er
 	if err != nil {
 		_ = sqlDB.Close()
 		return nil, fmt.Errorf("criando conexão: %w", err)
+	}
+
+	if err := obs.Gorm(db); err != nil {
+		_ = sqlDB.Close()
+		return nil, fmt.Errorf("instrumentando o gorm: %w", err)
 	}
 
 	if err := registrarClassificacao(db); err != nil {

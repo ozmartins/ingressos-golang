@@ -3,8 +3,10 @@ package amqp
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 
+	"github.com/oseias/ingressos-golang/pagamento/internal/platform/obs"
 	"github.com/oseias/ingressos-golang/pagamento/internal/usecase"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -22,7 +24,21 @@ func NovoPublicador(ch *amqp.Channel, exchange string) (*Publicador, error) {
 	return &Publicador{ch: ch, exchange: exchange}, nil
 }
 
-func (p *Publicador) Publicar(ctx context.Context, f usecase.Fato) error {
+func (p *Publicador) Publicar(ctx context.Context, f usecase.Fato) (err error) {
+	// Span produtor + traceparent nos headers: quem consome (estoque,
+	// notificação) continua este trace.
+	ctx, span, headers := obs.IniciarPublicacao(ctx, p.exchange, f.RoutingKey)
+	defer func() {
+		obs.FalharSpan(span, err)
+		span.End()
+		obs.RegistrarPublicacao(f.RoutingKey, err)
+		if err != nil {
+			slog.ErrorContext(ctx, "falha ao publicar fato", "routing_key", f.RoutingKey, "message_id", f.MessageID, "erro", err)
+		} else {
+			slog.InfoContext(ctx, "fato publicado", "routing_key", f.RoutingKey, "message_id", f.MessageID)
+		}
+	}()
+
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -31,6 +47,7 @@ func (p *Publicador) Publicar(ctx context.Context, f usecase.Fato) error {
 			ContentType:  "application/json",
 			DeliveryMode: amqp.Persistent,
 			MessageId:    f.MessageID,
+			Headers:      headers,
 			Body:         f.Payload,
 		})
 	if err != nil {

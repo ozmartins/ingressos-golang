@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -18,6 +19,7 @@ import (
 	"github.com/oseias/ingressos-golang/notificacao/internal/adapter/sistema"
 	"github.com/oseias/ingressos-golang/notificacao/internal/platform/config"
 	"github.com/oseias/ingressos-golang/notificacao/internal/platform/health"
+	"github.com/oseias/ingressos-golang/notificacao/internal/platform/obs"
 	"github.com/oseias/ingressos-golang/notificacao/internal/usecase"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -37,6 +39,22 @@ func executar() error {
 
 	ctx, parar := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer parar()
+
+	telemetria, err := obs.Iniciar(ctx, "notificacao")
+	if err != nil {
+		return fmt.Errorf("observabilidade: %w", err)
+	}
+	defer func() {
+		ctxDescarga, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancelar()
+		_ = telemetria.Desligar(ctxDescarga)
+	}()
+	pararMetricas := obs.ServirMetricas(obs.EnderecoMetricas())
+	defer func() {
+		ctxDesligar, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancelar()
+		_ = pararMetricas(ctxDesligar)
+	}()
 
 	assinador, err := codigo.NovoAssinador(cfg.IngressoQRSegredo)
 	if err != nil {
@@ -120,6 +138,7 @@ func executar() error {
 	}
 
 	erros := make(chan error, 2)
+	slog.Info("notificacao no ar", "http", servidor.Addr, "metricas", obs.EnderecoMetricas())
 	go func() {
 		if err := servidor.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			erros <- fmt.Errorf("servidor http: %w", err)

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/redis/go-redis/extra/redisotel/v9"
 	goredis "github.com/redis/go-redis/v9"
 )
 
@@ -21,6 +22,12 @@ func Abrir(ctx context.Context, url string) (*Indice, error) {
 		return nil, fmt.Errorf("REDIS_URL malformada: %w", err)
 	}
 	cliente := goredis.NewClient(opts)
+	// Um span por comando, filho do span do contexto. O texto do comando fica de
+	// fora: as chaves levam o id da reserva.
+	if err := redisotel.InstrumentTracing(cliente, redisotel.WithDBStatement(false)); err != nil {
+		cliente.Close()
+		return nil, fmt.Errorf("instrumentar o redis: %w", err)
+	}
 	if err := cliente.Ping(ctx).Err(); err != nil {
 		cliente.Close()
 		return nil, fmt.Errorf("redis não respondeu: %w", err)

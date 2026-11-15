@@ -11,6 +11,7 @@ import (
 
 	"github.com/oseias/ingressos-golang/catalogo/internal/adapter/http/middleware"
 	"github.com/oseias/ingressos-golang/catalogo/internal/adapter/http/openapi"
+	"github.com/oseias/ingressos-golang/catalogo/internal/platform/obs"
 )
 
 type Dependencias struct {
@@ -90,6 +91,7 @@ func NovoRouter(d Dependencias) http.Handler { return novoRouter(rotas, d) }
 func novoRouter(tabela []Rota, d Dependencias) http.Handler {
 	r := chi.NewRouter()
 	r.Use(
+		obs.MiddlewareHTTP,
 		middleware.Recuperacao,
 		chimw.GetHead,
 	)

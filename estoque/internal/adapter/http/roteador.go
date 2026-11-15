@@ -6,6 +6,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+
+	"github.com/oseias/ingressos-golang/estoque/internal/platform/obs"
 )
 
 var metodosSondados = []string{
@@ -15,7 +17,7 @@ var metodosSondados = []string{
 
 func NovoRoteador() *chi.Mux {
 	r := chi.NewRouter()
-	r.Use(middleware.GetHead)
+	r.Use(obs.MiddlewareHTTP, middleware.GetHead)
 	r.MethodNotAllowed(func(w http.ResponseWriter, req *http.Request) {
 		if allow := metodosAceitos(r, req); allow != "" {
 			w.Header().Set("Allow", allow)

@@ -4,11 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"go.opentelemetry.io/otel"
 
 	adaptadoramqp "github.com/oseias/ingressos-golang/estoque/internal/adapter/amqp"
 	adaptadorcatalogo "github.com/oseias/ingressos-golang/estoque/internal/adapter/catalogo"
@@ -18,6 +21,7 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/shared"
 	"github.com/oseias/ingressos-golang/estoque/internal/platform/config"
 	"github.com/oseias/ingressos-golang/estoque/internal/platform/health"
+	"github.com/oseias/ingressos-golang/estoque/internal/platform/obs"
 	"github.com/oseias/ingressos-golang/estoque/internal/usecase"
 )
 
@@ -37,6 +41,22 @@ func executar() error {
 	ctx, encerrar := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer encerrar()
 
+	telemetria, err := obs.Iniciar(ctx, "estoque")
+	if err != nil {
+		return fmt.Errorf("observabilidade: %w", err)
+	}
+	defer func() {
+		ctxDescarga, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancelar()
+		_ = telemetria.Desligar(ctxDescarga)
+	}()
+	pararMetricas := obs.ServirMetricas(obs.EnderecoMetricas())
+	defer func() {
+		ctxDesligar, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancelar()
+		_ = pararMetricas(ctxDesligar)
+	}()
+
 	banco, err := postgres.Abrir(ctx, cfg.DatabaseURL)
 	if err != nil {
 		return err
@@ -53,11 +73,13 @@ func executar() error {
 	if cfg.RedisURL != "" {
 		prazo, err = adaptadorredis.Abrir(ctx, cfg.RedisURL)
 		if err != nil {
+			slog.Warn("redis indisponível; a expiração dependerá só da varredura", "erro", err)
 			prazo = nil
 		} else {
 			defer prazo.Fechar()
 		}
 	} else {
+		slog.Warn("REDIS_URL vazio; a expiração dependerá só da varredura")
 	}
 
 	reservas := postgres.NovoRepositorioReservas(banco)
@@ -113,11 +135,16 @@ func executar() error {
 	publicador.Iniciar(ctx)
 
 	aoFalhar := func(nome string, err error) {
+		slog.Error("rotina periódica falhou", "rotina", nome, "erro", err)
 	}
 
 	postgres.RotinaPeriodica(ctx, "varredura-expiracao", cfg.VarreduraExpiracaoInterval,
 		func(ctx context.Context) error {
-			_, err := expirar.Varrer(ctx)
+			n, err := expirar.Varrer(ctx)
+			if n > 0 {
+				obs.ReservasExpiradas(n)
+				slog.InfoContext(ctx, "reservas expiradas pela varredura", "quantidade", n)
+			}
 			return err
 		}, aoFalhar)
 
@@ -129,7 +156,17 @@ func executar() error {
 
 	if prazo != nil {
 		prazo.EscutarExpiracoes(ctx, func(ctx context.Context, reservaID string) {
-			_, _ = expirar.ExpirarUma(ctx, reservaID)
+			ctx, span := otel.Tracer("estoque").Start(ctx, "reserva.expirar")
+			defer span.End()
+			res, err := expirar.ExpirarUma(ctx, reservaID)
+			obs.FalharSpan(span, err)
+			switch {
+			case err != nil:
+				slog.ErrorContext(ctx, "falha ao expirar reserva", "reserva_id", reservaID, "erro", err)
+			case res == usecase.TransicaoAplicada:
+				obs.ReservasExpiradas(1)
+				slog.InfoContext(ctx, "reserva expirada", "reserva_id", reservaID)
+			}
 		})
 	}
 
@@ -181,6 +218,7 @@ func executar() error {
 			erros <- err
 		}
 	}()
+	slog.Info("estoque no ar", "http", cfg.HTTPAddr, "admin", cfg.AdminAddr, "metricas", obs.EnderecoMetricas())
 
 	select {
 	case err := <-erros:
@@ -190,7 +228,9 @@ func executar() error {
 		ctxDreno, cancelarDreno := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancelarDreno()
 		if n, err := publicador.Drenar(ctxDreno, 500); err != nil {
+			slog.Error("falha ao drenar a caixa de saída no desligamento", "erro", err)
 		} else if n > 0 {
+			slog.Info("caixa de saída drenada no desligamento", "publicados", n)
 		}
 		return nil
 	}

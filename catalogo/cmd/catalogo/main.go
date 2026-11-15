@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"net/http"
 	"os"
@@ -19,6 +20,7 @@ import (
 	"github.com/oseias/ingressos-golang/catalogo/internal/adapter/postgres"
 	"github.com/oseias/ingressos-golang/catalogo/internal/platform/config"
 	"github.com/oseias/ingressos-golang/catalogo/internal/platform/health"
+	"github.com/oseias/ingressos-golang/catalogo/internal/platform/obs"
 	"github.com/oseias/ingressos-golang/catalogo/internal/usecase"
 )
 
@@ -39,6 +41,22 @@ func executar() error {
 	ctx, pararSinais := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 
 	defer pararSinais()
+
+	telemetria, err := obs.Iniciar(ctx, "catalogo")
+	if err != nil {
+		return fmt.Errorf("observabilidade: %w", err)
+	}
+	defer func() {
+		ctxDescarga, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancelar()
+		_ = telemetria.Desligar(ctxDescarga)
+	}()
+	pararMetricas := obs.ServirMetricas(obs.EnderecoMetricas())
+	defer func() {
+		ctxDesligar, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancelar()
+		_ = pararMetricas(ctxDesligar)
+	}()
 
 	banco, err := postgres.Abrir(ctx, cfg.DatabaseURL)
 
@@ -124,6 +142,8 @@ func executar() error {
 	}
 
 	erros := make(chan error, 1)
+
+	slog.Info("catalogo no ar", "http", servidor.Addr, "metricas", obs.EnderecoMetricas())
 
 	go func() {
 		if err := servidor.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {

@@ -67,7 +67,7 @@ OBSERVABILIDADE
 ---------------
 Jaeger (traces distribuídos, porta 16686)
   http://localhost:16686/                        Busque por serviço (front, catalogo, estoque, pagamento, notificacao)
-  http://localhost:4318/v1/traces                Receptor OTLP/HTTP (POST); o frontend envia por /otlp, proxy do Vite
+  http://localhost:4318/v1/traces                Receptor OTLP/HTTP (POST); o frontend envia por /otlp (proxy do nginx no compose, do Vite em dev)
 
 Prometheus (métricas, porta 9092 no host)
   http://localhost:9092/targets                  Estado da raspagem dos quatro serviços

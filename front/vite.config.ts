@@ -15,6 +15,12 @@ const proxyServicos: Record<string, ProxyOptions> = {
     changeOrigin: true,
     rewrite: (caminho) => caminho.replace(/^\/estoque/, ''),
   },
+  // Spans do navegador (OTLP/HTTP) até o Jaeger; o Jaeger também não envia CORS.
+  '/otlp': {
+    target: 'http://localhost:4318',
+    changeOrigin: true,
+    rewrite: (caminho) => caminho.replace(/^\/otlp/, ''),
+  },
 }
 
 // https://vite.dev/config/

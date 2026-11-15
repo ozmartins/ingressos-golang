@@ -35,6 +35,8 @@ O botão "Comprar Ingressos" abre `/cinemas/{cinemaId}/filmes/{filmeId}/comprar?
 
 Na tela "Pagamento aprovado" o botão "Baixar ingresso (PDF)" gera, no próprio navegador (biblioteca `jspdf`, carregada só nesse momento), um PDF A4 com um ingresso por assento (filme, cinema, sala, dia, horário, assento, código do pedido) e uma página de resumo de valores. O pagamento é simulado, então o documento traz o aviso de que não vale como ingresso real. Detalhes em `specs/006-ingresso-pdf/`.
 
+Todas as páginas têm no cabeçalho (à esquerda, ao lado dos botões de conta) um ícone de casa que leva à página inicial, preservando aba e filtros da lista. Detalhes em `specs/007-icone-pagina-inicial/`.
+
 Os dados são lidos das listagens públicas `GET /api/v1/filmes` e `GET /api/v1/cinemas`, percorrendo todas as páginas (100 itens por página). A página do cinema também usa `GET /api/v1/cinemas/{id}`, `/salas?cinema_id=`, `/sessoes?cinema_id=`. Filmes fora de cartaz e cinemas inativos não são exibidos. As imagens vêm de URLs remotas devolvidas pela API: `imagem_url` nos filmes e `logo_url` nos cinemas (sem URL, um substituto neutro é exibido).
 
 ## Estrutura

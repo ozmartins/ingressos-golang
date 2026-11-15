@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Cinema, Filme } from './api/tipos'
-import { BarraConta } from './componentes/BarraConta'
+import { CabecalhoSite } from './componentes/CabecalhoSite'
 import { PaginaCinema, type CarregadoresCinema } from './componentes/PaginaCinema'
 import { PaginaCompra, type CarregadoresCompra } from './componentes/PaginaCompra'
 import { PaginaFilme, type CarregadoresFilme } from './componentes/PaginaFilme'
@@ -30,7 +30,7 @@ function App({ carregarFilmes, carregarCinemas, carregadoresCinema, carregadores
 
   return (
     <>
-      <BarraConta sessao={sessao} onSair={sair} />
+      <CabecalhoSite sessao={sessao} onSair={sair} />
       {inicioAberto ? (
         <div hidden={rota.tipo !== 'inicio'}>
           <PaginaInicial carregarFilmes={carregarFilmes} carregarCinemas={carregarCinemas} />

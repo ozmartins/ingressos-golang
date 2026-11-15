@@ -442,11 +442,39 @@ button {
   filter: brightness(1.1);
 }
 
+.cabecalho-site {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem 0;
+}
+
+.link-inicio {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: var(--raio);
+  color: var(--texto);
+}
+
+.link-inicio:hover {
+  color: var(--destaque);
+}
+
+.link-inicio:focus-visible {
+  outline: 3px solid var(--foco);
+  outline-offset: 2px;
+}
+
 .barra-conta {
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
-  padding: 0.75rem 1rem 0;
+  margin-left: auto;
 }
 
 .botao {

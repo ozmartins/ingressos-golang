@@ -208,4 +208,31 @@ describe('App', () => {
       expect(irParaLogin).toHaveBeenCalledWith('/cinemas/c1/filmes/f1/comprar')
     })
   })
+
+  describe('ícone de página inicial', () => {
+    const rotas = ['/', '/cinemas/c1', '/filmes/f1', '/cinemas/c1/filmes/f1/comprar', '/cinemas/c1/filmes/f1/pagamento', '/cinemas/inexistente']
+    for (const rota of rotas) {
+      it(`aparece em ${rota}, ao lado da barra de conta`, async () => {
+        window.history.replaceState(null, '', rota)
+        render(<App {...props} {...propsFilme} carregadoresCompra={compraSimulada()} />)
+        expect(screen.getByRole('link', { name: 'Página inicial' })).toHaveAttribute('href', '/')
+        expect(screen.getByRole('button', { name: 'Login' })).toBeInTheDocument()
+        await waitFor(() => expect(screen.getByRole('link', { name: 'Página inicial' })).toBeInTheDocument())
+      })
+    }
+
+    it('de um cinema leva ao início preservando aba e filtros', async () => {
+      window.history.replaceState(null, '', '/?aba=cinemas')
+      render(<App {...props} />)
+      await userEvent.type(await screen.findByLabelText('Buscar por nome'), 'Centro')
+      await userEvent.click(await screen.findByRole('link', { name: 'Cine Centro' }))
+      expect(await screen.findByRole('heading', { level: 1, name: 'Cine Centro' })).toBeInTheDocument()
+
+      await userEvent.click(screen.getByRole('link', { name: 'Página inicial' }))
+
+      await waitFor(() => expect(window.location.pathname).toBe('/'))
+      expect(screen.queryByRole('heading', { level: 1, name: 'Cine Centro' })).not.toBeInTheDocument()
+      expect(screen.getByLabelText('Buscar por nome')).toHaveValue('Centro')
+    })
+  })
 })

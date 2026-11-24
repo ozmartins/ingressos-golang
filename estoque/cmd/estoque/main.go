@@ -104,6 +104,8 @@ func executar() error {
 		Timeout:         cfg.CatalogoTimeout,
 		FalhasParaAbrir: uint32(cfg.BreakerFalhas),
 		IntervaloAberto: cfg.BreakerIntervalo,
+		Tentativas:      cfg.CatalogoTentativas,
+		EsperaBase:      cfg.CatalogoEsperaBase,
 	})
 	if err != nil {
 		return err

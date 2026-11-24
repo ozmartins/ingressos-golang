@@ -9,6 +9,7 @@ import (
 
 	"github.com/MicahParks/keyfunc/v3"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/oseias/ingressos-golang/catalogo/internal/platform/retry"
 )
 
 var ErrCredencialInvalida = errors.New("credencial inválida")
@@ -23,7 +24,11 @@ type Verificador struct {
 
 func NovoVerificador(emissor, audiencia string) (*Verificador, error) {
 	jwksURL := strings.TrimRight(emissor, "/") + caminhoJWKS
-	k, err := keyfunc.NewDefault([]string{jwksURL})
+	var k keyfunc.Keyfunc
+	err := retry.Executar(context.Background(), "carregar JWKS", retry.Dependencia, func() (e error) {
+		k, e = keyfunc.NewDefault([]string{jwksURL})
+		return e
+	})
 	if err != nil {
 		return nil, fmt.Errorf("carregar JWKS de %s: %w", jwksURL, err)
 	}

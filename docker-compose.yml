@@ -136,6 +136,7 @@ services:
   catalogo:
     build:
       context: ./catalogo
+    restart: on-failure
     environment:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
       OBS_ADDR: ":9090"
@@ -164,6 +165,7 @@ services:
   estoque:
     build:
       context: ./estoque
+    restart: on-failure
     environment:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
       OBS_ADDR: ":9090"
@@ -204,6 +206,7 @@ services:
   pagamento:
     build:
       context: ./pagamento
+    restart: on-failure
     environment:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
       OBS_ADDR: ":9090"
@@ -226,6 +229,7 @@ services:
   notificacao:
     build:
       context: ./notificacao
+    restart: on-failure
     environment:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
       OBS_ADDR: ":9090"

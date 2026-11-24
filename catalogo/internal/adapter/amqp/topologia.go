@@ -1,9 +1,11 @@
 package amqp
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
+	"github.com/oseias/ingressos-golang/catalogo/internal/platform/retry"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -25,7 +27,8 @@ func Conectar(url string) (*Conexao, error) {
 
 	defer c.mu.Unlock()
 
-	if err := c.abrir(); err != nil {
+	err := retry.Executar(context.Background(), "conectar ao broker", retry.Dependencia, c.abrir)
+	if err != nil {
 		return nil, err
 	}
 

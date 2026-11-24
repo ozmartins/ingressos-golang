@@ -1,8 +1,10 @@
 package amqp
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/oseias/ingressos-golang/estoque/internal/platform/retry"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -38,7 +40,11 @@ type Conexao struct {
 }
 
 func Conectar(url string) (*Conexao, error) {
-	conn, err := amqp.Dial(url)
+	var conn *amqp.Connection
+	err := retry.Executar(context.Background(), "conectar ao broker", retry.Dependencia, func() (e error) {
+		conn, e = amqp.Dial(url)
+		return e
+	})
 	if err != nil {
 		return nil, fmt.Errorf("conectar ao broker: %w", err)
 	}

@@ -24,8 +24,11 @@ type Config struct {
 	// CatalogoGRPCAddr é o endereço gRPC do catálogo (host:porta).
 	CatalogoGRPCAddr string
 	CatalogoTimeout  time.Duration
-	BreakerFalhas    int
-	BreakerIntervalo time.Duration
+	// Retry da consulta ao catálogo: total de tentativas e espera base do backoff.
+	CatalogoTentativas int
+	CatalogoEsperaBase time.Duration
+	BreakerFalhas      int
+	BreakerIntervalo   time.Duration
 
 	ReservaTTL                 time.Duration
 	PoltronasMaxPorBloqueio    int
@@ -96,10 +99,12 @@ func Carregar() (*Config, error) {
 		JWTIssuer:   c.obrigatoria("JWT_ISSUER"),
 		JWTAudience: c.obrigatoria("JWT_AUDIENCE"),
 
-		CatalogoGRPCAddr: c.obrigatoria("CATALOGO_GRPC_ADDR"),
-		CatalogoTimeout:  c.duracao("CATALOGO_TIMEOUT", "2s"),
-		BreakerFalhas:    c.inteiro("BREAKER_FALHAS_CONSECUTIVAS", "5"),
-		BreakerIntervalo: c.duracao("BREAKER_INTERVALO_ABERTO", "30s"),
+		CatalogoGRPCAddr:   c.obrigatoria("CATALOGO_GRPC_ADDR"),
+		CatalogoTimeout:    c.duracao("CATALOGO_TIMEOUT", "2s"),
+		CatalogoTentativas: c.inteiro("CATALOGO_TENTATIVAS", "3"),
+		CatalogoEsperaBase: c.duracao("CATALOGO_ESPERA_BASE", "100ms"),
+		BreakerFalhas:      c.inteiro("BREAKER_FALHAS_CONSECUTIVAS", "5"),
+		BreakerIntervalo:   c.duracao("BREAKER_INTERVALO_ABERTO", "30s"),
 
 		ReservaTTL:                 c.duracao("RESERVA_TTL", "10m"),
 		PoltronasMaxPorBloqueio:    c.inteiro("POLTRONAS_MAX_POR_BLOQUEIO", "10"),

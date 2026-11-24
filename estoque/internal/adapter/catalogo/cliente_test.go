@@ -141,3 +141,43 @@ func TestBreakerAbreComFalhasConsecutivasENaoComSessaoInexistente(t *testing.T) 
 		t.Errorf("chamadas = %d, esperado 7 (5 + 2 falhas até abrir; o resto recusado sem rede)", got)
 	}
 }
+
+func comRetry(c *Cliente, tentativas int) {
+	c.retry.Tentativas = tentativas
+	c.retry.Base = time.Millisecond
+	c.retry.Maximo = 2 * time.Millisecond
+}
+
+func TestBuscarSessaoRepeteIndisponibilidadeAteConseguir(t *testing.T) {
+	var n atomic.Int32
+	c, falso := clienteCom(t, func(context.Context, string) (*pb.Sessao, error) {
+		if n.Add(1) < 3 {
+			return nil, status.Error(codes.Unavailable, "fora")
+		}
+		return sessaoValida(), nil
+	})
+	comRetry(c, 3)
+
+	if _, err := c.BuscarSessao(context.Background(), "s1"); err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if got := falso.chamadas.Load(); got != 3 {
+		t.Errorf("chamadas = %d, esperado 3", got)
+	}
+}
+
+func TestBuscarSessaoNaoRepeteErroDeNegocio(t *testing.T) {
+	for nome, codigo := range map[string]codes.Code{"not found": codes.NotFound, "invalid argument": codes.InvalidArgument} {
+		t.Run(nome, func(t *testing.T) {
+			c, falso := clienteCom(t, func(context.Context, string) (*pb.Sessao, error) {
+				return nil, status.Error(codigo, "x")
+			})
+			comRetry(c, 3)
+
+			_, _ = c.BuscarSessao(context.Background(), "s1")
+			if got := falso.chamadas.Load(); got != 1 {
+				t.Errorf("chamadas = %d, esperado 1 (sem retry)", got)
+			}
+		})
+	}
+}

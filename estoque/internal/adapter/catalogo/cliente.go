@@ -20,6 +20,7 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/sessao"
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/shared"
 	"github.com/oseias/ingressos-golang/estoque/internal/platform/obs"
+	"github.com/oseias/ingressos-golang/estoque/internal/platform/retry"
 )
 
 type Opcoes struct {
@@ -28,12 +29,18 @@ type Opcoes struct {
 	Timeout         time.Duration
 	FalhasParaAbrir uint32
 	IntervaloAberto time.Duration
+	// Tentativas é o total de chamadas por consulta (0 ou 1 = sem retry). Só
+	// indisponibilidade (timeout, conexão recusada) é repetida, com backoff
+	// exponencial a partir de EsperaBase; erro de negócio nunca.
+	Tentativas int
+	EsperaBase time.Duration
 }
 
 type Cliente struct {
 	conn    *grpc.ClientConn
 	api     pb.CatalogoServiceClient
 	timeout time.Duration
+	retry   retry.Politica
 	breaker *gobreaker.CircuitBreaker[sessao.Sessao]
 }
 
@@ -58,6 +65,12 @@ func NovoClienteComAPI(opts Opcoes, api pb.CatalogoServiceClient) *Cliente {
 	return &Cliente{
 		api:     api,
 		timeout: opts.Timeout,
+		retry: retry.Politica{
+			Tentativas: opts.Tentativas,
+			Base:       opts.EsperaBase,
+			Maximo:     opts.EsperaBase * 8,
+			Retentavel: func(err error) bool { return errors.Is(err, shared.ErrCatalogoIndisponivel) },
+		},
 		breaker: gobreaker.NewCircuitBreaker[sessao.Sessao](gobreaker.Settings{
 			Name:        "catalogo.sessao",
 			MaxRequests: 1,
@@ -85,7 +98,15 @@ func (c *Cliente) Fechar() error {
 }
 
 func (c *Cliente) BuscarSessao(ctx context.Context, sessaoID string) (sessao.Sessao, error) {
-	s, err := c.breaker.Execute(func() (sessao.Sessao, error) { return c.buscar(ctx, sessaoID) })
+	// O retry fica dentro do disjuntor: uma consulta que esgota as tentativas
+	// conta como uma única falha para ele.
+	s, err := c.breaker.Execute(func() (s sessao.Sessao, err error) {
+		err = retry.Executar(ctx, "catalogo.ObterSessao", c.retry, func() (e error) {
+			s, e = c.buscar(ctx, sessaoID)
+			return e
+		})
+		return s, err
+	})
 	if errors.Is(err, gobreaker.ErrOpenState) || errors.Is(err, gobreaker.ErrTooManyRequests) {
 		return sessao.Sessao{}, fmt.Errorf("%w: %v", shared.ErrCatalogoIndisponivel, err)
 	}

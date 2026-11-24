@@ -20,6 +20,7 @@ import (
 	"github.com/oseias/ingressos-golang/notificacao/internal/platform/config"
 	"github.com/oseias/ingressos-golang/notificacao/internal/platform/health"
 	"github.com/oseias/ingressos-golang/notificacao/internal/platform/obs"
+	"github.com/oseias/ingressos-golang/notificacao/internal/platform/retry"
 	"github.com/oseias/ingressos-golang/notificacao/internal/usecase"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -70,7 +71,11 @@ func executar() error {
 	}
 	defer banco.Fechar()
 
-	conexao, err := amqp.Dial(cfg.AMQPURL)
+	var conexao *amqp.Connection
+	err = retry.Executar(ctx, "conectar ao broker", retry.Dependencia, func() (e error) {
+		conexao, e = amqp.Dial(cfg.AMQPURL)
+		return e
+	})
 	if err != nil {
 		return fmt.Errorf("conectar ao broker: %w", err)
 	}

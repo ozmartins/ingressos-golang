@@ -21,6 +21,7 @@ import (
 	"github.com/oseias/ingressos-golang/pagamento/internal/platform/config"
 	"github.com/oseias/ingressos-golang/pagamento/internal/platform/health"
 	"github.com/oseias/ingressos-golang/pagamento/internal/platform/obs"
+	"github.com/oseias/ingressos-golang/pagamento/internal/platform/retry"
 	"github.com/oseias/ingressos-golang/pagamento/internal/usecase"
 )
 
@@ -71,7 +72,11 @@ func executar() error {
 	defer banco.Fechar()
 	repo := postgres.NovoRepositorio(banco.DB())
 
-	conexao, err := amqp091.Dial(cfg.AMQPURL)
+	var conexao *amqp091.Connection
+	err = retry.Executar(ctx, "conectar ao broker", retry.Dependencia, func() (e error) {
+		conexao, e = amqp091.Dial(cfg.AMQPURL)
+		return e
+	})
 	if err != nil {
 		return err
 	}

@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"crypto/subtle"
 	"errors"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/MicahParks/keyfunc/v3"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/oseias/ingressos-golang/notificacao/internal/platform/retry"
 )
 
 var ErrCredencial = errors.New("http: credencial inválida")
@@ -20,7 +22,11 @@ type Autenticador struct {
 }
 
 func NovoAutenticador(jwksURL, issuer, audience string) (*Autenticador, error) {
-	k, err := keyfunc.NewDefault([]string{jwksURL})
+	var k keyfunc.Keyfunc
+	err := retry.Executar(context.Background(), "carregar JWKS", retry.Dependencia, func() (e error) {
+		k, e = keyfunc.NewDefault([]string{jwksURL})
+		return e
+	})
 	if err != nil {
 		return nil, fmt.Errorf("carregar JWKS de %s: %w", jwksURL, err)
 	}

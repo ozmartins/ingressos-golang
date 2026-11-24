@@ -29,6 +29,7 @@ import (
 	"github.com/oseias/ingressos-golang/catalogo/internal/platform/config"
 	"github.com/oseias/ingressos-golang/catalogo/internal/platform/health"
 	"github.com/oseias/ingressos-golang/catalogo/internal/platform/obs"
+	"github.com/oseias/ingressos-golang/catalogo/internal/platform/ratelimit"
 	"github.com/oseias/ingressos-golang/catalogo/internal/platform/retry"
 	"github.com/oseias/ingressos-golang/catalogo/internal/platform/tlsconf"
 	"github.com/oseias/ingressos-golang/catalogo/internal/usecase"
@@ -123,6 +124,7 @@ func executar() error {
 	publicador.Iniciar(ctx)
 
 	router := adapterhttp.NovoRouter(adapterhttp.Dependencias{
+		Taxa: ratelimit.Novo(float64(cfg.RateLimitRPS), cfg.RateLimitBurst),
 		Handlers: adapterhttp.Handlers{
 			ListarFilmes:     usecase.ListarFilmes{Repo: filmes},
 			BuscarFilme:      usecase.BuscarFilme{Repo: filmes},

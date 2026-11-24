@@ -21,6 +21,7 @@ import (
 	"github.com/oseias/ingressos-golang/pagamento/internal/platform/config"
 	"github.com/oseias/ingressos-golang/pagamento/internal/platform/health"
 	"github.com/oseias/ingressos-golang/pagamento/internal/platform/obs"
+	"github.com/oseias/ingressos-golang/pagamento/internal/platform/ratelimit"
 	"github.com/oseias/ingressos-golang/pagamento/internal/platform/retry"
 	"github.com/oseias/ingressos-golang/pagamento/internal/usecase"
 )
@@ -149,7 +150,7 @@ func executar() error {
 
 	varrer := usecase.VarrerCobrancas{
 		Repo: repo, Cobranca: processar, Relogio: relogio{},
-		Lote: cfg.VarreduraLote,
+		Lote: cfg.VarreduraLote, ComRequestID: obs.ComRequestID,
 	}
 	postgres.RotinaPeriodica(ctx, "varredura-cobrancas", cfg.VarreduraIntervalo,
 		varrer.Executar, func(nome string, err error) {
@@ -175,6 +176,7 @@ func executar() error {
 		Escolha:   usecase.EscolherForma{Repo: repo, Relogio: relogio{}},
 		Auth:      auth,
 		Prontidao: prontidao,
+		Taxa:      ratelimit.Novo(float64(cfg.RateLimitRPS), cfg.RateLimitBurst),
 	}
 
 	servidor := &http.Server{

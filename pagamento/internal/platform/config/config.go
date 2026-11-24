@@ -24,6 +24,8 @@ type Config struct {
 	AdquirenteTimeout  time.Duration
 	VarreduraIntervalo time.Duration
 	VarreduraLote      int
+	RateLimitRPS       int
+	RateLimitBurst     int
 
 	JWKSURL   string
 	JWTIssuer string
@@ -53,12 +55,17 @@ func Carregar() (Config, error) {
 	c.AdquirenteTimeout = duracao("ADQUIRENTE_TIMEOUT", 10*time.Second, &f)
 	c.VarreduraIntervalo = duracao("VARREDURA_INTERVALO", 2*time.Second, &f)
 	c.VarreduraLote = inteiro("VARREDURA_LOTE", 50, &f)
+	c.RateLimitRPS = inteiro("RATE_LIMIT_RPS", 5, &f)
+	c.RateLimitBurst = inteiro("RATE_LIMIT_BURST", 10, &f)
 
 	if c.AMQPPrefetch <= 0 {
 		f = append(f, "AMQP_PREFETCH deve ser maior que zero")
 	}
 	if c.AMQPLimiteEntregas <= 0 {
 		f = append(f, "AMQP_LIMITE_ENTREGAS deve ser maior que zero")
+	}
+	if c.RateLimitRPS <= 0 || c.RateLimitBurst <= 0 {
+		f = append(f, "RATE_LIMIT_RPS e RATE_LIMIT_BURST devem ser maiores que zero")
 	}
 	if c.AdquirenteTimeout <= 0 {
 		f = append(f, "ADQUIRENTE_TIMEOUT deve ser maior que zero")

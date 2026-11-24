@@ -59,6 +59,9 @@ type Transacao struct {
 	PagoEm                 *time.Time
 	CriadoEm               time.Time
 	AtualizadoEm           time.Time
+	// RequestID é o id de correlação da requisição que originou a reserva;
+	// a cobrança roda depois, e ele é restaurado para os logs e os fatos.
+	RequestID string
 }
 
 func Nova(id, reservaID, usuarioID, valor string, expiraEm, agora time.Time) Transacao {

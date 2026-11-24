@@ -30,6 +30,9 @@ type Config struct {
 
 	PaginacaoTamanhoPadrao int
 	PaginacaoTamanhoMaximo int
+	// Rate limit por IP nas rotas /api/ (padrão generoso: o catálogo é público).
+	RateLimitRPS   int
+	RateLimitBurst int
 }
 
 type erroCampo struct {
@@ -108,6 +111,21 @@ func Carregar() (Config, error) {
 		default:
 			c.PaginacaoTamanhoPadrao, c.PaginacaoTamanhoMaximo = padrao, maximo
 		}
+	}
+
+	if v, err := inteiro("RATE_LIMIT_RPS", 50); err != nil {
+		falhas = append(falhas, erroCampo{"RATE_LIMIT_RPS", err.Error()})
+	} else if v < 1 {
+		falhas = append(falhas, erroCampo{"RATE_LIMIT_RPS", "deve ser maior ou igual a 1"})
+	} else {
+		c.RateLimitRPS = v
+	}
+	if v, err := inteiro("RATE_LIMIT_BURST", 100); err != nil {
+		falhas = append(falhas, erroCampo{"RATE_LIMIT_BURST", err.Error()})
+	} else if v < 1 {
+		falhas = append(falhas, erroCampo{"RATE_LIMIT_BURST", "deve ser maior ou igual a 1"})
+	} else {
+		c.RateLimitBurst = v
 	}
 
 	if len(falhas) > 0 {

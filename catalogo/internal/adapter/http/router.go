@@ -13,12 +13,15 @@ import (
 	"github.com/oseias/ingressos-golang/catalogo/internal/adapter/http/openapi"
 	"github.com/oseias/ingressos-golang/catalogo/internal/adapter/identidade"
 	"github.com/oseias/ingressos-golang/catalogo/internal/platform/obs"
+	"github.com/oseias/ingressos-golang/catalogo/internal/platform/ratelimit"
 )
 
 type Dependencias struct {
 	Handlers    Handlers
 	Saude       http.HandlerFunc
 	Verificador middleware.VerificadorDeCredencial
+	// Taxa limita as rotas /api/ por IP de origem (nil = sem limite).
+	Taxa *ratelimit.Limitador
 }
 
 type Rota struct {
@@ -112,10 +115,30 @@ func novoRouter(tabela []Rota, d Dependencias) http.Handler {
 		if rota.Protegida {
 			h = protegida(exigirEscrita(h))
 		}
+		if strings.HasPrefix(rota.Caminho, "/api/") {
+			h = limitarPorIP(d.Taxa, h)
+		}
 		r.Method(rota.Metodo, rota.Caminho, comPadrao(rota, h))
 	}
 
 	return r
+}
+
+// limitarPorIP devolve 429 com Retry-After quando o IP de origem excede a taxa.
+// Não confia em X-Forwarded-For (forjável); atrás de um proxy, todos os
+// clientes compartilham o IP do proxy, por isso o padrão é generoso.
+func limitarPorIP(taxa *ratelimit.Limitador, h http.Handler) http.Handler {
+	if taxa == nil {
+		return h
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !taxa.Permitir(ratelimit.IPDe(r)) {
+			w.Header().Set("Retry-After", "1")
+			http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
+			return
+		}
+		h.ServeHTTP(w, r)
+	})
 }
 
 func comPadrao(rota Rota, h http.Handler) http.Handler {

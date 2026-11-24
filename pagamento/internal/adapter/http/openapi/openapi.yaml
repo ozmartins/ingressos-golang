@@ -135,6 +135,11 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Erro" }
+        "429":
+          description: Limite de escolhas por segundo, por usuário, excedido (`Retry-After` indica quando tentar de novo).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erro" }
         "503":
           description: Serviço incapaz de gravar a escolha
           content:

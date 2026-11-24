@@ -21,6 +21,7 @@ type transacaoRow struct {
 	PagoEm                 *time.Time `gorm:"column:pago_em"`
 	CriadoEm               time.Time  `gorm:"column:criado_em"`
 	AtualizadoEm           time.Time  `gorm:"column:atualizado_em"`
+	RequestID              *string    `gorm:"column:request_id"`
 }
 
 func (transacaoRow) TableName() string { return "transacoes_pagamento" }
@@ -48,6 +49,7 @@ func paraLinha(t transacao.Transacao) transacaoRow {
 		MotivoFalha:            nuloSeVazio(string(t.MotivoFalha)),
 		CobrancaEmitida:        t.CobrancaEmitida, ResultadoAnunciado: t.ResultadoAnunciado,
 		ExpiraEm: t.ExpiraEm, PagoEm: t.PagoEm, CriadoEm: t.CriadoEm, AtualizadoEm: t.AtualizadoEm,
+		RequestID: nuloSeVazio(t.RequestID),
 	}
 }
 
@@ -60,5 +62,6 @@ func (r transacaoRow) paraDominio() transacao.Transacao {
 		MotivoFalha:            transacao.Motivo(vazioSeNulo(r.MotivoFalha)),
 		CobrancaEmitida:        r.CobrancaEmitida, ResultadoAnunciado: r.ResultadoAnunciado,
 		ExpiraEm: r.ExpiraEm, PagoEm: r.PagoEm, CriadoEm: r.CriadoEm, AtualizadoEm: r.AtualizadoEm,
+		RequestID: vazioSeNulo(r.RequestID),
 	}
 }

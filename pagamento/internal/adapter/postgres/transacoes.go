@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/oseias/ingressos-golang/pagamento/internal/domain/transacao"
+	"github.com/oseias/ingressos-golang/pagamento/internal/platform/obs"
 	"github.com/oseias/ingressos-golang/pagamento/internal/usecase"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -20,6 +21,9 @@ var estadosAnunciaveis = []string{
 }
 
 func (r *Repositorio) CriarSeAusente(ctx context.Context, t transacao.Transacao) (bool, transacao.Transacao, error) {
+	if t.RequestID == "" {
+		t.RequestID = obs.RequestID(ctx)
+	}
 	linha := paraLinha(t)
 	res := r.db.WithContext(ctx).
 		Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "reserva_id"}}, DoNothing: true}, clause.Returning{}).

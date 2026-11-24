@@ -13,6 +13,7 @@ import (
 	"github.com/oseias/ingressos-golang/pagamento/internal/domain/transacao"
 	"github.com/oseias/ingressos-golang/pagamento/internal/platform/health"
 	"github.com/oseias/ingressos-golang/pagamento/internal/platform/obs"
+	"github.com/oseias/ingressos-golang/pagamento/internal/platform/ratelimit"
 	"github.com/oseias/ingressos-golang/pagamento/internal/usecase"
 )
 
@@ -28,6 +29,7 @@ const (
 	CodFormaDesconhecida  = "forma-pagamento-desconhecida"
 	CodFormaJaEscolhida   = "forma-pagamento-ja-escolhida"
 	CodReservaExpirada    = "reserva-expirada"
+	CodMuitasRequisicoes  = "muitas-requisicoes"
 )
 
 var titulos = map[string]string{
@@ -40,6 +42,7 @@ var titulos = map[string]string{
 	CodFormaDesconhecida:  "Forma de pagamento desconhecida",
 	CodFormaJaEscolhida:   "Forma de pagamento já escolhida",
 	CodReservaExpirada:    "Reserva expirada",
+	CodMuitasRequisicoes:  "Muitas requisições",
 }
 
 type problema struct {
@@ -68,6 +71,8 @@ type API struct {
 	Escolha   usecase.EscolherForma
 	Auth      *Autenticador
 	Prontidao *health.Prontidao
+	// Taxa limita a escolha da forma de pagamento por usuário (nil = sem limite).
+	Taxa *ratelimit.Limitador
 }
 
 func (a *API) Rotas() http.Handler {
@@ -141,6 +146,11 @@ func (a *API) escolherForma(w http.ResponseWriter, r *http.Request) {
 	sub, err := a.Auth.Exigir(r, PermissaoCliente)
 	if err != nil {
 		recusarCredencial(w, err)
+		return
+	}
+	if !a.Taxa.Permitir(sub) {
+		w.Header().Set("Retry-After", "1")
+		responderErro(w, http.StatusTooManyRequests, CodMuitasRequisicoes, "limite de escolhas de pagamento por segundo excedido; tente novamente em instantes")
 		return
 	}
 

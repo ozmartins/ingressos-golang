@@ -21,10 +21,21 @@ type Autenticador struct {
 	audience string
 }
 
+// timeoutJWKS limita cada busca do JWKS (o padrão da biblioteca é 1 minuto).
+const timeoutJWKS = 5 * time.Second
+
+var falhaNaPrimeiraBusca = false
+
 func NovoAutenticador(jwksURL, issuer, audience string) (*Autenticador, error) {
 	var k keyfunc.Keyfunc
 	err := retry.Executar(context.Background(), "carregar JWKS", retry.Dependencia, func() (e error) {
-		k, e = keyfunc.NewDefault([]string{jwksURL})
+		k, e = keyfunc.NewDefaultOverrideCtx(context.Background(), []string{jwksURL}, keyfunc.Override{
+			Client:      &http.Client{Timeout: timeoutJWKS},
+			HTTPTimeout: timeoutJWKS,
+			// Falha a primeira busca de verdade, para o retry esperar o Keycloak
+			// subir (o padrão da biblioteca engole o erro e deixa o JWKS vazio).
+			NoErrorReturnFirstHTTPReq: &falhaNaPrimeiraBusca,
+		})
 		return e
 	})
 	if err != nil {

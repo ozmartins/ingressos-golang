@@ -159,7 +159,7 @@ func NovoClienteComAPI(opts Opcoes, api pb.CatalogoServiceClient) *Cliente {
 				return c.ConsecutiveFailures >= opts.FalhasParaAbrir
 			},
 			IsSuccessful: func(err error) bool {
-				return err == nil || errors.Is(err, shared.ErrSessaoNaoEncontrada)
+				return err == nil || errors.Is(err, shared.ErrSessaoNaoEncontrada) || errors.Is(err, context.Canceled)
 			},
 		}),
 	}
@@ -273,7 +273,10 @@ func traduzirErro(err error, sessaoID string) error {
 	switch status.Code(err) {
 	case codes.NotFound:
 		return fmt.Errorf("%w: %s", shared.ErrSessaoNaoEncontrada, sessaoID)
-	case codes.Unavailable, codes.DeadlineExceeded, codes.Canceled, codes.ResourceExhausted, codes.Aborted:
+	case codes.Canceled:
+		// Quem chamou desistiu: não é falha do catálogo, nem vale re-tentar.
+		return fmt.Errorf("consulta ao catálogo cancelada: %w", context.Canceled)
+	case codes.Unavailable, codes.DeadlineExceeded, codes.ResourceExhausted, codes.Aborted:
 		return fmt.Errorf("%w: %v", shared.ErrCatalogoIndisponivel, err)
 	default:
 		// Internal, InvalidArgument, Unknown etc.: o catálogo respondeu, mas

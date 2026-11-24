@@ -245,3 +245,13 @@ func TestFallbackNaoEncobreSessaoInexistenteNemSessaoNuncaVista(t *testing.T) {
 		t.Errorf("sem cache, deve falhar: %v", err)
 	}
 }
+
+func TestTraduzirErroCanceladoNaoEhIndisponibilidade(t *testing.T) {
+	err := traduzirErro(status.Error(codes.Canceled, "x"), "s1")
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("esperava context.Canceled, obteve: %v", err)
+	}
+	if errors.Is(err, shared.ErrCatalogoIndisponivel) {
+		t.Fatal("cancelamento não deve contar como indisponibilidade (nem ser re-tentado)")
+	}
+}

@@ -34,6 +34,12 @@ type Opcoes struct {
 	// exponencial a partir de EsperaBase; erro de negócio nunca.
 	Tentativas int
 	EsperaBase time.Duration
+	// Identidade do estoque junto ao catálogo (OAuth2 client credentials). Se
+	// TokenURL estiver vazio, as chamadas seguem sem token (só para testes).
+	TokenURL     string
+	ClientID     string
+	ClientSecret string
+	TokenTimeout time.Duration
 }
 
 type Cliente struct {
@@ -48,10 +54,15 @@ type Cliente struct {
 // subiu). O otelgrpc abre um span de cliente e injeta o traceparent na chamada:
 // é assim que o trace da reserva atravessa os dois serviços.
 func NovoCliente(opts Opcoes) (*Cliente, error) {
-	conn, err := grpc.NewClient(opts.Endereco,
+	dial := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
-	)
+	}
+	if opts.TokenURL != "" {
+		dial = append(dial, grpc.WithPerRPCCredentials(
+			NovaFonteDeToken(opts.TokenURL, opts.ClientID, opts.ClientSecret, opts.TokenTimeout)))
+	}
+	conn, err := grpc.NewClient(opts.Endereco, dial...)
 	if err != nil {
 		return nil, fmt.Errorf("catálogo gRPC %q: %w", opts.Endereco, err)
 	}

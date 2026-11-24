@@ -177,3 +177,33 @@ func TestVerificarRecusaTokenM2MSemMapperDeAudiencia(t *testing.T) {
 		t.Fatalf("esperava recusa de token com audiência 'account', obteve %v", err)
 	}
 }
+
+func TestVerificarExtraiPapeisEEscopos(t *testing.T) {
+	e := novoEmissor(t)
+	v := e.verificador(t)
+	c := claimsValidas(e.issuer)
+	c["realm_access"] = map[string]any{"roles": []string{"catalogo-admin", "offline_access"}}
+	c["scope"] = "profile catalogo-admin leitura"
+
+	id, err := v.Verificar(context.Background(), e.token(t, c, nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !id.Tem("catalogo-admin") || !id.Tem("leitura") || id.Tem("outra") {
+		t.Errorf("permissões = %v", id.Permissoes)
+	}
+	if n := len(id.Permissoes); n != 4 { // catalogo-admin, offline_access, profile, leitura (sem repetir)
+		t.Errorf("esperava 4 permissões distintas, veio %d: %v", n, id.Permissoes)
+	}
+}
+
+func TestVerificarTokenSemPapeisNaoTemPermissao(t *testing.T) {
+	e := novoEmissor(t)
+	id, err := e.verificador(t).Verificar(context.Background(), e.token(t, claimsValidas(e.issuer), nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id.Tem(PermissaoEscrita) {
+		t.Error("token sem papéis não deveria ter permissão de escrita")
+	}
+}

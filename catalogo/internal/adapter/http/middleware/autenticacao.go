@@ -11,7 +11,32 @@ import (
 
 type chaveContexto string
 
-const chaveUsuario chaveContexto = "usuario_id"
+const (
+	chaveUsuario    chaveContexto = "usuario_id"
+	chaveIdentidade chaveContexto = "identidade"
+)
+
+// IdentidadeDoContexto devolve a identidade autenticada (com permissões).
+func IdentidadeDoContexto(ctx context.Context) (identidade.Identidade, bool) {
+	id, ok := ctx.Value(chaveIdentidade).(identidade.Identidade)
+	return id, ok
+}
+
+// Autorizacao exige que a identidade já autenticada tenha a permissão; senão
+// chama aoNegar (resposta 403, distinta do 401 de quem nem se autenticou).
+// Deve rodar depois de Autenticacao.
+func Autorizacao(permissao string, aoNegar func(http.ResponseWriter, *http.Request, string)) func(http.Handler) http.Handler {
+	return func(prox http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			id, ok := IdentidadeDoContexto(r.Context())
+			if !ok || !id.Tem(permissao) {
+				aoNegar(w, r, "A credencial é válida, mas não concede permissão para esta operação.")
+				return
+			}
+			prox.ServeHTTP(w, r)
+		})
+	}
+}
 
 func UsuarioDoContexto(ctx context.Context) string {
 	v, _ := ctx.Value(chaveUsuario).(string)
@@ -40,6 +65,7 @@ func Autenticacao(v VerificadorDeCredencial, aoRecusar func(http.ResponseWriter,
 			}
 
 			ctx := context.WithValue(r.Context(), chaveUsuario, id.UsuarioID)
+			ctx = context.WithValue(ctx, chaveIdentidade, id)
 			prox.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

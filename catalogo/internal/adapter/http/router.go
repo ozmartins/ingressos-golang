@@ -11,6 +11,7 @@ import (
 
 	"github.com/oseias/ingressos-golang/catalogo/internal/adapter/http/middleware"
 	"github.com/oseias/ingressos-golang/catalogo/internal/adapter/http/openapi"
+	"github.com/oseias/ingressos-golang/catalogo/internal/adapter/identidade"
 	"github.com/oseias/ingressos-golang/catalogo/internal/platform/obs"
 )
 
@@ -101,10 +102,15 @@ func novoRouter(tabela []Rota, d Dependencias) http.Handler {
 		EscreverProblem(w, r, catNaoAutenticado, detalhe)
 	})
 
+	// Rota protegida = autenticada (401) e com permissão de escrita (403).
+	exigirEscrita := middleware.Autorizacao(identidade.PermissaoEscrita, func(w http.ResponseWriter, r *http.Request, detalhe string) {
+		EscreverProblem(w, r, catAcessoNegado, detalhe)
+	})
+
 	for _, rota := range tabela {
 		h := rota.handler(d)
 		if rota.Protegida {
-			h = protegida(h)
+			h = protegida(exigirEscrita(h))
 		}
 		r.Method(rota.Metodo, rota.Caminho, comPadrao(rota, h))
 	}

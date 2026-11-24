@@ -256,7 +256,7 @@ func (v verificadorFalso) Verificar(_ context.Context, token string) (identidade
 	if token != "token-bom" {
 		return identidade.Identidade{}, identidade.ErrCredencialInvalida
 	}
-	return identidade.Identidade{UsuarioID: v.usuarioID}, nil
+	return identidade.Identidade{UsuarioID: v.usuarioID, Permissoes: []string{identidade.PermissaoEscrita}}, nil
 }
 
 func recortar[T any](todos []T, req shared.PageRequest) shared.Page[T] {

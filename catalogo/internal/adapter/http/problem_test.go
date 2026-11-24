@@ -32,6 +32,7 @@ func TestTodasAsCategoriasDoContrato(t *testing.T) {
 		{catParametroInvalido, http.StatusBadRequest},
 		{catCorpoInvalido, http.StatusBadRequest},
 		{catNaoAutenticado, http.StatusUnauthorized},
+		{catAcessoNegado, http.StatusForbidden},
 		{catCinemaNaoEncontrado, http.StatusNotFound},
 		{catSalaNaoEncontrada, http.StatusNotFound},
 		{catFilmeNaoEncontrado, http.StatusNotFound},

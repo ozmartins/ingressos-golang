@@ -107,6 +107,10 @@ func executar() error {
 		IntervaloAberto: cfg.BreakerIntervalo,
 		Tentativas:      cfg.CatalogoTentativas,
 		EsperaBase:      cfg.CatalogoEsperaBase,
+		TokenURL:        cfg.KeycloakTokenURL,
+		ClientID:        cfg.CatalogoClientID,
+		ClientSecret:    cfg.CatalogoClientSegredo,
+		TokenTimeout:    cfg.CatalogoTimeout,
 	})
 	if err != nil {
 		return err

@@ -18,7 +18,7 @@ func (v verificadorFalso) Verificar(context.Context, string) (identidade.Identid
 	if !v.aceita {
 		return identidade.Identidade{}, context.Canceled
 	}
-	return identidade.Identidade{UsuarioID: "u1"}, nil
+	return identidade.Identidade{UsuarioID: "u1", Permissoes: []string{identidade.PermissaoEscrita}}, nil
 }
 
 func tabelaFalsa(visto *[]string) []Rota {
@@ -159,5 +159,32 @@ func TestCaminhoNaoCanonicoResponde404(t *testing.T) {
 		if w.Code != http.StatusNotFound {
 			t.Errorf("%s: status %d, esperado 404", caminho, w.Code)
 		}
+	}
+}
+
+type verificadorSemPermissao struct{}
+
+func (verificadorSemPermissao) Verificar(context.Context, string) (identidade.Identidade, error) {
+	return identidade.Identidade{UsuarioID: "u1", Permissoes: []string{"outra-coisa"}}, nil
+}
+
+func TestRotaProtegidaComTokenSemPermissaoDevolve403(t *testing.T) {
+	for _, rota := range Rotas() {
+		if !rota.Protegida {
+			continue
+		}
+		t.Run(rota.Metodo+" "+rota.Caminho, func(t *testing.T) {
+			var visto []string
+			router := novoRouter(tabelaFalsa(&visto), Dependencias{Verificador: verificadorSemPermissao{}})
+
+			req := httptest.NewRequest(rota.Metodo, caminhoConcreto(rota.Caminho), nil)
+			req.Header.Set("Authorization", "Bearer token-valido")
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			if w.Code != http.StatusForbidden || len(visto) != 0 {
+				t.Fatalf("status %d, chamadas %v; esperado 403 sem chamar o handler", w.Code, visto)
+			}
+		})
 	}
 }

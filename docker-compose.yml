@@ -56,6 +56,7 @@ services:
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?defina KEYCLOAK_ADMIN_PASSWORD no .env}
       # Substituídos no realm importado (${CINEMA_M2M_SECRET} etc. em realm-cinema.json).
       CINEMA_M2M_SECRET: ${CINEMA_M2M_SECRET:?defina CINEMA_M2M_SECRET no .env}
+      ESTOQUE_SVC_SECRET: ${ESTOQUE_SVC_SECRET:?defina ESTOQUE_SVC_SECRET no .env}
       UFSC_USER_PASSWORD: ${UFSC_USER_PASSWORD:?defina UFSC_USER_PASSWORD no .env}
       KC_HTTP_PORT: "8081"      
       KC_HOSTNAME: http://keycloak:8081
@@ -190,6 +191,10 @@ services:
       JWT_AUDIENCE: cinema-app
       # A reserva consulta preço e status da sessão no catálogo por gRPC.
       CATALOGO_GRPC_ADDR: catalogo:9091
+      # Identidade do estoque junto ao catálogo: client credentials no Keycloak.
+      KEYCLOAK_TOKEN_URL: http://keycloak:8081/realms/cinema/protocol/openid-connect/token
+      CATALOGO_CLIENT_ID: estoque-svc
+      CATALOGO_CLIENT_SECRET: ${ESTOQUE_SVC_SECRET:?defina ESTOQUE_SVC_SECRET no .env}
       CATALOGO_TIMEOUT: 2s
       RESERVA_TTL: 10m
       POLTRONAS_MAX_POR_BLOQUEIO: "10"

@@ -24,6 +24,10 @@ type Config struct {
 	// CatalogoGRPCAddr é o endereço gRPC do catálogo (host:porta).
 	CatalogoGRPCAddr string
 	CatalogoTimeout  time.Duration
+	// Identidade do estoque junto ao catálogo (client credentials no Keycloak).
+	KeycloakTokenURL      string
+	CatalogoClientID      string
+	CatalogoClientSegredo string
 	// Limite de taxa das reservas, por usuário: fichas repostas por segundo e rajada.
 	RateLimitRPS   int
 	RateLimitBurst int
@@ -101,6 +105,10 @@ func Carregar() (*Config, error) {
 		JWKSURL:     c.obrigatoria("JWKS_URL"),
 		JWTIssuer:   c.obrigatoria("JWT_ISSUER"),
 		JWTAudience: c.obrigatoria("JWT_AUDIENCE"),
+
+		KeycloakTokenURL:      c.obrigatoria("KEYCLOAK_TOKEN_URL"),
+		CatalogoClientID:      c.comPadrao("CATALOGO_CLIENT_ID", "estoque-svc"),
+		CatalogoClientSegredo: c.obrigatoria("CATALOGO_CLIENT_SECRET"),
 
 		RateLimitRPS:   c.inteiro("RATE_LIMIT_RPS", "5"),
 		RateLimitBurst: c.inteiro("RATE_LIMIT_BURST", "10"),

@@ -150,7 +150,11 @@ func executar() error {
 
 	// gRPC: canal serviço a serviço (o estoque consulta preço e status da
 	// sessão). Reutiliza o mesmo caso de uso do REST.
-	servidorGRPC := grpc.NewServer(grpc.StatsHandler(otelgrpc.NewServerHandler()))
+	// Só o estoque (service account com o papel catalogo-leitura-sessao) pode consultar.
+	servidorGRPC := grpc.NewServer(
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
+		grpc.ChainUnaryInterceptor(adaptadorgrpc.InterceptadorAutenticacao(verificador, identidade.PermissaoLerSessao)),
+	)
 	pb.RegisterCatalogoServiceServer(servidorGRPC, &adaptadorgrpc.Servidor{
 		BuscarSessao: usecase.BuscarSessao{Repo: sessoes},
 	})

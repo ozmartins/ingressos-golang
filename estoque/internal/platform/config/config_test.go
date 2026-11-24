@@ -11,6 +11,8 @@ func ambienteValido(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://u:p@localhost:5432/estoque")
 	t.Setenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
 	t.Setenv("CATALOGO_GRPC_ADDR", "catalogo:9091")
+	t.Setenv("KEYCLOAK_TOKEN_URL", "http://keycloak:8081/realms/cinema/protocol/openid-connect/token")
+	t.Setenv("CATALOGO_CLIENT_SECRET", "segredo")
 	t.Setenv("JWKS_URL", "http://keycloak:8081/realms/cinema/protocol/openid-connect/certs")
 	t.Setenv("JWT_ISSUER", "http://keycloak:8081/realms/cinema")
 	t.Setenv("JWT_AUDIENCE", "cinema-app")

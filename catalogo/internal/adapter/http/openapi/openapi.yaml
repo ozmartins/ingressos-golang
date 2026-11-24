@@ -64,6 +64,7 @@ paths:
               schema: { $ref: '#/components/schemas/Filme' }
         '400': { $ref: '#/components/responses/EntradaInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/AcessoNegado' }
 
   /filmes/{id}:
     parameters:
@@ -99,6 +100,7 @@ paths:
               schema: { $ref: '#/components/schemas/Filme' }
         '400': { $ref: '#/components/responses/EntradaInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/AcessoNegado' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
     delete:
       tags: [Filmes]
@@ -108,6 +110,7 @@ paths:
         '204': { $ref: '#/components/responses/SemConteudo' }
         '400': { $ref: '#/components/responses/EntradaInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/AcessoNegado' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
 
   /cinemas:
@@ -149,6 +152,7 @@ paths:
               schema: { $ref: '#/components/schemas/Cinema' }
         '400': { $ref: '#/components/responses/EntradaInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/AcessoNegado' }
 
   /cinemas/{id}:
     parameters:
@@ -184,6 +188,7 @@ paths:
               schema: { $ref: '#/components/schemas/Cinema' }
         '400': { $ref: '#/components/responses/EntradaInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/AcessoNegado' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
     delete:
       tags: [Cinemas]
@@ -193,6 +198,7 @@ paths:
         '204': { $ref: '#/components/responses/SemConteudo' }
         '400': { $ref: '#/components/responses/EntradaInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/AcessoNegado' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
 
   /salas:
@@ -239,6 +245,7 @@ paths:
               schema: { $ref: '#/components/schemas/Sala' }
         '400': { $ref: '#/components/responses/EntradaInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/AcessoNegado' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
         '409': { $ref: '#/components/responses/Conflito' }
 
@@ -276,6 +283,7 @@ paths:
               schema: { $ref: '#/components/schemas/Sala' }
         '400': { $ref: '#/components/responses/EntradaInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/AcessoNegado' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
         '409': { $ref: '#/components/responses/Conflito' }
     delete:
@@ -286,6 +294,7 @@ paths:
         '204': { $ref: '#/components/responses/SemConteudo' }
         '400': { $ref: '#/components/responses/EntradaInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/AcessoNegado' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
 
   /sessoes:
@@ -332,6 +341,7 @@ paths:
               schema: { $ref: '#/components/schemas/Sessao' }
         '400': { $ref: '#/components/responses/EntradaInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/AcessoNegado' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
         '409': { $ref: '#/components/responses/Conflito' }
 
@@ -369,6 +379,7 @@ paths:
               schema: { $ref: '#/components/schemas/Sessao' }
         '400': { $ref: '#/components/responses/EntradaInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/AcessoNegado' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
         '409': { $ref: '#/components/responses/Conflito' }
     delete:
@@ -379,6 +390,7 @@ paths:
         '204': { $ref: '#/components/responses/SemConteudo' }
         '400': { $ref: '#/components/responses/EntradaInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/AcessoNegado' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
 
   /health:
@@ -750,6 +762,13 @@ components:
           schema: { $ref: '#/components/schemas/Problem' }
     NaoAutenticado:
       description: Credencial ausente, inválida, expirada ou sem identificação do usuário
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    AcessoNegado:
+      description: |
+        Credencial válida, mas sem a permissão `catalogo-admin` (papel de realm
+        ou escopo) exigida para operações de escrita
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }

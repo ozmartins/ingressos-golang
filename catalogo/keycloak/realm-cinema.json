@@ -10,8 +10,12 @@
       "publicClient": true,
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
-      "redirectUris": ["*"],
-      "webOrigins": ["*"],
+      "redirectUris": [
+        "*"
+      ],
+      "webOrigins": [
+        "*"
+      ],
       "protocolMappers": [
         {
           "name": "aud-cinema-app",
@@ -33,7 +37,30 @@
       "serviceAccountsEnabled": true,
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": false,
-      "webOrigins": ["*"],
+      "webOrigins": [
+        "*"
+      ],
+      "protocolMappers": [
+        {
+          "name": "aud-cinema-app",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "cinema-app",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "estoque-svc",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "${ESTOQUE_SVC_SECRET}",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
       "protocolMappers": [
         {
           "name": "aud-cinema-app",
@@ -56,8 +83,45 @@
       "email": "ufsc@example.com",
       "firstName": "UFSC",
       "lastName": "Usuario",
-      "credentials": [{ "type": "password", "value": "${UFSC_USER_PASSWORD}", "temporary": false }],
-      "realmRoles": ["default-roles-cinema"]
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${UFSC_USER_PASSWORD}",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-cinema",
+        "catalogo-admin"
+      ]
+    },
+    {
+      "username": "service-account-cinema-m2m",
+      "serviceAccountClientId": "cinema-m2m",
+      "enabled": true,
+      "realmRoles": [
+        "catalogo-admin"
+      ]
+    },
+    {
+      "username": "service-account-estoque-svc",
+      "serviceAccountClientId": "estoque-svc",
+      "enabled": true,
+      "realmRoles": [
+        "catalogo-leitura-sessao"
+      ]
     }
-  ]
+  ],
+  "roles": {
+    "realm": [
+      {
+        "name": "catalogo-admin",
+        "description": "Escreve no catálogo (cinemas, salas, filmes, sessões)"
+      },
+      {
+        "name": "catalogo-leitura-sessao",
+        "description": "Consulta sessão por gRPC (uso do serviço de estoque)"
+      }
+    ]
+  }
 }

@@ -49,6 +49,8 @@ func TestProcessoSobeApenasComConfiguracaoExterna(t *testing.T) {
 		"REDIS_URL=" + ambiente.RedisURL,
 		"RABBITMQ_URL=" + ambiente.RabbitURL,
 		"CATALOGO_GRPC_ADDR=127.0.0.1:15091",
+		"KEYCLOAK_TOKEN_URL=http://127.0.0.1:1/token",
+		"CATALOGO_CLIENT_SECRET=segredo-de-teste",
 		"ADMIN_ADDR=127.0.0.1:18090",
 		"HTTP_ADDR=127.0.0.1:18085",
 		"JWKS_URL=" + jwks.URL,

@@ -29,6 +29,7 @@ const (
 	catParametroInvalido   = "parametro-invalido"
 	catCorpoInvalido       = "corpo-invalido"
 	catNaoAutenticado      = "nao-autenticado"
+	catAcessoNegado        = "acesso-negado"
 	catCinemaNaoEncontrado = "cinema-nao-encontrado"
 	catSalaNaoEncontrada   = "sala-nao-encontrada"
 	catFilmeNaoEncontrado  = "filme-nao-encontrado"
@@ -47,6 +48,7 @@ var categorias = map[string]descricaoCategoria{
 	catParametroInvalido:   {"Parâmetro inválido", http.StatusBadRequest},
 	catCorpoInvalido:       {"Corpo da requisição inválido", http.StatusBadRequest},
 	catNaoAutenticado:      {"Não autenticado", http.StatusUnauthorized},
+	catAcessoNegado:        {"Acesso negado", http.StatusForbidden},
 	catCinemaNaoEncontrado: {"Cinema não encontrado", http.StatusNotFound},
 	catSalaNaoEncontrada:   {"Sala não encontrada", http.StatusNotFound},
 	catFilmeNaoEncontrado:  {"Filme não encontrado", http.StatusNotFound},

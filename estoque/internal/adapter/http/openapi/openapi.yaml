@@ -195,6 +195,17 @@ paths:
                 $ref: "#/components/schemas/Problem"
         "401":
           $ref: "#/components/responses/NaoAutenticado"
+        "429":
+          description: |
+            Limite de taxa por usuário excedido (`muitas-requisicoes`); o cabeçalho
+            `Retry-After` indica a espera em segundos.
+          headers:
+            Retry-After:
+              schema: { type: integer }
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
         "409":
           description: Ao menos uma poltrona solicitada está RESERVADA ou OCUPADA.
           content:

@@ -110,6 +110,14 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: "#/components/schemas/Problema" }
+        "429":
+          description: Limite de taxa por IP excedido; `Retry-After` indica a espera em segundos
+          headers:
+            Retry-After:
+              schema: { type: integer }
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problema" }
         "404":
           description: |
             Código sem ingresso correspondente. Cobre três casos deliberadamente

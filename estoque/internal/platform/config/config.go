@@ -24,6 +24,9 @@ type Config struct {
 	// CatalogoGRPCAddr é o endereço gRPC do catálogo (host:porta).
 	CatalogoGRPCAddr string
 	CatalogoTimeout  time.Duration
+	// Limite de taxa das reservas, por usuário: fichas repostas por segundo e rajada.
+	RateLimitRPS   int
+	RateLimitBurst int
 	// Retry da consulta ao catálogo: total de tentativas e espera base do backoff.
 	CatalogoTentativas int
 	CatalogoEsperaBase time.Duration
@@ -98,6 +101,9 @@ func Carregar() (*Config, error) {
 		JWKSURL:     c.obrigatoria("JWKS_URL"),
 		JWTIssuer:   c.obrigatoria("JWT_ISSUER"),
 		JWTAudience: c.obrigatoria("JWT_AUDIENCE"),
+
+		RateLimitRPS:   c.inteiro("RATE_LIMIT_RPS", "5"),
+		RateLimitBurst: c.inteiro("RATE_LIMIT_BURST", "10"),
 
 		CatalogoGRPCAddr:   c.obrigatoria("CATALOGO_GRPC_ADDR"),
 		CatalogoTimeout:    c.duracao("CATALOGO_TIMEOUT", "2s"),

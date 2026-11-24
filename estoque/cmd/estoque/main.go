@@ -22,6 +22,7 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/platform/config"
 	"github.com/oseias/ingressos-golang/estoque/internal/platform/health"
 	"github.com/oseias/ingressos-golang/estoque/internal/platform/obs"
+	"github.com/oseias/ingressos-golang/estoque/internal/platform/ratelimit"
 	"github.com/oseias/ingressos-golang/estoque/internal/usecase"
 )
 
@@ -208,6 +209,7 @@ func executar() error {
 		Mapa:     consultar,
 		Auth:     autenticador,
 		Limite:   cfg.PoltronasMaxPorBloqueio,
+		Taxa:     ratelimit.Novo(float64(cfg.RateLimitRPS), cfg.RateLimitBurst),
 	}
 	rest := &http.Server{
 		Addr:              cfg.HTTPAddr,

@@ -10,6 +10,7 @@ import (
 
 	"github.com/oseias/ingressos-golang/estoque/internal/adapter/http/openapi"
 	"github.com/oseias/ingressos-golang/estoque/internal/domain/poltrona"
+	"github.com/oseias/ingressos-golang/estoque/internal/platform/ratelimit"
 	"github.com/oseias/ingressos-golang/estoque/internal/usecase"
 )
 
@@ -26,6 +27,8 @@ type API struct {
 	Mapa     CasoDeUsoMapa
 	Auth     *Autenticador
 	Limite   int
+	// Taxa limita as reservas por usuário autenticado (nil = sem limite).
+	Taxa *ratelimit.Limitador
 }
 
 type solicitacaoBloqueio struct {
@@ -75,6 +78,12 @@ func (a *API) bloquear(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		escreverProblem(w, r, http.StatusUnauthorized, tipoNaoAutenticado,
 			"Não autenticado", "credencial ausente ou inválida", nil)
+		return
+	}
+	if !a.Taxa.Permitir(usuarioID) {
+		w.Header().Set("Retry-After", "1")
+		escreverProblem(w, r, http.StatusTooManyRequests, tipoMuitasRequisicoes,
+			"Muitas requisições", "limite de reservas por segundo excedido; tente novamente em instantes", nil)
 		return
 	}
 

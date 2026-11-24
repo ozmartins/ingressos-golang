@@ -13,6 +13,7 @@ import (
 	"github.com/oseias/ingressos-golang/notificacao/internal/adapter/http/openapi"
 	"github.com/oseias/ingressos-golang/notificacao/internal/platform/health"
 	"github.com/oseias/ingressos-golang/notificacao/internal/platform/obs"
+	"github.com/oseias/ingressos-golang/notificacao/internal/platform/ratelimit"
 	"github.com/oseias/ingressos-golang/notificacao/internal/usecase"
 )
 
@@ -22,6 +23,9 @@ type API struct {
 	Auth      *Autenticador
 	Chave     *ChavePortaria
 	Prontidao *health.Prontidao
+	// TaxaValidacao limita /validar por IP de origem, contra força bruta da
+	// chave de portaria (nil = sem limite).
+	TaxaValidacao *ratelimit.Limitador
 }
 
 func (a *API) Rotas() http.Handler {
@@ -116,6 +120,12 @@ type vereditoResposta struct {
 }
 
 func (a *API) validar(w http.ResponseWriter, r *http.Request) {
+	if !a.TaxaValidacao.Permitir(ratelimit.IPDe(r)) {
+		w.Header().Set("Retry-After", "1")
+		problema(w, http.StatusTooManyRequests, "muitas-requisicoes",
+			"Muitas requisições", "Limite de validações por segundo excedido; tente novamente em instantes.")
+		return
+	}
 	if err := a.Chave.Autorizar(r); err != nil {
 		problema(w, http.StatusUnauthorized, "credencial-invalida",
 			"Credencial inválida", "A chave do dispositivo de portaria está ausente ou não confere.")

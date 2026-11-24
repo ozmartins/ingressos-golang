@@ -30,6 +30,10 @@ type Config struct {
 
 	NotificadorModo    string
 	NotificadorTimeout time.Duration
+
+	// Limite de taxa de /validar, por IP: fichas por segundo e rajada.
+	RateLimitRPS   int
+	RateLimitBurst int
 }
 
 const (
@@ -62,6 +66,12 @@ func Carregar() (Config, error) {
 	c.NotificadorModo = enumerada("NOTIFICADOR_MODO", NotificarEnviar,
 		[]string{NotificarEnviar, NotificarFalhar}, &f)
 	c.NotificadorTimeout = duracao("NOTIFICADOR_TIMEOUT", 10*time.Second, &f)
+
+	c.RateLimitRPS = inteiro("RATE_LIMIT_RPS", 5, &f)
+	c.RateLimitBurst = inteiro("RATE_LIMIT_BURST", 20, &f)
+	if c.RateLimitRPS <= 0 || c.RateLimitBurst <= 0 {
+		f = append(f, "RATE_LIMIT_RPS e RATE_LIMIT_BURST devem ser maiores que zero")
+	}
 
 	if c.AMQPPrefetch <= 0 {
 		f = append(f, "AMQP_PREFETCH deve ser maior que zero")

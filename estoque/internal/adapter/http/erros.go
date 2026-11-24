@@ -13,6 +13,7 @@ import (
 const prefixoTipo = "https://cinema.example/errors/"
 
 const (
+	tipoMuitasRequisicoes     = "muitas-requisicoes"
 	tipoNaoAutenticado        = "nao-autenticado"
 	tipoCorpoInvalido         = "corpo-invalido"
 	tipoSolicitacaoInvalida   = "solicitacao-invalida"

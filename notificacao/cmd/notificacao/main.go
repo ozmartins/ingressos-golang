@@ -20,6 +20,7 @@ import (
 	"github.com/oseias/ingressos-golang/notificacao/internal/platform/config"
 	"github.com/oseias/ingressos-golang/notificacao/internal/platform/health"
 	"github.com/oseias/ingressos-golang/notificacao/internal/platform/obs"
+	"github.com/oseias/ingressos-golang/notificacao/internal/platform/ratelimit"
 	"github.com/oseias/ingressos-golang/notificacao/internal/platform/retry"
 	"github.com/oseias/ingressos-golang/notificacao/internal/usecase"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -129,6 +130,7 @@ func executar() error {
 		Listagem:  usecase.ListarIngressos{Ingressos: ingressos},
 		Validacao: usecase.ValidarIngresso{Ingressos: ingressos, Assinador: assinador, Relogio: sistema.Relogio{}},
 		Auth:      auth, Chave: chave, Prontidao: prontidao,
+		TaxaValidacao: ratelimit.Novo(float64(cfg.RateLimitRPS), cfg.RateLimitBurst),
 	}
 
 	servidor := &http.Server{

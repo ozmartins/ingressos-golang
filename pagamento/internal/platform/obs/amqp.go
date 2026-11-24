@@ -48,6 +48,9 @@ func IniciarPublicacao(ctx context.Context, exchange, routingKey string) (contex
 		))
 	headers := amqp.Table{}
 	otel.GetTextMapPropagator().Inject(ctx, carrierAMQP(headers))
+	if id := RequestID(ctx); id != "" {
+		headers[ChaveRequestID] = id
+	}
 	return ctx, span, headers
 }
 
@@ -56,11 +59,15 @@ func IniciarPublicacao(ctx context.Context, exchange, routingKey string) (contex
 // sem header (publicada à mão, por exemplo) começa um trace novo.
 func IniciarConsumo(ctx context.Context, fila string, msg amqp.Delivery) (context.Context, trace.Span) {
 	ctx = otel.GetTextMapPropagator().Extract(ctx, carrierAMQP(msg.Headers))
+	// Mensagem sem request id (publicada à mão) ganha um novo; com id inválido também.
+	id, _ := msg.Headers[ChaveRequestID].(string)
+	ctx = ComRequestID(ctx, RequestIDAceito(id))
 	attrs := []attribute.KeyValue{
 		attribute.String("messaging.system", "rabbitmq"),
 		attribute.String("messaging.operation", "process"),
 		attribute.String("messaging.destination.name", fila),
 		attribute.String("messaging.rabbitmq.destination.routing_key", msg.RoutingKey),
+		attribute.String("request.id", RequestID(ctx)),
 	}
 	if msg.MessageId != "" {
 		attrs = append(attrs, attribute.String("messaging.message.id", msg.MessageId))

@@ -65,6 +65,7 @@ func (p *Publicador) publicar(ctx context.Context, fato postgres.FatoNaCaixa) (e
 	// O fato foi gravado na requisição que o originou; o traceparent guardado na
 	// caixa de saída faz esta publicação continuar o mesmo trace.
 	ctx = obs.ComTraceparent(ctx, fato.Traceparent)
+	ctx = obs.ComRequestID(ctx, fato.RequestID)
 	ctx, span, headers := obs.IniciarPublicacao(ctx, Exchange, fato.RoutingKey)
 	defer func() {
 		obs.FalharSpan(span, err)

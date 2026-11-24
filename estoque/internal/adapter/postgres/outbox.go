@@ -19,6 +19,7 @@ func enfileirarFato(tx *gorm.DB, fato usecase.FatoPendente) error {
 			// Guarda o trace da requisição que gerou o fato: o publicador roda
 			// depois, fora dela, e continua este mesmo trace.
 			Traceparent: obs.Traceparent(tx.Statement.Context),
+			RequestID:   obs.RequestID(tx.Statement.Context),
 		})
 	if res.Error != nil {
 		return indisponivel(res.Error)
@@ -33,6 +34,7 @@ type FatoNaCaixa struct {
 	Payload    []byte
 
 	Traceparent string
+	RequestID   string
 }
 
 func (b *Banco) PendentesParaPublicar(ctx context.Context, limite int, fn func(FatoNaCaixa) error) (int, error) {
@@ -41,7 +43,7 @@ func (b *Banco) PendentesParaPublicar(ctx context.Context, limite int, fn func(F
 	err := b.EmTransacao(ctx, func(tx *gorm.DB) error {
 		var linhas []outboxRow
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
-			Select("id", "message_id", "routing_key", "payload", "traceparent").
+			Select("id", "message_id", "routing_key", "payload", "traceparent", "request_id").
 			Where("publicado_em IS NULL").
 			Order("id").
 			Limit(limite).
@@ -50,7 +52,7 @@ func (b *Banco) PendentesParaPublicar(ctx context.Context, limite int, fn func(F
 		}
 
 		for _, l := range linhas {
-			f := FatoNaCaixa{ID: l.ID, MessageID: l.MessageID, RoutingKey: l.RoutingKey, Payload: l.Payload, Traceparent: l.Traceparent}
+			f := FatoNaCaixa{ID: l.ID, MessageID: l.MessageID, RoutingKey: l.RoutingKey, Payload: l.Payload, Traceparent: l.Traceparent, RequestID: l.RequestID}
 			caixa := tx.Model(&outboxRow{}).Where("id = ?", f.ID)
 			if err := fn(f); err != nil {
 				if errTent := caixa.Update("tentativas", gorm.Expr("tentativas + 1")).Error; errTent != nil {

@@ -54,6 +54,7 @@ type outboxRow struct {
 	PublicadoEm *time.Time `gorm:"column:publicado_em"`
 	Tentativas  int        `gorm:"column:tentativas"`
 	Traceparent string     `gorm:"column:traceparent"`
+	RequestID   string     `gorm:"column:request_id"`
 }
 
 func (outboxRow) TableName() string { return "outbox_eventos" }

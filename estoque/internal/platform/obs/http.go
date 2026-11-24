@@ -59,7 +59,8 @@ func MiddlewareHTTP(next http.Handler) http.Handler {
 		if h, ok := r.Context().Value(chaveRota{}).(*string); ok {
 			*h = rota
 		}
-		trace.SpanFromContext(r.Context()).SetAttributes(attribute.String("http.route", rota))
+		trace.SpanFromContext(r.Context()).SetAttributes(
+			attribute.String("http.route", rota), attribute.String("request.id", RequestID(r.Context())))
 
 		nivel := slog.LevelInfo
 		switch {
@@ -87,7 +88,11 @@ func MiddlewareHTTP(next http.Handler) http.Handler {
 		}),
 	)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		rota := new(string)
-		traced.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), chaveRota{}, rota)))
+		// Request id na borda: aceita o do cliente se for seguro, senão gera um;
+		// devolve no cabeçalho de resposta e propaga pelo contexto.
+		id := RequestIDAceito(r.Header.Get(HeaderRequestID))
+		w.Header().Set(HeaderRequestID, id)
+		ctx := ComRequestID(context.WithValue(r.Context(), chaveRota{}, new(string)), id)
+		traced.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

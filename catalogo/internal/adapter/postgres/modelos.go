@@ -74,6 +74,7 @@ type outboxRow struct {
 	Payload    []byte `gorm:"column:payload;type:jsonb"`
 
 	Traceparent string `gorm:"column:traceparent"`
+	RequestID   string `gorm:"column:request_id"`
 }
 
 func (outboxRow) TableName() string { return "outbox_eventos" }

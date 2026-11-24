@@ -23,6 +23,7 @@ import (
 	"github.com/oseias/ingressos-golang/estoque/internal/platform/health"
 	"github.com/oseias/ingressos-golang/estoque/internal/platform/obs"
 	"github.com/oseias/ingressos-golang/estoque/internal/platform/ratelimit"
+	"github.com/oseias/ingressos-golang/estoque/internal/platform/retry"
 	"github.com/oseias/ingressos-golang/estoque/internal/usecase"
 )
 
@@ -70,7 +71,14 @@ func executar() error {
 		_ = pararMetricas(ctxDesligar)
 	}()
 
-	banco, err := postgres.Abrir(ctx, cfg.DatabaseURL)
+	// O Postgres pode ainda estar subindo: espera com backoff (~1 min) antes de desistir.
+	var banco *postgres.Banco
+	err = retry.Executar(ctx, "conectar ao postgres", retry.Dependencia, func() (e error) {
+		tentativa, cancelarTentativa := context.WithTimeout(ctx, 10*time.Second)
+		defer cancelarTentativa()
+		banco, e = postgres.Abrir(tentativa, cfg.DatabaseURL)
+		return e
+	})
 	if err != nil {
 		return err
 	}
@@ -84,7 +92,12 @@ func executar() error {
 
 	var prazo *adaptadorredis.Indice
 	if cfg.RedisURL != "" {
-		prazo, err = adaptadorredis.Abrir(ctx, cfg.RedisURL)
+		// Redis é opcional (só o índice de expiração): poucas tentativas, depois degrada.
+		politicaRedis := retry.Politica{Tentativas: 5, Base: 500 * time.Millisecond, Maximo: 4 * time.Second}
+		err = retry.Executar(ctx, "conectar ao redis", politicaRedis, func() (e error) {
+			prazo, e = adaptadorredis.Abrir(ctx, cfg.RedisURL)
+			return e
+		})
 		if err != nil {
 			slog.Warn("redis indisponível; a expiração dependerá só da varredura", "erro", err)
 			prazo = nil

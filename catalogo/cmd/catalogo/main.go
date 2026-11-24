@@ -28,6 +28,7 @@ import (
 	"github.com/oseias/ingressos-golang/catalogo/internal/platform/config"
 	"github.com/oseias/ingressos-golang/catalogo/internal/platform/health"
 	"github.com/oseias/ingressos-golang/catalogo/internal/platform/obs"
+	"github.com/oseias/ingressos-golang/catalogo/internal/platform/retry"
 	"github.com/oseias/ingressos-golang/catalogo/internal/usecase"
 )
 
@@ -77,8 +78,12 @@ func executar() error {
 		_ = pararMetricas(ctxDesligar)
 	}()
 
-	banco, err := postgres.Abrir(ctx, cfg.DatabaseURL)
-
+	// O Postgres pode ainda estar subindo: espera com backoff (~1 min) antes de desistir.
+	var banco *postgres.Banco
+	err = retry.Executar(ctx, "conectar ao postgres", retry.Dependencia, func() (e error) {
+		banco, e = postgres.Abrir(ctx, cfg.DatabaseURL)
+		return e
+	})
 	if err != nil {
 		return err
 	}
@@ -165,7 +170,7 @@ func executar() error {
 	// Só o estoque (service account com o papel catalogo-leitura-sessao) pode consultar.
 	servidorGRPC := grpc.NewServer(
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
-		grpc.ChainUnaryInterceptor(adaptadorgrpc.InterceptadorAutenticacao(verificador, identidade.PermissaoLerSessao)),
+		grpc.ChainUnaryInterceptor(adaptadorgrpc.InterceptadorRequestID(), adaptadorgrpc.InterceptadorAutenticacao(verificador, identidade.PermissaoLerSessao)),
 	)
 	pb.RegisterCatalogoServiceServer(servidorGRPC, &adaptadorgrpc.Servidor{
 		BuscarSessao: usecase.BuscarSessao{Repo: sessoes},

@@ -21,6 +21,7 @@ func enfileirarFato(tx *gorm.DB, fato usecase.FatoPendente) error {
 	linha := outboxRow{
 		MessageID: fato.MessageID, RoutingKey: fato.RoutingKey, Payload: fato.Payload,
 		Traceparent: obs.Traceparent(tx.Statement.Context),
+		RequestID:   obs.RequestID(tx.Statement.Context),
 	}
 
 	err := tx.Clauses(clause.OnConflict{
@@ -40,6 +41,7 @@ type FatoNaCaixa struct {
 	Payload    []byte
 
 	Traceparent string
+	RequestID   string
 }
 
 func (c *CaixaDeSaida) Drenar(ctx context.Context, limite int, publicar func(FatoNaCaixa) error) (int, error) {
@@ -57,7 +59,7 @@ func (c *CaixaDeSaida) Drenar(ctx context.Context, limite int, publicar func(Fat
 		}
 
 		for _, p := range pendentes {
-			f := FatoNaCaixa{ID: p.ID, MessageID: p.MessageID, RoutingKey: p.RoutingKey, Payload: p.Payload, Traceparent: p.Traceparent}
+			f := FatoNaCaixa{ID: p.ID, MessageID: p.MessageID, RoutingKey: p.RoutingKey, Payload: p.Payload, Traceparent: p.Traceparent, RequestID: p.RequestID}
 
 			fato := tx.Model(&outboxRow{}).Where("id = ?", f.ID)
 			if err := publicar(f); err != nil {

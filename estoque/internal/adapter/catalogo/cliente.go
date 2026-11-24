@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	pb "github.com/oseias/ingressos-golang/estoque/gen/pb/catalogo/v1"
@@ -69,6 +70,7 @@ func NovoCliente(opts Opcoes) (*Cliente, error) {
 	dial := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+		grpc.WithChainUnaryInterceptor(propagarRequestID),
 	}
 	if opts.TokenURL != "" {
 		dial = append(dial, grpc.WithPerRPCCredentials(
@@ -230,4 +232,13 @@ func traduzirErro(err error, sessaoID string) error {
 		// não algo que o estoque saiba usar.
 		return fmt.Errorf("%w: %v", shared.ErrRespostaInvalidaDoCatalogo, err)
 	}
+}
+
+// propagarRequestID leva o request id do contexto para o catálogo no metadado
+// x-request-id, para que os logs dos dois serviços se correlacionem.
+func propagarRequestID(ctx context.Context, metodo string, req, resp any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+	if id := obs.RequestID(ctx); id != "" {
+		ctx = metadata.AppendToOutgoingContext(ctx, obs.ChaveRequestID, id)
+	}
+	return invoker(ctx, metodo, req, resp, cc, opts...)
 }

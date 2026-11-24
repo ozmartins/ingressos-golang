@@ -75,10 +75,14 @@ func executar() error {
 		return err
 	}
 
-	partida, cancelar := context.WithTimeout(ctx, 30*time.Second)
-	defer cancelar()
-
-	banco, err := postgres.Conectar(partida, cfg.DatabaseURL)
+	// O Postgres pode ainda estar subindo: espera com backoff (~1 min) antes de desistir.
+	var banco *postgres.Banco
+	err = retry.Executar(ctx, "conectar ao postgres", retry.Dependencia, func() (e error) {
+		tentativa, cancelarTentativa := context.WithTimeout(ctx, 10*time.Second)
+		defer cancelarTentativa()
+		banco, e = postgres.Conectar(tentativa, cfg.DatabaseURL)
+		return e
+	})
 	if err != nil {
 		return err
 	}

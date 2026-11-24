@@ -10,13 +10,16 @@ import (
 )
 
 // manipuladorDeTrace acrescenta trace_id e span_id a todo registro cujo contexto
-// carregue um span válido. É o que liga o log ao trace: use sempre as variantes
+// carregue um span válido, e request_id quando o contexto tiver um. É o que liga o log ao trace: use sempre as variantes
 // com contexto (slog.InfoContext, ...).
 type manipuladorDeTrace struct{ slog.Handler }
 
 func (m manipuladorDeTrace) Handle(ctx context.Context, r slog.Record) error {
 	if sc := trace.SpanContextFromContext(ctx); sc.IsValid() {
 		r.AddAttrs(slog.String("trace_id", sc.TraceID().String()), slog.String("span_id", sc.SpanID().String()))
+	}
+	if id := RequestID(ctx); id != "" {
+		r.AddAttrs(slog.String("request_id", id))
 	}
 	return m.Handler.Handle(ctx, r)
 }

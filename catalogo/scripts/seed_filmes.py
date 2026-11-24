@@ -16,7 +16,7 @@ Uso: python3 seed_filmes.py [PASTA_COM_HTMLS]
 Variáveis de ambiente (todas opcionais):
   CATALOGO_URL   http://localhost:8082
   KEYCLOAK_URL   http://localhost:8081
-  CLIENT_SECRET  segredo-de-desenvolvimento   (client cinema-m2m)
+  CLIENT_SECRET  (obrigatório) CINEMA_M2M_SECRET do .env   (client cinema-m2m)
 """
 import glob
 import html
@@ -31,7 +31,7 @@ import urllib.request
 
 CATALOGO = os.environ.get("CATALOGO_URL", "http://localhost:8082").rstrip("/") + "/api/v1"
 KEYCLOAK = os.environ.get("KEYCLOAK_URL", "http://localhost:8081").rstrip("/")
-SECRET = os.environ.get("CLIENT_SECRET", "segredo-de-desenvolvimento")
+SECRET = os.environ["CLIENT_SECRET"]
 PASTA = os.path.expanduser("~/Downloads/filmes")
 UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64)"}
 

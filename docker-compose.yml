@@ -3,7 +3,12 @@ services:
     image: postgres:17-alpine
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      # Senhas dos papéis por serviço, lidas por infra/postgres/init/01-*.sh.
+      CATALOGO_DB_PASSWORD: ${CATALOGO_DB_PASSWORD:?defina CATALOGO_DB_PASSWORD no .env}
+      ESTOQUE_DB_PASSWORD: ${ESTOQUE_DB_PASSWORD:?defina ESTOQUE_DB_PASSWORD no .env}
+      NOTIFICACAO_DB_PASSWORD: ${NOTIFICACAO_DB_PASSWORD:?defina NOTIFICACAO_DB_PASSWORD no .env}
+      PAGAMENTO_DB_PASSWORD: ${PAGAMENTO_DB_PASSWORD:?defina PAGAMENTO_DB_PASSWORD no .env}
       POSTGRES_DB: cinema
     volumes:
       - postgres-dados:/var/lib/postgresql/data
@@ -29,6 +34,9 @@ services:
 
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?defina RABBITMQ_USER no .env}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?defina RABBITMQ_PASSWORD no .env}
     volumes:
       - rabbitmq-dados:/var/lib/rabbitmq
     ports:
@@ -45,7 +53,10 @@ services:
     command: ["start-dev", "--import-realm"]
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
-      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?defina KEYCLOAK_ADMIN_PASSWORD no .env}
+      # Substituídos no realm importado (${CINEMA_M2M_SECRET} etc. em realm-cinema.json).
+      CINEMA_M2M_SECRET: ${CINEMA_M2M_SECRET:?defina CINEMA_M2M_SECRET no .env}
+      UFSC_USER_PASSWORD: ${UFSC_USER_PASSWORD:?defina UFSC_USER_PASSWORD no .env}
       KC_HTTP_PORT: "8081"      
       KC_HOSTNAME: http://keycloak:8081
       KC_HOSTNAME_ADMIN: http://localhost:8081
@@ -94,7 +105,7 @@ services:
     volumes: ["./catalogo/migrations:/migrations:ro"]
     command:
       - -path=/migrations
-      - -database=postgres://catalogo:catalogo@postgres:5432/cinema?sslmode=disable&search_path=catalogo
+      - -database=postgres://catalogo:${CATALOGO_DB_PASSWORD:?defina CATALOGO_DB_PASSWORD no .env}@postgres:5432/cinema?sslmode=disable&search_path=catalogo
       - up
     depends_on:
       postgres:
@@ -105,7 +116,7 @@ services:
     volumes: ["./estoque/migrations:/migrations:ro"]
     command:
       - -path=/migrations
-      - -database=postgres://estoque:estoque@postgres:5432/cinema?sslmode=disable&search_path=estoque
+      - -database=postgres://estoque:${ESTOQUE_DB_PASSWORD:?defina ESTOQUE_DB_PASSWORD no .env}@postgres:5432/cinema?sslmode=disable&search_path=estoque
       - up
     depends_on:
       postgres:
@@ -116,7 +127,7 @@ services:
     volumes: ["./notificacao/migrations:/migrations:ro"]
     command:
       - -path=/migrations
-      - -database=postgres://notificacao:notificacao@postgres:5432/cinema?sslmode=disable&search_path=notificacao
+      - -database=postgres://notificacao:${NOTIFICACAO_DB_PASSWORD:?defina NOTIFICACAO_DB_PASSWORD no .env}@postgres:5432/cinema?sslmode=disable&search_path=notificacao
       - up
     depends_on:
       postgres:
@@ -127,7 +138,7 @@ services:
     volumes: ["./pagamento/migrations:/migrations:ro"]
     command:
       - -path=/migrations
-      - -database=postgres://pagamento:pagamento@postgres:5432/cinema?sslmode=disable&search_path=pagamento
+      - -database=postgres://pagamento:${PAGAMENTO_DB_PASSWORD:?defina PAGAMENTO_DB_PASSWORD no .env}@postgres:5432/cinema?sslmode=disable&search_path=pagamento
       - up
     depends_on:
       postgres:
@@ -140,10 +151,10 @@ services:
     environment:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
       OBS_ADDR: ":9090"
-      DATABASE_URL: postgres://catalogo:catalogo@postgres:5432/cinema?sslmode=disable
+      DATABASE_URL: postgres://catalogo:${CATALOGO_DB_PASSWORD:?defina CATALOGO_DB_PASSWORD no .env}@postgres:5432/cinema?sslmode=disable
       KEYCLOAK_ISSUER_URL: http://keycloak:8081/realms/cinema
       KEYCLOAK_AUDIENCE: cinema-app
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/
       # gRPC serviço a serviço: o estoque consulta preço e status da sessão aqui.
       GRPC_ADDR: ":9091"
     ports:
@@ -169,9 +180,9 @@ services:
     environment:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
       OBS_ADDR: ":9090"
-      DATABASE_URL: postgres://estoque:estoque@postgres:5432/cinema?sslmode=disable
+      DATABASE_URL: postgres://estoque:${ESTOQUE_DB_PASSWORD:?defina ESTOQUE_DB_PASSWORD no .env}@postgres:5432/cinema?sslmode=disable
       REDIS_URL: redis://redis:6379/0
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/
       ADMIN_ADDR: ":8090"
       HTTP_ADDR: ":8085"
       JWKS_URL: http://keycloak:8081/realms/cinema/protocol/openid-connect/certs
@@ -210,8 +221,8 @@ services:
     environment:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
       OBS_ADDR: ":9090"
-      DATABASE_URL: postgres://pagamento:pagamento@postgres:5432/cinema?sslmode=disable
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      DATABASE_URL: postgres://pagamento:${PAGAMENTO_DB_PASSWORD:?defina PAGAMENTO_DB_PASSWORD no .env}@postgres:5432/cinema?sslmode=disable
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/
       JWKS_URL: http://keycloak:8081/realms/cinema/protocol/openid-connect/certs
       JWT_ISSUER: http://keycloak:8081/realms/cinema
       JWT_AUDIENCE: cinema-app
@@ -233,13 +244,13 @@ services:
     environment:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
       OBS_ADDR: ":9090"
-      DATABASE_URL: postgres://notificacao:notificacao@postgres:5432/cinema?sslmode=disable
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      DATABASE_URL: postgres://notificacao:${NOTIFICACAO_DB_PASSWORD:?defina NOTIFICACAO_DB_PASSWORD no .env}@postgres:5432/cinema?sslmode=disable
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/
       JWKS_URL: http://keycloak:8081/realms/cinema/protocol/openid-connect/certs
       JWT_ISSUER: http://keycloak:8081/realms/cinema
       JWT_AUDIENCE: cinema-app      
-      INGRESSO_QR_SEGREDO: ${INGRESSO_QR_SEGREDO:-segredo-de-desenvolvimento-nao-usar-em-producao}
-      PORTARIA_API_KEY: ${PORTARIA_API_KEY:-chave-de-portaria-de-teste}
+      INGRESSO_QR_SEGREDO: ${INGRESSO_QR_SEGREDO:?defina INGRESSO_QR_SEGREDO no .env}
+      PORTARIA_API_KEY: ${PORTARIA_API_KEY:?defina PORTARIA_API_KEY no .env}
       NOTIFICADOR_MODO: enviar
     ports: ["${PORTA_NOTIFICACAO:-8084}:8080"]
     depends_on:

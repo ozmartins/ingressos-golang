@@ -48,14 +48,14 @@ Admin (painel, porta 5174)
 INFRAESTRUTURA
 --------------
 Keycloak (porta 8081)
-  http://localhost:8081/                                       Console admin (admin/admin)
+  http://localhost:8081/                                       Console admin (usuário admin, senha KEYCLOAK_ADMIN_PASSWORD do .env)
   http://localhost:8081/realms/cinema                          Realm
   http://localhost:8081/realms/cinema/protocol/openid-connect/certs   JWKS
   http://localhost:8081/realms/cinema/protocol/openid-connect/token   Token
 
 RabbitMQ
-  http://localhost:15672/                        Painel de gerenciamento (guest/guest)
-  amqp://guest:guest@localhost:5672/             Broker AMQP
+  http://localhost:15672/                        Painel de gerenciamento (RABBITMQ_USER/RABBITMQ_PASSWORD do .env)
+  amqp://<RABBITMQ_USER>:<RABBITMQ_PASSWORD>@localhost:5672/             Broker AMQP
 
 PostgreSQL (porta 5434 no host)
   postgres://postgres:postgres@localhost:5434/cinema

@@ -1,0 +1,4 @@
+# Segredos locais: nunca versionar. O modelo é o .env.example.
+.env
+.env.*
+!.env.example

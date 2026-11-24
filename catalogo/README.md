@@ -175,11 +175,11 @@ As rotas protegidas (a escrita de filmes, cinemas, salas e sessões)
 aceitam duas credenciais, ambas validadas do mesmo jeito: assinatura RS256
 conferida contra o JWKS do realm, mais `iss`, `aud` e expiração.
 
-**Usuário humano** (`ufsc`/`admin`, client público `cinema-app`). Gere o token
+**Usuário humano** (`ufsc`/`$UFSC_USER_PASSWORD` do `.env`, client público `cinema-app`). Gere o token
 e cole-o em **Authorize** — apenas o valor, sem o prefixo `Bearer`:
 
 ```bash
-TOKEN=$(curl -s -d client_id=cinema-app -d username=ufsc -d password=admin \
+TOKEN=$(curl -s -d client_id=cinema-app -d username=ufsc -d password="$UFSC_USER_PASSWORD" \
   -d grant_type=password \
   http://localhost:8081/realms/cinema/protocol/openid-connect/token | jq -r .access_token)
 ```
@@ -188,7 +188,7 @@ TOKEN=$(curl -s -d client_id=cinema-app -d username=ufsc -d password=admin \
 Não há usuário no meio: o `sub` do token é o da service account.
 
 ```bash
-TOKEN=$(curl -s -d client_id=cinema-m2m -d client_secret=segredo-de-desenvolvimento \
+TOKEN=$(curl -s -d client_id=cinema-m2m -d client_secret="$CINEMA_M2M_SECRET" \
   -d grant_type=client_credentials \
   http://localhost:8081/realms/cinema/protocol/openid-connect/token | jq -r .access_token)
 ```

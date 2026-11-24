@@ -29,7 +29,7 @@
       "clientId": "cinema-m2m",
       "enabled": true,
       "publicClient": false,
-      "secret": "segredo-de-desenvolvimento",
+      "secret": "${CINEMA_M2M_SECRET}",
       "serviceAccountsEnabled": true,
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": false,
@@ -56,7 +56,7 @@
       "email": "ufsc@example.com",
       "firstName": "UFSC",
       "lastName": "Usuario",
-      "credentials": [{ "type": "password", "value": "admin", "temporary": false }],
+      "credentials": [{ "type": "password", "value": "${UFSC_USER_PASSWORD}", "temporary": false }],
       "realmRoles": ["default-roles-cinema"]
     }
   ]

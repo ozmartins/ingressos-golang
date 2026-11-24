@@ -26,7 +26,7 @@ execução só acrescenta os dias que ainda não existem.
 Variáveis de ambiente (todas opcionais):
   CATALOGO_URL   http://localhost:8082
   KEYCLOAK_URL   http://localhost:8081
-  CLIENT_SECRET  segredo-de-desenvolvimento   (client cinema-m2m)
+  CLIENT_SECRET  (obrigatório) CINEMA_M2M_SECRET do .env   (client cinema-m2m)
 """
 import json
 import os
@@ -42,7 +42,7 @@ from zoneinfo import ZoneInfo
 
 CATALOGO = os.environ.get("CATALOGO_URL", "http://localhost:8082").rstrip("/") + "/api/v1"
 KEYCLOAK = os.environ.get("KEYCLOAK_URL", "http://localhost:8081").rstrip("/")
-SECRET = os.environ.get("CLIENT_SECRET", "segredo-de-desenvolvimento")
+SECRET = os.environ["CLIENT_SECRET"]
 DIAS, HORARIOS, TRABALHADORES = 3, (time(10, 0), time(13, 0), time(16, 0), time(20, 0), time(22, 30)), 8
 FUSO = ZoneInfo("America/Sao_Paulo")
 

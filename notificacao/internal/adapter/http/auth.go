@@ -2,7 +2,6 @@ package http
 
 import (
 	"context"
-	"crypto/subtle"
 	"errors"
 	"fmt"
 	"net/http"
@@ -66,6 +65,10 @@ func (a *Autenticador) autenticar(r *http.Request) (Identidade, error) {
 // usuária (reservar, pagar, ver ingressos). Tokens de service account não o
 // têm: autenticados (401 não se aplica), mas sem permissão (403).
 const PermissaoCliente = "cliente"
+
+// PermissaoPortaria é o papel de realm da identidade do dispositivo de portaria
+// (client `portaria-svc`, client credentials). Só ele pode dar baixa em ingresso.
+const PermissaoPortaria = "portaria-validar"
 
 // ErrSemPermissao: credencial válida, mas sem a permissão exigida (403).
 var ErrSemPermissao = errors.New("http: credencial sem permissão")
@@ -134,21 +137,4 @@ func permissoesDe(claims jwt.Claims) []string {
 		}
 	}
 	return out
-}
-
-type ChavePortaria struct{ esperada []byte }
-
-func NovaChavePortaria(chave string) (*ChavePortaria, error) {
-	if chave == "" {
-		return nil, errors.New("http: chave de portaria vazia")
-	}
-	return &ChavePortaria{esperada: []byte(chave)}, nil
-}
-
-func (c *ChavePortaria) Autorizar(r *http.Request) error {
-	apresentada := []byte(r.Header.Get("X-API-Key"))
-	if subtle.ConstantTimeCompare(apresentada, c.esperada) != 1 {
-		return ErrCredencial
-	}
-	return nil
 }

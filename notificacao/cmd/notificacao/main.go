@@ -124,10 +124,6 @@ func executar() error {
 	if err != nil {
 		return err
 	}
-	chave, err := adapthttp.NovaChavePortaria(cfg.PortariaAPIKey)
-	if err != nil {
-		return err
-	}
 
 	prontidao := health.NovaProntidao()
 	prontidao.Registrar("postgres", banco.Verificar)
@@ -141,7 +137,7 @@ func executar() error {
 	api := &adapthttp.API{
 		Listagem:  usecase.ListarIngressos{Ingressos: ingressos},
 		Validacao: usecase.ValidarIngresso{Ingressos: ingressos, Assinador: assinador, Relogio: sistema.Relogio{}},
-		Auth:      auth, Chave: chave, Prontidao: prontidao,
+		Auth:      auth, Prontidao: prontidao,
 		TaxaValidacao: ratelimit.Novo(float64(cfg.RateLimitRPS), cfg.RateLimitBurst),
 	}
 

@@ -21,10 +21,9 @@ type API struct {
 	Listagem  usecase.ListarIngressos
 	Validacao usecase.ValidarIngresso
 	Auth      *Autenticador
-	Chave     *ChavePortaria
 	Prontidao *health.Prontidao
-	// TaxaValidacao limita /validar por IP de origem, contra força bruta da
-	// chave de portaria (nil = sem limite).
+	// TaxaValidacao limita /validar por IP de origem, contra abuso do
+	// endpoint de portaria (nil = sem limite).
 	TaxaValidacao *ratelimit.Limitador
 }
 
@@ -131,9 +130,14 @@ func (a *API) validar(w http.ResponseWriter, r *http.Request) {
 			"Muitas requisições", "Limite de validações por segundo excedido; tente novamente em instantes.")
 		return
 	}
-	if err := a.Chave.Autorizar(r); err != nil {
+	if _, err := a.Auth.Exigir(r, PermissaoPortaria); err != nil {
+		if errors.Is(err, ErrSemPermissao) {
+			problema(w, http.StatusForbidden, "acesso-negado",
+				"Acesso negado", "A credencial é válida, mas não é de um dispositivo de portaria.")
+			return
+		}
 		problema(w, http.StatusUnauthorized, "credencial-invalida",
-			"Credencial inválida", "A chave do dispositivo de portaria está ausente ou não confere.")
+			"Credencial inválida", "O token do dispositivo de portaria está ausente, expirado ou não confere.")
 		return
 	}
 

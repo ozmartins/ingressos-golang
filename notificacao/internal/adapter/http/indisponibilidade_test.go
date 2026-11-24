@@ -25,7 +25,7 @@ func TestFalhaDeInfraNaValidacaoDa503(t *testing.T) {
 	a := montarAmbiente(t)
 	a.repo.falha = fmt.Errorf("%w: banco fora do ar", usecase.ErrDependenciaIndisponivel)
 
-	cab := map[string]string{"X-API-Key": chaveAPI}
+	cab := a.portaria(t)
 	res, corpo := a.postValidar(t, `{"codigo_qr":"`+assinadorFalso{}.Gerar("ing-1")+`"}`, cab)
 	if res.StatusCode != http.StatusServiceUnavailable {
 		t.Fatalf("status = %d, queria 503 (corpo: %s)", res.StatusCode, corpo)

@@ -12,7 +12,6 @@ var obrigatorias = map[string]string{
 	"JWT_ISSUER":          "http://localhost:8081/realms/cinema",
 	"JWT_AUDIENCE":        "conta-cinema",
 	"INGRESSO_QR_SEGREDO": "segredo",
-	"PORTARIA_API_KEY":    "chave",
 }
 
 func ambienteCompleto(t *testing.T) {

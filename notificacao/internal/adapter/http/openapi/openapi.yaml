@@ -77,7 +77,7 @@ paths:
       tags: [portaria]
       operationId: validarIngresso
       security:
-        - chavePortaria: []
+        - portaria: []
       requestBody:
         required: true
         content:
@@ -111,7 +111,12 @@ paths:
                 ingresso_id: "771a9210-9981-42a1-b882-102938471290"
                 utilizado_em: "2026-08-29T22:00:00Z"
         "401":
-          description: Chave de dispositivo ausente ou não reconhecida (o ingresso não chega a ser consultado)
+          description: Token de dispositivo ausente, inválido ou expirado (o ingresso não chega a ser consultado)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problema" }
+        "403":
+          description: Token válido, mas sem o papel `portaria-validar` (por exemplo, token de pessoa)
           content:
             application/problem+json:
               schema: { $ref: "#/components/schemas/Problema" }
@@ -183,13 +188,17 @@ components:
         clientCredentials:
           tokenUrl: http://localhost:8081/realms/cinema/protocol/openid-connect/token
           scopes: {}
-    chavePortaria:
-      type: apiKey
-      in: header
-      name: X-API-Key
+    portaria:
+      type: oauth2
       description: |
-        Chave estática do dispositivo de portaria, comparada em tempo constante. Não
-        carrega identidade de pessoa e não é aceita na rota do cliente.
+        Identidade do dispositivo de portaria: client `portaria-svc` (client
+        credentials), cujo token de curta duração carrega o papel
+        `portaria-validar`. Token de pessoa recebe 403 aqui; o token da portaria
+        recebe 403 nas rotas do cliente.
+      flows:
+        clientCredentials:
+          tokenUrl: http://localhost:8081/realms/cinema/protocol/openid-connect/token
+          scopes: {}
 
   schemas:
     Ingresso:

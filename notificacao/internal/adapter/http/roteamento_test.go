@@ -77,8 +77,8 @@ func TestRotasProtegidasContinuamExigindoCredencial(t *testing.T) {
 	if res.StatusCode != http.StatusUnauthorized || res.Header.Get("Content-Type") != "application/problem+json" {
 		t.Errorf("meus-ingressos: %d %q", res.StatusCode, res.Header.Get("Content-Type"))
 	}
-	semChave, _ := a.postValidar(t, `{"codigo_qr":"x"}`, nil)
-	if semChave.StatusCode != http.StatusUnauthorized {
-		t.Errorf("validar sem chave: %d", semChave.StatusCode)
+	semToken, _ := a.postValidar(t, `{"codigo_qr":"x"}`, nil)
+	if semToken.StatusCode != http.StatusUnauthorized {
+		t.Errorf("validar sem token: %d", semToken.StatusCode)
 	}
 }

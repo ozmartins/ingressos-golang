@@ -121,7 +121,7 @@ func TestListagemRecusaCredencial(t *testing.T) {
 		"sem authorization":          {},
 		"esquema errado":             {"Authorization": "Basic abc"},
 		"token lixo":                 {"Authorization": "Bearer nao-e-um-token"},
-		"chave de portaria no lugar": {"X-API-Key": chaveAPI},
+		"chave de portaria no lugar": {"X-API-Key": "qualquer"},
 		"expirado": {"Authorization": "Bearer " + a.token(t, usuario1, func(c jwt.MapClaims) {
 			c["exp"] = time.Now().Add(-time.Hour).Unix()
 		})},

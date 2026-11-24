@@ -13,7 +13,7 @@ evento nenhum**.
 |---|---|---|
 | Emitir ingresso | consumo de `pagamento.sucesso` | assíncrono, ninguém espera |
 | Listar meus ingressos | `GET /api/v1/ingressos/meus-ingressos` | aplicativo do cliente (JWT) |
-| Validar na entrada | `POST /api/v1/ingressos/validar` | catraca da portaria (`X-API-Key`) |
+| Validar na entrada | `POST /api/v1/ingressos/validar` | catraca da portaria (JWT do client `portaria-svc`, papel `portaria-validar`) |
 
 Contrato completo em `internal/adapter/http/openapi/openapi.yaml`, servido em `/openapi.yaml`.
 
@@ -46,7 +46,6 @@ erro de largada — não cai silenciosamente no padrão.
 | `RABBITMQ_URL` | RabbitMQ |
 | `JWKS_URL`, `JWT_ISSUER`, `JWT_AUDIENCE` | validação do token do Keycloak |
 | `INGRESSO_QR_SEGREDO` | assinatura do código de acesso |
-| `PORTARIA_API_KEY` | credencial dos dispositivos de portaria |
 
 > Subir sem `INGRESSO_QR_SEGREDO` emitiria ingressos que a portaria nunca
 > validaria. Por isso o processo recusa subir, e por isso o segredo **nunca** é

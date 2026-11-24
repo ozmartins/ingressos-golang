@@ -22,7 +22,6 @@ import (
 const (
 	emissor  = "http://localhost:8081/realms/cinema"
 	publico  = "conta-cinema"
-	chaveAPI = "chave-de-portaria-de-teste"
 	usuario1 = "c394c8b3-76a1-4328-b803-02f5923b7a15"
 	usuario2 = "00000000-0000-4000-8000-000000000000"
 )
@@ -148,16 +147,10 @@ func montarAmbiente(t *testing.T) *ambiente {
 	kf := func(*jwt.Token) (any, error) { return &chave.PublicKey, nil }
 
 	repo := novoRepo()
-	portaria, err := NovaChavePortaria(chaveAPI)
-	if err != nil {
-		t.Fatalf("chave de portaria: %v", err)
-	}
-
 	api := &API{
 		Listagem:  usecase.ListarIngressos{Ingressos: repo},
 		Validacao: usecase.ValidarIngresso{Ingressos: repo, Assinador: assinadorFalso{}, Relogio: relogioFixo{}},
 		Auth:      NovoAutenticadorComChave(kf, emissor, publico),
-		Chave:     portaria,
 		Prontidao: health.NovaProntidao(),
 	}
 	srv := httptest.NewServer(api.Rotas())
@@ -180,6 +173,20 @@ func (a *ambiente) token(t *testing.T, sub string, ajustes ...func(jwt.MapClaims
 		t.Fatalf("assinar token: %v", err)
 	}
 	return s
+}
+
+// tokenPortaria é o token do dispositivo de portaria (service account com o
+// papel portaria-validar, sem o papel cliente).
+func (a *ambiente) tokenPortaria(t *testing.T) string {
+	t.Helper()
+	return a.token(t, "service-account-portaria-svc", func(c jwt.MapClaims) {
+		c["realm_access"] = map[string]any{"roles": []string{PermissaoPortaria}}
+	})
+}
+
+func (a *ambiente) portaria(t *testing.T) map[string]string {
+	t.Helper()
+	return map[string]string{"Authorization": "Bearer " + a.tokenPortaria(t)}
 }
 
 type resposta struct {

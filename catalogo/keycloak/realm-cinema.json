@@ -73,6 +73,27 @@
           }
         }
       ]
+    },
+    {
+      "clientId": "portaria-svc",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "${PORTARIA_SVC_SECRET}",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "protocolMappers": [
+        {
+          "name": "aud-cinema-app",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "cinema-app",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
     }
   ],
   "users": [
@@ -110,6 +131,14 @@
       "realmRoles": [
         "catalogo-leitura-sessao"
       ]
+    },
+    {
+      "username": "service-account-portaria-svc",
+      "serviceAccountClientId": "portaria-svc",
+      "enabled": true,
+      "realmRoles": [
+        "portaria-validar"
+      ]
     }
   ],
   "roles": {
@@ -125,6 +154,10 @@
       {
         "name": "catalogo-leitura-sessao",
         "description": "Consulta sessão por gRPC (uso do serviço de estoque)"
+      },
+      {
+        "name": "portaria-validar",
+        "description": "Dispositivo de portaria: dá baixa em ingresso (POST /ingressos/validar)"
       }
     ]
   },

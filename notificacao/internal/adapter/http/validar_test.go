@@ -10,13 +10,11 @@ import (
 	"github.com/oseias/ingressos-golang/notificacao/internal/domain/ingresso"
 )
 
-func chaveOK() map[string]string { return map[string]string{"X-API-Key": chaveAPI} }
-
 func TestValidarIngressoValido(t *testing.T) {
 	a := montarAmbiente(t)
 	i := a.repo.semear(t, "ing-1", usuario1, ingresso.Valido, instanteFixo)
 
-	res, corpo := a.postValidar(t, `{"codigo_qr":"`+i.CodigoQR+`"}`, chaveOK())
+	res, corpo := a.postValidar(t, `{"codigo_qr":"`+i.CodigoQR+`"}`, a.portaria(t))
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, queria 200 (corpo: %s)", res.StatusCode, corpo)
 	}
@@ -37,7 +35,7 @@ func TestValidarIngressoJaUtilizado(t *testing.T) {
 	a := montarAmbiente(t)
 	i := a.repo.semear(t, "ing-1", usuario1, ingresso.Utilizado, instanteFixo)
 
-	res, corpo := a.postValidar(t, `{"codigo_qr":"`+i.CodigoQR+`"}`, chaveOK())
+	res, corpo := a.postValidar(t, `{"codigo_qr":"`+i.CodigoQR+`"}`, a.portaria(t))
 	if res.StatusCode != http.StatusConflict {
 		t.Fatalf("status = %d, queria 409 (corpo: %s)", res.StatusCode, corpo)
 	}
@@ -55,7 +53,7 @@ func TestValidarIngressoCancelado(t *testing.T) {
 	a := montarAmbiente(t)
 	i := a.repo.semear(t, "ing-1", usuario1, ingresso.Cancelado, instanteFixo)
 
-	res, corpo := a.postValidar(t, `{"codigo_qr":"`+i.CodigoQR+`"}`, chaveOK())
+	res, corpo := a.postValidar(t, `{"codigo_qr":"`+i.CodigoQR+`"}`, a.portaria(t))
 	if res.StatusCode != http.StatusConflict {
 		t.Fatalf("status = %d, queria 409 (corpo: %s)", res.StatusCode, corpo)
 	}
@@ -76,7 +74,7 @@ func TestRecusasDe404SaoIdenticasByteAByte(t *testing.T) {
 	var refCorpo []byte
 	refStatus := 0
 	for nome, codigo := range casos {
-		res, corpo := a.postValidar(t, `{"codigo_qr":"`+codigo+`"}`, chaveOK())
+		res, corpo := a.postValidar(t, `{"codigo_qr":"`+codigo+`"}`, a.portaria(t))
 		if res.StatusCode != http.StatusNotFound {
 			t.Errorf("%s: status = %d, queria 404 (corpo: %s)", nome, res.StatusCode, corpo)
 			continue
@@ -98,10 +96,13 @@ func TestValidarRecusaCredencial(t *testing.T) {
 	pedido := `{"codigo_qr":"` + i.CodigoQR + `"}`
 
 	casos := map[string]map[string]string{
-		"sem chave":           {},
-		"chave errada":        {"X-API-Key": "errada"},
-		"chave vazia":         {"X-API-Key": ""},
-		"token no lugar dela": {"Authorization": "Bearer " + a.token(t, usuario1)},
+		"sem chave":      {},
+		"token lixo":     {"Authorization": "Bearer nao-e-um-token"},
+		"chave estática": {"X-API-Key": "qualquer"},
+		"expirado": {"Authorization": "Bearer " + a.token(t, "dev", func(c jwt.MapClaims) {
+			c["realm_access"] = map[string]any{"roles": []string{PermissaoPortaria}}
+			c["exp"] = time.Now().Add(-time.Hour).Unix()
+		})},
 	}
 	var refCorpo []byte
 	for nome, cab := range casos {
@@ -115,6 +116,12 @@ func TestValidarRecusaCredencial(t *testing.T) {
 		} else if !bytes.Equal(corpo, refCorpo) {
 			t.Errorf("%s: corpo de 401 difere dos demais", nome)
 		}
+	}
+
+	// Token válido, mas de pessoa (sem o papel da portaria): 403, não 401.
+	res, corpo := a.postValidar(t, pedido, map[string]string{"Authorization": "Bearer " + a.token(t, usuario1)})
+	if res.StatusCode != http.StatusForbidden {
+		t.Errorf("token de pessoa: status = %d, queria 403 (corpo: %s)", res.StatusCode, corpo)
 	}
 
 	depois, err := a.repo.BuscarPorID(t.Context(), "ing-1")
@@ -136,7 +143,7 @@ func TestValidarCorpoInvalido(t *testing.T) {
 	}
 	for nome, corpo := range casos {
 		t.Run(nome, func(t *testing.T) {
-			res, b := a.postValidar(t, corpo, chaveOK())
+			res, b := a.postValidar(t, corpo, a.portaria(t))
 			if res.StatusCode != http.StatusUnprocessableEntity {
 				t.Errorf("status = %d, queria 422 (corpo: %s)", res.StatusCode, b)
 			}
@@ -158,7 +165,7 @@ func TestValidacoesSimultaneasAutorizamUmaSo(t *testing.T) {
 	for k := 0; k < n; k++ {
 		go func() {
 			<-pronto
-			res, _ := a.postValidar(t, pedido, chaveOK())
+			res, _ := a.postValidar(t, pedido, a.portaria(t))
 			status <- res.StatusCode
 		}()
 	}
@@ -190,5 +197,13 @@ func TestTokenExpiradoNaoEAceito(t *testing.T) {
 		map[string]string{"Authorization": "Bearer " + expirado})
 	if res.StatusCode != http.StatusUnauthorized {
 		t.Errorf("status = %d, queria 401", res.StatusCode)
+	}
+}
+
+func TestTokenDaPortariaNaoServeNasRotasDoCliente(t *testing.T) {
+	a := montarAmbiente(t)
+	res, corpo := a.get(t, "/api/v1/ingressos/meus-ingressos", a.portaria(t))
+	if res.StatusCode != http.StatusForbidden {
+		t.Errorf("status = %d, queria 403 (corpo: %s)", res.StatusCode, corpo)
 	}
 }

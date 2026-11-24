@@ -11,7 +11,7 @@ PostgreSQL, Redis, RabbitMQ e Keycloak, orquestrados por um único
 | [`catalogo/`](catalogo/README.md) | Navegação e cadastro de filmes, cinemas, salas e sessões; dono do preço da sessão | REST (JWT), servidor gRPC, produtor AMQP |
 | [`estoque/`](estoque/README.md) | Dono da disponibilidade das poltronas; reserva (consultando preço e status da sessão no catálogo), confirma e libera assentos | REST (JWT), cliente gRPC do catálogo, consumidor/produtor AMQP |
 | [`pagamento/`](pagamento/README.md) | Cobra de forma assíncrona a reserva criada | REST (JWT), consumidor/produtor AMQP |
-| [`notificacao/`](notificacao/README.md) | Emite o ingresso digital e valida na portaria | REST (JWT e `X-API-Key`), consumidor AMQP |
+| [`notificacao/`](notificacao/README.md) | Emite o ingresso digital e valida na portaria | REST (JWT de pessoa e JWT do dispositivo de portaria), consumidor AMQP |
 
 O fluxo assíncrono é `reserva.criada` → `pagamento.sucesso` / `pagamento.falhou`
 → emissão do ingresso.
@@ -110,7 +110,7 @@ Há três estilos de comunicação, escolhidos por finalidade:
   `INGRESSO_QR_SEGREDO`; idempotente por reserva) e dispara o aviso ao comprador
   (canal e-mail, hoje simulado).
 - **REST:** `GET /api/v1/ingressos/meus-ingressos` (JWT do comprador, filtro por
-  status) e `POST /api/v1/ingressos/validar` (**`X-API-Key`** do dispositivo da
+  status) e `POST /api/v1/ingressos/validar` (**token do dispositivo** (client `portaria-svc`, papel `portaria-validar`) da
   portaria; marca como utilizado e responde 200 autorizada, 409 reuso/inválido,
   404 desconhecido).
 - **Para quê:** a emissão é consequência do pagamento, não parte dele; se o aviso

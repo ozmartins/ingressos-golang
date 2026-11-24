@@ -78,7 +78,7 @@ func TestVereditoDaPortariaBateComOContrato(t *testing.T) {
 	a := montarAmbiente(t)
 	i := a.repo.semear(t, "ing-1", usuario1, ingresso.Valido, instanteFixo)
 
-	_, corpo := a.postValidar(t, `{"codigo_qr":"`+i.CodigoQR+`"}`, chaveOK())
+	_, corpo := a.postValidar(t, `{"codigo_qr":"`+i.CodigoQR+`"}`, a.portaria(t))
 	var ok map[string]any
 	decodificarEm(t, corpo, &ok)
 	for _, campo := range []string{"valido", "mensagem", "ingresso_id", "utilizado_em"} {
@@ -87,7 +87,7 @@ func TestVereditoDaPortariaBateComOContrato(t *testing.T) {
 		}
 	}
 
-	_, corpoRecusa := a.postValidar(t, `{"codigo_qr":"lixo"}`, chaveOK())
+	_, corpoRecusa := a.postValidar(t, `{"codigo_qr":"lixo"}`, a.portaria(t))
 	var recusa map[string]any
 	decodificarEm(t, corpoRecusa, &recusa)
 	if !mesmasChaves(obrigatoriosRecusa, chavesDe(recusa)) {

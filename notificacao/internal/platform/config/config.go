@@ -22,7 +22,6 @@ type Config struct {
 	AMQPLimiteEntregas int
 
 	IngressoQRSegredo string
-	PortariaAPIKey    string
 
 	JWKSURL   string
 	JWTIssuer string
@@ -59,7 +58,6 @@ func Carregar() (Config, error) {
 	c.JWTIssuer = obrigatoria("JWT_ISSUER", &f)
 	c.JWTAud = obrigatoria("JWT_AUDIENCE", &f)
 	c.IngressoQRSegredo = obrigatoria("INGRESSO_QR_SEGREDO", &f)
-	c.PortariaAPIKey = obrigatoria("PORTARIA_API_KEY", &f)
 
 	c.AMQPPrefetch = inteiro("AMQP_PREFETCH", 10, &f)
 	c.AMQPLimiteEntregas = inteiro("AMQP_LIMITE_ENTREGAS", 3, &f)

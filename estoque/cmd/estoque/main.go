@@ -27,6 +27,18 @@ import (
 )
 
 func main() {
+	// `<serviço> healthcheck <url>`: sonda usada pelo HEALTHCHECK do compose.
+	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
+		if len(os.Args) != 3 {
+			fmt.Fprintln(os.Stderr, "uso: healthcheck <url>")
+			os.Exit(2)
+		}
+		if err := health.SondarURL(os.Args[2]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 	if err := executar(); err != nil {
 		fmt.Fprintf(os.Stderr, "estoque não pôde subir: %v\n", err)
 		os.Exit(1)
@@ -111,6 +123,7 @@ func executar() error {
 		ClientID:        cfg.CatalogoClientID,
 		ClientSecret:    cfg.CatalogoClientSegredo,
 		TokenTimeout:    cfg.CatalogoTimeout,
+		CacheTTL:        cfg.CatalogoCacheTTL,
 	})
 	if err != nil {
 		return err

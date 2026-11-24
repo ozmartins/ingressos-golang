@@ -34,6 +34,18 @@ type ids struct{}
 func (ids) Novo() string { return uuid.NewString() }
 
 func main() {
+	// `<serviço> healthcheck <url>`: sonda usada pelo HEALTHCHECK do compose.
+	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
+		if len(os.Args) != 3 {
+			fmt.Fprintln(os.Stderr, "uso: healthcheck <url>")
+			os.Exit(2)
+		}
+		if err := health.SondarURL(os.Args[2]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 	if err := executar(); err != nil {
 		_, _ = os.Stderr.WriteString("pagamento: " + err.Error() + "\n")
 		os.Exit(1)

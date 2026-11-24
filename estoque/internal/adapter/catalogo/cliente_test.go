@@ -181,3 +181,67 @@ func TestBuscarSessaoNaoRepeteErroDeNegocio(t *testing.T) {
 		})
 	}
 }
+
+func comCache(c *Cliente, ttl time.Duration) *time.Time {
+	c.cacheTTL = ttl
+	agora := time.Now()
+	c.agora = func() time.Time { return agora }
+	return &agora
+}
+
+func TestFallbackUsaSessaoEmCacheQuandoCatalogoCai(t *testing.T) {
+	var fora atomic.Bool
+	c, _ := clienteCom(t, func(context.Context, string) (*pb.Sessao, error) {
+		if fora.Load() {
+			return nil, status.Error(codes.Unavailable, "fora")
+		}
+		return sessaoValida(), nil
+	})
+	agora := comCache(c, time.Minute)
+
+	if _, err := c.BuscarSessao(context.Background(), "s1"); err != nil {
+		t.Fatal(err)
+	}
+	fora.Store(true)
+	s, err := c.BuscarSessao(context.Background(), "s1")
+	if err != nil || s.PrecoBase != "42.00" {
+		t.Fatalf("esperava fallback com a sessão em cache, veio %+v err=%v", s, err)
+	}
+
+	// Com o disjuntor aberto (FalhasParaAbrir=2) o fallback continua valendo.
+	for i := 0; i < 3; i++ {
+		if _, err := c.BuscarSessao(context.Background(), "s1"); err != nil {
+			t.Fatalf("chamada %d com disjuntor: %v", i, err)
+		}
+	}
+
+	// Cache vencido: volta a falhar.
+	*agora = agora.Add(2 * time.Minute)
+	if _, err := c.BuscarSessao(context.Background(), "s1"); !errors.Is(err, shared.ErrCatalogoIndisponivel) {
+		t.Errorf("cache vencido: err = %v, esperado ErrCatalogoIndisponivel", err)
+	}
+}
+
+func TestFallbackNaoEncobreSessaoInexistenteNemSessaoNuncaVista(t *testing.T) {
+	var modo atomic.Int32 // 0 ok, 1 not found, 2 fora
+	c, _ := clienteCom(t, func(context.Context, string) (*pb.Sessao, error) {
+		switch modo.Load() {
+		case 1:
+			return nil, status.Error(codes.NotFound, "x")
+		case 2:
+			return nil, status.Error(codes.Unavailable, "x")
+		}
+		return sessaoValida(), nil
+	})
+	comCache(c, time.Minute)
+
+	_, _ = c.BuscarSessao(context.Background(), "s1") // guarda
+	modo.Store(1)
+	if _, err := c.BuscarSessao(context.Background(), "s1"); !errors.Is(err, shared.ErrSessaoNaoEncontrada) {
+		t.Fatalf("NotFound deve passar: %v", err)
+	}
+	modo.Store(2) // agora o cache foi descartado pelo NotFound
+	if _, err := c.BuscarSessao(context.Background(), "s1"); !errors.Is(err, shared.ErrCatalogoIndisponivel) {
+		t.Errorf("sem cache, deve falhar: %v", err)
+	}
+}

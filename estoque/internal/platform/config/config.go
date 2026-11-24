@@ -28,6 +28,8 @@ type Config struct {
 	KeycloakTokenURL      string
 	CatalogoClientID      string
 	CatalogoClientSegredo string
+	// Validade da sessão em cache usada como fallback quando o catálogo cai.
+	CatalogoCacheTTL time.Duration
 	// Limite de taxa das reservas, por usuário: fichas repostas por segundo e rajada.
 	RateLimitRPS   int
 	RateLimitBurst int
@@ -109,6 +111,8 @@ func Carregar() (*Config, error) {
 		KeycloakTokenURL:      c.obrigatoria("KEYCLOAK_TOKEN_URL"),
 		CatalogoClientID:      c.comPadrao("CATALOGO_CLIENT_ID", "estoque-svc"),
 		CatalogoClientSegredo: c.obrigatoria("CATALOGO_CLIENT_SECRET"),
+
+		CatalogoCacheTTL: c.duracao("CATALOGO_CACHE_TTL", "5m"),
 
 		RateLimitRPS:   c.inteiro("RATE_LIMIT_RPS", "5"),
 		RateLimitBurst: c.inteiro("RATE_LIMIT_BURST", "10"),

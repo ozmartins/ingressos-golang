@@ -161,7 +161,16 @@ services:
     ports:
       - "${PORTA_CATALOGO:-8082}:8080"
       - "${PORTA_CATALOGO_GRPC:-9091}:9091"
+    # A imagem é distroless (sem curl/wget): o binário tem o subcomando `healthcheck`.
+    healthcheck:
+      test: ["CMD", "/catalogo", "healthcheck", "http://127.0.0.1:8080/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
     depends_on:
+      # Jaeger sem healthcheck de propósito: é opcional (só recebe spans) e a
+      # imagem não traz ferramenta para sondá-lo.
       jaeger:
         condition: service_started
       migrate-catalogo:
@@ -203,7 +212,16 @@ services:
     ports:
       - "${PORTA_ESTOQUE_ADMIN:-8090}:8090"
       - "${PORTA_ESTOQUE_REST:-8085}:8085"
+    # A imagem é distroless (sem curl/wget): o binário tem o subcomando `healthcheck`.
+    healthcheck:
+      test: ["CMD", "/estoque", "healthcheck", "http://127.0.0.1:8090/health/ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
     depends_on:
+      # Jaeger sem healthcheck de propósito: é opcional (só recebe spans) e a
+      # imagem não traz ferramenta para sondá-lo.
       jaeger:
         condition: service_started
       migrate-estoque:
@@ -214,10 +232,8 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_healthy
-      # Sem healthcheck de propósito: o catálogo só é consultado quando chega
-      # uma reserva, não na largada, então subir junto basta.
       catalogo:
-        condition: service_started
+        condition: service_healthy
 
   pagamento:
     build:
@@ -232,7 +248,16 @@ services:
       JWT_ISSUER: http://keycloak:8081/realms/cinema
       JWT_AUDIENCE: cinema-app
     ports: ["${PORTA_PAGAMENTO:-8083}:8080"]
+    # A imagem é distroless (sem curl/wget): o binário tem o subcomando `healthcheck`.
+    healthcheck:
+      test: ["CMD", "/pagamento", "healthcheck", "http://127.0.0.1:8080/api/v1/health/ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
     depends_on:
+      # Jaeger sem healthcheck de propósito: é opcional (só recebe spans) e a
+      # imagem não traz ferramenta para sondá-lo.
       jaeger:
         condition: service_started
       migrate-pagamento:
@@ -258,7 +283,16 @@ services:
       PORTARIA_API_KEY: ${PORTARIA_API_KEY:?defina PORTARIA_API_KEY no .env}
       NOTIFICADOR_MODO: enviar
     ports: ["${PORTA_NOTIFICACAO:-8084}:8080"]
+    # A imagem é distroless (sem curl/wget): o binário tem o subcomando `healthcheck`.
+    healthcheck:
+      test: ["CMD", "/notificacao", "healthcheck", "http://127.0.0.1:8080/health/ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
     depends_on:
+      # Jaeger sem healthcheck de propósito: é opcional (só recebe spans) e a
+      # imagem não traz ferramenta para sondá-lo.
       jaeger:
         condition: service_started
       migrate-notificacao:
@@ -273,14 +307,26 @@ services:
       context: ./front
     restart: on-failure
     ports: ["${PORTA_FRONT:-5173}:80"]
-    depends_on: [catalogo, estoque, jaeger]
+    depends_on:
+      catalogo:
+        condition: service_healthy
+      estoque:
+        condition: service_healthy
+      # Jaeger sem healthcheck de propósito: é opcional (só recebe spans) e a
+      # imagem não traz ferramenta para sondá-lo.
+      jaeger:
+        condition: service_started
 
   admin:
     build:
       context: ./admin
     restart: on-failure
     ports: ["${PORTA_ADMIN:-5174}:80"]
-    depends_on: [catalogo, keycloak]
+    depends_on:
+      catalogo:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
 
 volumes:
   postgres-dados:

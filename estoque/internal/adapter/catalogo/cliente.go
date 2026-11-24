@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/sony/gobreaker/v2"
@@ -40,6 +41,10 @@ type Opcoes struct {
 	ClientID     string
 	ClientSecret string
 	TokenTimeout time.Duration
+	// CacheTTL é por quanto tempo a última sessão consultada com sucesso pode
+	// servir de fallback quando o catálogo está indisponível ou o disjuntor
+	// está aberto (0 = sem fallback: a reserva falha).
+	CacheTTL time.Duration
 }
 
 type Cliente struct {
@@ -47,7 +52,14 @@ type Cliente struct {
 	api     pb.CatalogoServiceClient
 	timeout time.Duration
 	retry   retry.Politica
-	breaker *gobreaker.CircuitBreaker[sessao.Sessao]
+
+	// Fallback: última sessão lida com sucesso, usada só enquanto o catálogo
+	// está indisponível. Nunca encobre erro de negócio.
+	cacheTTL time.Duration
+	agora    func() time.Time
+	mu       sync.Mutex
+	cache    map[string]sessaoEmCache
+	breaker  *gobreaker.CircuitBreaker[sessao.Sessao]
 }
 
 // NovoCliente prepara a conexão (preguiçosa: não falha se o catálogo ainda não
@@ -74,8 +86,11 @@ func NovoCliente(opts Opcoes) (*Cliente, error) {
 // NovoClienteComAPI permite injetar o cliente gerado (testes usam bufconn).
 func NovoClienteComAPI(opts Opcoes, api pb.CatalogoServiceClient) *Cliente {
 	return &Cliente{
-		api:     api,
-		timeout: opts.Timeout,
+		api:      api,
+		timeout:  opts.Timeout,
+		cacheTTL: opts.CacheTTL,
+		agora:    time.Now,
+		cache:    map[string]sessaoEmCache{},
 		retry: retry.Politica{
 			Tentativas: opts.Tentativas,
 			Base:       opts.EsperaBase,
@@ -119,9 +134,68 @@ func (c *Cliente) BuscarSessao(ctx context.Context, sessaoID string) (sessao.Ses
 		return s, err
 	})
 	if errors.Is(err, gobreaker.ErrOpenState) || errors.Is(err, gobreaker.ErrTooManyRequests) {
-		return sessao.Sessao{}, fmt.Errorf("%w: %v", shared.ErrCatalogoIndisponivel, err)
+		err = fmt.Errorf("%w: %v", shared.ErrCatalogoIndisponivel, err)
+	}
+	switch {
+	case err == nil:
+		c.guardar(s)
+	case errors.Is(err, shared.ErrSessaoNaoEncontrada):
+		c.esquecer(sessaoID)
+	case errors.Is(err, shared.ErrCatalogoIndisponivel):
+		// Fallback: com o catálogo fora (ou o disjuntor aberto), segue com a
+		// última sessão conhecida, se ainda recente. Preço e status podem estar
+		// defasados por até CacheTTL; é o preço de não derrubar as reservas.
+		if em, ok := c.recente(sessaoID); ok {
+			obs.FallbackCatalogo()
+			slog.Warn("catálogo indisponível, usando sessão em cache",
+				"sessao_id", sessaoID, "idade", c.agora().Sub(em.lidaEm).Round(time.Second).String(), "erro", err)
+			return em.sessao, nil
+		}
 	}
 	return s, err
+}
+
+type sessaoEmCache struct {
+	sessao sessao.Sessao
+	lidaEm time.Time
+}
+
+const limiteCache = 1000
+
+func (c *Cliente) guardar(s sessao.Sessao) {
+	if c.cacheTTL <= 0 {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	agora := c.agora()
+	if len(c.cache) >= limiteCache { // poda as expiradas para não crescer sem limite
+		for id, e := range c.cache {
+			if agora.Sub(e.lidaEm) > c.cacheTTL {
+				delete(c.cache, id)
+			}
+		}
+	}
+	c.cache[s.ID] = sessaoEmCache{sessao: s, lidaEm: agora}
+}
+
+func (c *Cliente) esquecer(id string) {
+	c.mu.Lock()
+	delete(c.cache, id)
+	c.mu.Unlock()
+}
+
+func (c *Cliente) recente(id string) (sessaoEmCache, bool) {
+	if c.cacheTTL <= 0 {
+		return sessaoEmCache{}, false
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	e, ok := c.cache[id]
+	if !ok || c.agora().Sub(e.lidaEm) > c.cacheTTL {
+		return sessaoEmCache{}, false
+	}
+	return e, true
 }
 
 func (c *Cliente) buscar(ctx context.Context, sessaoID string) (sessao.Sessao, error) {

@@ -13,6 +13,11 @@ type Config struct {
 	HTTPPort string
 	// GRPCAddr é onde o servidor gRPC escuta (consumido pelo estoque).
 	GRPCAddr string
+	// TLS do gRPC: certificado e chave do servidor (ambos ou nenhum) e, opcional,
+	// a CA que assina os certificados de cliente (liga mTLS). Vazio = sem TLS.
+	GRPCTLSCert     string
+	GRPCTLSKey      string
+	GRPCTLSClientCA string
 
 	DatabaseURL string
 
@@ -38,6 +43,9 @@ func Carregar() (Config, error) {
 	c := Config{
 		HTTPPort:          comPadrao("HTTP_PORT", "8080"),
 		GRPCAddr:          comPadrao("GRPC_ADDR", ":9091"),
+		GRPCTLSCert:       strings.TrimSpace(os.Getenv("GRPC_TLS_CERT")),
+		GRPCTLSKey:        strings.TrimSpace(os.Getenv("GRPC_TLS_KEY")),
+		GRPCTLSClientCA:   strings.TrimSpace(os.Getenv("GRPC_TLS_CLIENT_CA")),
 		DatabaseURL:       os.Getenv("DATABASE_URL"),
 		KeycloakIssuerURL: os.Getenv("KEYCLOAK_ISSUER_URL"),
 		KeycloakAudience:  os.Getenv("KEYCLOAK_AUDIENCE"),
@@ -56,6 +64,13 @@ func Carregar() (Config, error) {
 		if strings.TrimSpace(obrigatorio.valor) == "" {
 			falhas = append(falhas, erroCampo{obrigatorio.campo, "obrigatória e ausente"})
 		}
+	}
+
+	if (c.GRPCTLSCert == "") != (c.GRPCTLSKey == "") {
+		falhas = append(falhas, erroCampo{"GRPC_TLS_CERT/GRPC_TLS_KEY", "informe os dois ou nenhum"})
+	}
+	if c.GRPCTLSClientCA != "" && c.GRPCTLSCert == "" {
+		falhas = append(falhas, erroCampo{"GRPC_TLS_CLIENT_CA", "exige GRPC_TLS_CERT e GRPC_TLS_KEY"})
 	}
 
 	if v, err := duracao("OUTBOX_INTERVALO", time.Second); err != nil {

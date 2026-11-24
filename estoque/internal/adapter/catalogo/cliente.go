@@ -4,9 +4,12 @@ package catalogo
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"sync"
 	"time"
 
@@ -14,6 +17,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -27,10 +31,14 @@ import (
 
 type Opcoes struct {
 	// Endereco do servidor gRPC do catálogo (host:porta).
-	Endereco        string
-	Timeout         time.Duration
-	FalhasParaAbrir uint32
-	IntervaloAberto time.Duration
+	Endereco string
+	// TLS: TLSCA é a CA que assina o certificado do catálogo (vazio = canal sem
+	// TLS, só para testes/dev). TLSCert/TLSKey, se informados, apresentam o
+	// certificado de cliente (mTLS).
+	TLSCA, TLSCert, TLSKey string
+	Timeout                time.Duration
+	FalhasParaAbrir        uint32
+	IntervaloAberto        time.Duration
 	// Tentativas é o total de chamadas por consulta (0 ou 1 = sem retry). Só
 	// indisponibilidade (timeout, conexão recusada) é repetida, com backoff
 	// exponencial a partir de EsperaBase; erro de negócio nunca.
@@ -67,14 +75,19 @@ type Cliente struct {
 // subiu). O otelgrpc abre um span de cliente e injeta o traceparent na chamada:
 // é assim que o trace da reserva atravessa os dois serviços.
 func NovoCliente(opts Opcoes) (*Cliente, error) {
+	transporte, err := credenciaisDeTransporte(opts)
+	if err != nil {
+		return nil, err
+	}
 	dial := []grpc.DialOption{
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithTransportCredentials(transporte),
 		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 		grpc.WithChainUnaryInterceptor(propagarRequestID),
 	}
 	if opts.TokenURL != "" {
-		dial = append(dial, grpc.WithPerRPCCredentials(
-			NovaFonteDeToken(opts.TokenURL, opts.ClientID, opts.ClientSecret, opts.TokenTimeout)))
+		fonte := NovaFonteDeToken(opts.TokenURL, opts.ClientID, opts.ClientSecret, opts.TokenTimeout)
+		fonte.ExigeTLS = opts.TLSCA != ""
+		dial = append(dial, grpc.WithPerRPCCredentials(fonte))
 	}
 	conn, err := grpc.NewClient(opts.Endereco, dial...)
 	if err != nil {
@@ -83,6 +96,35 @@ func NovoCliente(opts Opcoes) (*Cliente, error) {
 	c := NovoClienteComAPI(opts, pb.NewCatalogoServiceClient(conn))
 	c.conn = conn
 	return c, nil
+}
+
+// credenciaisDeTransporte devolve TLS (com mTLS opcional) quando há CA
+// configurada; sem ela, avisa e segue em texto puro.
+func credenciaisDeTransporte(opts Opcoes) (credentials.TransportCredentials, error) {
+	if opts.TLSCA == "" {
+		slog.Warn("gRPC para o catálogo SEM TLS: defina CATALOGO_GRPC_TLS_CA fora de desenvolvimento")
+		return insecure.NewCredentials(), nil
+	}
+	pem, err := os.ReadFile(opts.TLSCA)
+	if err != nil {
+		return nil, fmt.Errorf("ler CA do catálogo: %w", err)
+	}
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(pem) {
+		return nil, errors.New("CA do catálogo sem certificado PEM válido")
+	}
+	cfg := &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS13}
+	if (opts.TLSCert == "") != (opts.TLSKey == "") {
+		return nil, errors.New("CATALOGO_GRPC_TLS_CERT e CATALOGO_GRPC_TLS_KEY: informe os dois ou nenhum")
+	}
+	if opts.TLSCert != "" {
+		par, err := tls.LoadX509KeyPair(opts.TLSCert, opts.TLSKey)
+		if err != nil {
+			return nil, fmt.Errorf("carregar certificado de cliente: %w", err)
+		}
+		cfg.Certificates = []tls.Certificate{par}
+	}
+	return credentials.NewTLS(cfg), nil
 }
 
 // NovoClienteComAPI permite injetar o cliente gerado (testes usam bufconn).

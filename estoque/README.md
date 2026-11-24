@@ -100,6 +100,7 @@ ou malformada.
 | `JWKS_URL` | — (obrigatória) | chaves do Keycloak, carregadas na largada, que validam o JWT da API REST |
 | `JWT_ISSUER` | — (obrigatória) | emissor aceito no token |
 | `JWT_AUDIENCE` | — (obrigatória) | público aceito no token |
+| `CATALOGO_GRPC_TLS_CA` / `_CERT` / `_KEY` | — (sem TLS, com aviso) | CA que assina o catálogo e, opcionais, certificado/chave de cliente (mTLS) |
 | `CATALOGO_GRPC_ADDR` | — (obrigatória) | endereço gRPC (`host:porta`, ex.: `catalogo:9091`) do Servico-Catalogo, de onde vêm preço e status da sessão |
 | `CATALOGO_TIMEOUT` | `2s` | tempo máximo de cada consulta ao catálogo |
 | `BREAKER_FALHAS_CONSECUTIVAS` | `5` | falhas seguidas que abrem o circuit breaker do catálogo |

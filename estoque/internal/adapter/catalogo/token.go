@@ -22,6 +22,8 @@ type FonteDeToken struct {
 	clientID string
 	segredo  string
 	http     *http.Client
+	// ExigeTLS faz o gRPC recusar enviar o token em canal sem TLS.
+	ExigeTLS bool
 	margem   time.Duration // renova com esta antecedência do vencimento
 	agora    func() time.Time
 
@@ -94,6 +96,6 @@ func (f *FonteDeToken) GetRequestMetadata(ctx context.Context, _ ...string) (map
 	return map[string]string{"authorization": "Bearer " + t}, nil
 }
 
-// RequireTransportSecurity é false porque o canal gRPC interno do compose não
-// usa TLS; em produção, ligue TLS/mTLS e troque para true.
-func (f *FonteDeToken) RequireTransportSecurity() bool { return false }
+// RequireTransportSecurity é true quando o canal usa TLS (ExigeTLS): assim o
+// token nunca sai em texto puro. Sem TLS (só dev/testes) fica false.
+func (f *FonteDeToken) RequireTransportSecurity() bool { return f.ExigeTLS }

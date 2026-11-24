@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	saudegrpc "google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
@@ -29,6 +30,7 @@ import (
 	"github.com/oseias/ingressos-golang/catalogo/internal/platform/health"
 	"github.com/oseias/ingressos-golang/catalogo/internal/platform/obs"
 	"github.com/oseias/ingressos-golang/catalogo/internal/platform/retry"
+	"github.com/oseias/ingressos-golang/catalogo/internal/platform/tlsconf"
 	"github.com/oseias/ingressos-golang/catalogo/internal/usecase"
 )
 
@@ -168,10 +170,21 @@ func executar() error {
 	// gRPC: canal serviço a serviço (o estoque consulta preço e status da
 	// sessão). Reutiliza o mesmo caso de uso do REST.
 	// Só o estoque (service account com o papel catalogo-leitura-sessao) pode consultar.
-	servidorGRPC := grpc.NewServer(
+	opcoesGRPC := []grpc.ServerOption{
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		grpc.ChainUnaryInterceptor(adaptadorgrpc.InterceptadorRequestID(), adaptadorgrpc.InterceptadorAutenticacao(verificador, identidade.PermissaoLerSessao)),
-	)
+	}
+	if cfg.GRPCTLSCert != "" {
+		tlsCfg, err := tlsconf.Servidor(cfg.GRPCTLSCert, cfg.GRPCTLSKey, cfg.GRPCTLSClientCA)
+		if err != nil {
+			return fmt.Errorf("gRPC TLS: %w", err)
+		}
+		opcoesGRPC = append(opcoesGRPC, grpc.Creds(credentials.NewTLS(tlsCfg)))
+		slog.Info("gRPC com TLS", "mtls", cfg.GRPCTLSClientCA != "")
+	} else {
+		slog.Warn("gRPC SEM TLS: defina GRPC_TLS_CERT e GRPC_TLS_KEY fora de desenvolvimento")
+	}
+	servidorGRPC := grpc.NewServer(opcoesGRPC...)
 	pb.RegisterCatalogoServiceServer(servidorGRPC, &adaptadorgrpc.Servidor{
 		BuscarSessao: usecase.BuscarSessao{Repo: sessoes},
 	})

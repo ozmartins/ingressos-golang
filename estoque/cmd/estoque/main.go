@@ -127,6 +127,9 @@ func executar() error {
 	}
 	catalogo, err := adaptadorcatalogo.NovoCliente(adaptadorcatalogo.Opcoes{
 		Endereco:        cfg.CatalogoGRPCAddr,
+		TLSCA:           cfg.CatalogoTLSCA,
+		TLSCert:         cfg.CatalogoTLSCert,
+		TLSKey:          cfg.CatalogoTLSKey,
 		Timeout:         cfg.CatalogoTimeout,
 		FalhasParaAbrir: uint32(cfg.BreakerFalhas),
 		IntervaloAberto: cfg.BreakerIntervalo,

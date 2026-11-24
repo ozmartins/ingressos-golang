@@ -146,6 +146,14 @@ services:
       postgres:
         condition: service_healthy
   
+  # Gera (uma vez, no volume) a CA e os certificados do gRPC estoque -> catalogo.
+  certs-grpc:
+    image: alpine/openssl:3.3.2
+    entrypoint: ["/bin/sh", "/gerar.sh", "/certs"]
+    volumes:
+      - ./infra/certs/gerar.sh:/gerar.sh:ro
+      - certs-grpc:/certs
+
   catalogo:
     build:
       context: ./catalogo
@@ -159,6 +167,12 @@ services:
       RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/
       # gRPC serviço a serviço: o estoque consulta preço e status da sessão aqui.
       GRPC_ADDR: ":9091"
+      # TLS com mTLS: só clientes com certificado da CA de desenvolvimento.
+      GRPC_TLS_CERT: /certs/catalogo.pem
+      GRPC_TLS_KEY: /certs/catalogo-key.pem
+      GRPC_TLS_CLIENT_CA: /certs/ca.pem
+    volumes:
+      - certs-grpc:/certs:ro
     ports:
       - "${PORTA_CATALOGO:-8082}:8080"
       - "${PORTA_CATALOGO_GRPC:-9091}:9091"
@@ -175,6 +189,8 @@ services:
       jaeger:
         condition: service_started
       migrate-catalogo:
+        condition: service_completed_successfully
+      certs-grpc:
         condition: service_completed_successfully
       keycloak:
         condition: service_healthy
@@ -201,6 +217,9 @@ services:
       JWT_AUDIENCE: cinema-app
       # A reserva consulta preço e status da sessão no catálogo por gRPC.
       CATALOGO_GRPC_ADDR: catalogo:9091
+      CATALOGO_GRPC_TLS_CA: /certs/ca.pem
+      CATALOGO_GRPC_TLS_CERT: /certs/estoque.pem
+      CATALOGO_GRPC_TLS_KEY: /certs/estoque-key.pem
       # Identidade do estoque junto ao catálogo: client credentials no Keycloak.
       KEYCLOAK_TOKEN_URL: http://keycloak:8081/realms/cinema/protocol/openid-connect/token
       CATALOGO_CLIENT_ID: estoque-svc
@@ -210,6 +229,8 @@ services:
       POLTRONAS_MAX_POR_BLOQUEIO: "10"
       VARREDURA_EXPIRACAO_INTERVALO: 10s
       AMQP_PREFETCH: "32"
+    volumes:
+      - certs-grpc:/certs:ro
     ports:
       - "${PORTA_ESTOQUE_ADMIN:-8090}:8090"
       - "${PORTA_ESTOQUE_REST:-8085}:8085"
@@ -226,6 +247,8 @@ services:
       jaeger:
         condition: service_started
       migrate-estoque:
+        condition: service_completed_successfully
+      certs-grpc:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
@@ -333,3 +356,4 @@ volumes:
   redis-dados:
   rabbitmq-dados:
   keycloak-dados:
+  certs-grpc:

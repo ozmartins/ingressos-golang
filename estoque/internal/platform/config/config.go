@@ -24,6 +24,11 @@ type Config struct {
 	// CatalogoGRPCAddr é o endereço gRPC do catálogo (host:porta).
 	CatalogoGRPCAddr string
 	CatalogoTimeout  time.Duration
+	// TLS do gRPC para o catálogo: CA que assina o servidor e, opcional, o par
+	// certificado/chave do cliente (mTLS). CA vazia = sem TLS.
+	CatalogoTLSCA   string
+	CatalogoTLSCert string
+	CatalogoTLSKey  string
 	// Identidade do estoque junto ao catálogo (client credentials no Keycloak).
 	KeycloakTokenURL      string
 	CatalogoClientID      string
@@ -118,6 +123,9 @@ func Carregar() (*Config, error) {
 		RateLimitBurst: c.inteiro("RATE_LIMIT_BURST", "10"),
 
 		CatalogoGRPCAddr:   c.obrigatoria("CATALOGO_GRPC_ADDR"),
+		CatalogoTLSCA:      c.comPadrao("CATALOGO_GRPC_TLS_CA", ""),
+		CatalogoTLSCert:    c.comPadrao("CATALOGO_GRPC_TLS_CERT", ""),
+		CatalogoTLSKey:     c.comPadrao("CATALOGO_GRPC_TLS_KEY", ""),
 		CatalogoTimeout:    c.duracao("CATALOGO_TIMEOUT", "2s"),
 		CatalogoTentativas: c.inteiro("CATALOGO_TENTATIVAS", "3"),
 		CatalogoEsperaBase: c.duracao("CATALOGO_ESPERA_BASE", "100ms"),

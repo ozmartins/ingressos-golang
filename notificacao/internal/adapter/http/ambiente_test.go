@@ -170,6 +170,7 @@ func (a *ambiente) token(t *testing.T, sub string, ajustes ...func(jwt.MapClaims
 	c := jwt.MapClaims{
 		"sub": sub, "iss": emissor, "aud": publico,
 		"exp": time.Now().Add(time.Hour).Unix(), "iat": time.Now().Unix(),
+		"realm_access": map[string]any{"roles": []string{PermissaoCliente}},
 	}
 	for _, f := range ajustes {
 		f(c)

@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"net/http"
 	"net/url"
@@ -65,6 +66,18 @@ func (a *API) Rotas() http.Handler {
 	return r
 }
 
+// recusarCredencial responde 403 se o token é válido mas sem permissão, e 401
+// em qualquer outro caso (ausente, inválido, expirado).
+func recusarCredencial(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, ErrSemPermissao) {
+		escreverProblem(w, r, http.StatusForbidden, tipoAcessoNegado,
+			"Acesso negado", "a credencial é válida, mas não concede permissão para esta operação", nil)
+		return
+	}
+	escreverProblem(w, r, http.StatusUnauthorized, tipoNaoAutenticado,
+		"Não autenticado", "credencial ausente ou inválida", nil)
+}
+
 func sessaoID(r *http.Request) string {
 	cru := r.PathValue("sessao_id")
 	if decodificado, err := url.PathUnescape(cru); err == nil {
@@ -74,10 +87,9 @@ func sessaoID(r *http.Request) string {
 }
 
 func (a *API) bloquear(w http.ResponseWriter, r *http.Request) {
-	usuarioID, err := a.Auth.Identificar(r)
+	usuarioID, err := a.Auth.Exigir(r, PermissaoCliente)
 	if err != nil {
-		escreverProblem(w, r, http.StatusUnauthorized, tipoNaoAutenticado,
-			"Não autenticado", "credencial ausente ou inválida", nil)
+		recusarCredencial(w, r, err)
 		return
 	}
 	if !a.Taxa.Permitir(usuarioID) {
@@ -117,9 +129,8 @@ func (a *API) bloquear(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) consultarMapa(w http.ResponseWriter, r *http.Request) {
-	if _, err := a.Auth.Identificar(r); err != nil {
-		escreverProblem(w, r, http.StatusUnauthorized, tipoNaoAutenticado,
-			"Não autenticado", "credencial ausente ou inválida", nil)
+	if _, err := a.Auth.Exigir(r, PermissaoCliente); err != nil {
+		recusarCredencial(w, r, err)
 		return
 	}
 

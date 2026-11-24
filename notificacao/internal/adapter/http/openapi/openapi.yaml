@@ -66,6 +66,11 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: "#/components/schemas/Problema" }
+        "403":
+          description: Token válido, mas sem o papel `cliente` (por exemplo, token de service account)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problema" }
 
   /api/v1/ingressos/validar:
     post:

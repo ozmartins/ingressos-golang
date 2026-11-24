@@ -71,10 +71,11 @@ func apiDeTeste(b CasoDeUsoBloqueio, m CasoDeUsoMapa) *API {
 func tokenValido(t *testing.T) string {
 	t.Helper()
 	tok := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
-		"iss": emissorTeste,
-		"aud": audienciaTest,
-		"sub": subTeste,
-		"exp": time.Now().Add(time.Hour).Unix(),
+		"iss":          emissorTeste,
+		"aud":          audienciaTest,
+		"sub":          subTeste,
+		"exp":          time.Now().Add(time.Hour).Unix(),
+		"realm_access": map[string]any{"roles": []string{PermissaoCliente}},
 	})
 	assinado, err := tok.SignedString(chaveTeste)
 	if err != nil {
@@ -291,5 +292,39 @@ func TestDocumentacaoDispensaCredencial(t *testing.T) {
 		if w.Code != http.StatusOK {
 			t.Errorf("GET %s = %d, esperado 200", caminho, w.Code)
 		}
+	}
+}
+
+// tokenSemPapel é um token válido (assinatura, emissor, audiência) sem o papel
+// "cliente", como o de uma service account.
+func tokenSemPapel(t *testing.T) string {
+	t.Helper()
+	assinado, err := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
+		"iss": emissorTeste, "aud": audienciaTest, "sub": subTeste,
+		"exp":          time.Now().Add(time.Hour).Unix(),
+		"realm_access": map[string]any{"roles": []string{"offline_access"}},
+	}).SignedString(chaveTeste)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return assinado
+}
+
+func TestTokenValidoSemPapelClienteRecebe403(t *testing.T) {
+	b := &bloqueioFalso{}
+	api := apiDeTeste(b, &mapaFalso{})
+	for nome, req := range map[string][3]string{
+		"bloquear": {http.MethodPost, "/api/v1/sessoes/s1/bloqueios", `{"poltronas_ids":["A1"]}`},
+		"mapa":     {http.MethodGet, "/api/v1/sessoes/s1/poltronas", ""},
+	} {
+		t.Run(nome, func(t *testing.T) {
+			w := executar(t, api, req[0], req[1], req[2], tokenSemPapel(t))
+			if w.Code != http.StatusForbidden {
+				t.Fatalf("status = %d, esperado 403", w.Code)
+			}
+			if b.usuarioVisto != "" {
+				t.Error("o caso de uso foi chamado sem permissão")
+			}
+		})
 	}
 }

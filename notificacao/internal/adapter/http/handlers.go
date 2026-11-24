@@ -73,7 +73,12 @@ type ingressoResposta struct {
 }
 
 func (a *API) listar(w http.ResponseWriter, r *http.Request) {
-	sub, err := a.Auth.Identificar(r)
+	sub, err := a.Auth.Exigir(r, PermissaoCliente)
+	if errors.Is(err, ErrSemPermissao) {
+		problema(w, http.StatusForbidden, "acesso-negado",
+			"Acesso negado", "A credencial é válida, mas não concede permissão para ver ingressos.")
+		return
+	}
 	if err != nil {
 		problema(w, http.StatusUnauthorized, "credencial-invalida",
 			"Credencial inválida", "A credencial de pessoa está ausente, expirada ou não confere.")

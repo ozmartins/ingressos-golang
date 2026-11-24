@@ -143,6 +143,12 @@ components:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/Problem"
+    AcessoNegado:
+      description: Token válido, mas sem o papel `cliente` (por exemplo, token de service account).
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
     Indisponivel:
       description: |
         Banco ou dependência de estado indisponível. Nenhum estado foi alterado.
@@ -195,6 +201,8 @@ paths:
                 $ref: "#/components/schemas/Problem"
         "401":
           $ref: "#/components/responses/NaoAutenticado"
+        "403":
+          $ref: "#/components/responses/AcessoNegado"
         "429":
           description: |
             Limite de taxa por usuário excedido (`muitas-requisicoes`); o cabeçalho
@@ -257,6 +265,8 @@ paths:
                 $ref: "#/components/schemas/RespostaMapa"
         "401":
           $ref: "#/components/responses/NaoAutenticado"
+        "403":
+          $ref: "#/components/responses/AcessoNegado"
         "404":
           description: Sessão desconhecida.
           content:

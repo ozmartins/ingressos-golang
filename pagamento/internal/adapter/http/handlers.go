@@ -21,6 +21,7 @@ const prefixoTipo = "https://cinema.example/errors/"
 const (
 	CodReservaIDInvalido  = "reserva-id-invalido"
 	CodCredencialInvalida = "credencial-invalida"
+	CodAcessoNegado       = "acesso-negado"
 	CodNaoEncontrado      = "pagamento-nao-encontrado"
 	CodIndisponivel       = "servico-indisponivel"
 	CodCorpoInvalido      = "corpo-invalido"
@@ -32,6 +33,7 @@ const (
 var titulos = map[string]string{
 	CodReservaIDInvalido:  "Identificador de reserva inválido",
 	CodCredencialInvalida: "Credencial ausente ou inválida",
+	CodAcessoNegado:       "Acesso negado",
 	CodNaoEncontrado:      "Pagamento não encontrado",
 	CodIndisponivel:       "Serviço temporariamente indisponível",
 	CodCorpoInvalido:      "Corpo da requisição inválido",
@@ -107,9 +109,9 @@ func metodosPermitidos(r chi.Routes, caminho string) []string {
 }
 
 func (a *API) consultar(w http.ResponseWriter, r *http.Request) {
-	sub, err := a.Auth.Identificar(r)
+	sub, err := a.Auth.Exigir(r, PermissaoCliente)
 	if err != nil {
-		responderErro(w, http.StatusUnauthorized, CodCredencialInvalida, "credencial ausente ou inválida")
+		recusarCredencial(w, err)
 		return
 	}
 
@@ -136,9 +138,9 @@ func (a *API) consultar(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) escolherForma(w http.ResponseWriter, r *http.Request) {
-	sub, err := a.Auth.Identificar(r)
+	sub, err := a.Auth.Exigir(r, PermissaoCliente)
 	if err != nil {
-		responderErro(w, http.StatusUnauthorized, CodCredencialInvalida, "credencial ausente ou inválida")
+		recusarCredencial(w, err)
 		return
 	}
 
@@ -217,6 +219,16 @@ func (a *API) pronto(w http.ResponseWriter, r *http.Request) {
 
 func responderJSON(w http.ResponseWriter, status int, corpo any) {
 	escrever(w, "application/json", status, corpo)
+}
+
+// recusarCredencial responde 403 se o token é válido mas sem permissão, e 401
+// em qualquer outro caso (ausente, inválido, expirado).
+func recusarCredencial(w http.ResponseWriter, err error) {
+	if errors.Is(err, ErrSemPermissao) {
+		responderErro(w, http.StatusForbidden, CodAcessoNegado, "a credencial é válida, mas não concede permissão para esta operação")
+		return
+	}
+	responderErro(w, http.StatusUnauthorized, CodCredencialInvalida, "credencial ausente ou inválida")
 }
 
 func responderErro(w http.ResponseWriter, status int, codigo, detalhe string) {

@@ -93,6 +93,7 @@ func token(t *testing.T, sub string, ajustar func(jwt.MapClaims)) string {
 	c := jwt.MapClaims{
 		"sub": sub, "iss": issuer, "aud": audience,
 		"exp": time.Now().Add(time.Hour).Unix(), "iat": time.Now().Unix(),
+		"realm_access": map[string]any{"roles": []string{PermissaoCliente}},
 	}
 	if ajustar != nil {
 		ajustar(c)
@@ -432,3 +433,21 @@ func chamarURL(t *testing.T, api *API, url, bearer string) *httptest.ResponseRec
 }
 
 func categoria(tipo string) string { return strings.TrimPrefix(tipo, prefixoTipo) }
+
+func TestTokenValidoSemPapelClienteRecebe403(t *testing.T) {
+	reserva := uuid.NewString()
+	api := apiCom(repoStub{t: transacaoDe(transacao.Pago, reserva)})
+	semPapel := token(t, dona, func(c jwt.MapClaims) {
+		c["realm_access"] = map[string]any{"roles": []string{"offline_access"}}
+	})
+
+	w := chamar(t, api, reserva, semPapel)
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("esperava 403, veio %d: %s", w.Code, w.Body)
+	}
+	var e problema
+	_ = json.Unmarshal(w.Body.Bytes(), &e)
+	if categoria(e.Type) != CodAcessoNegado {
+		t.Fatalf("código errado: %q", categoria(e.Type))
+	}
+}

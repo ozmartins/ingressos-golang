@@ -115,6 +115,10 @@
   "roles": {
     "realm": [
       {
+        "name": "cliente",
+        "description": "Pessoa usuária: reserva, paga e vê os próprios ingressos"
+      },
+      {
         "name": "catalogo-admin",
         "description": "Escreve no catálogo (cinemas, salas, filmes, sessões)"
       },
@@ -123,5 +127,8 @@
         "description": "Consulta sessão por gRPC (uso do serviço de estoque)"
       }
     ]
-  }
+  },
+  "defaultRoles": [
+    "cliente"
+  ]
 }

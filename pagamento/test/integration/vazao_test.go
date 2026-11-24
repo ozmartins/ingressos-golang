@@ -114,7 +114,8 @@ func medirConsultasDuranteOPico(t *testing.T, a *ambiente, reservas []string) []
 				}
 				tok, err := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
 					"sub": sub, "iss": iss, "aud": aud,
-					"exp": time.Now().Add(time.Hour).Unix(),
+					"exp":          time.Now().Add(time.Hour).Unix(),
+					"realm_access": map[string]any{"roles": []string{"cliente"}},
 				}).SignedString(segredo)
 				if err != nil {
 					return

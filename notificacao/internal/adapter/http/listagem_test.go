@@ -152,3 +152,19 @@ func TestListagemRecusaCredencial(t *testing.T) {
 		}
 	}
 }
+
+func TestListagemTokenValidoSemPapelClienteRecebe403(t *testing.T) {
+	a := montarAmbiente(t)
+	semearTres(t, a)
+
+	semPapel := a.token(t, usuario1, func(c jwt.MapClaims) {
+		c["realm_access"] = map[string]any{"roles": []string{"offline_access"}}
+	})
+	res, corpo := a.get(t, rota, map[string]string{"Authorization": "Bearer " + semPapel})
+	if res.StatusCode != http.StatusForbidden {
+		t.Fatalf("status = %d, queria 403 (corpo: %s)", res.StatusCode, corpo)
+	}
+	if bytes.Contains(corpo, []byte("ing-antigo")) {
+		t.Error("a recusa vazou ingresso")
+	}
+}

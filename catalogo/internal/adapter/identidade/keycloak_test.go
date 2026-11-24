@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -205,5 +206,43 @@ func TestVerificarTokenSemPapeisNaoTemPermissao(t *testing.T) {
 	}
 	if id.Tem(PermissaoEscrita) {
 		t.Error("token sem papéis não deveria ter permissão de escrita")
+	}
+}
+
+// O JWKS pode não estar de pé na largada: NovoVerificador deve esperar com
+// retry (e não subir com o conjunto de chaves vazio) até o Keycloak responder.
+func TestNovoVerificadorEsperaOJWKSFicarDisponivel(t *testing.T) {
+	chave, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var chamadas atomic.Int32
+	mux := http.NewServeMux()
+	mux.HandleFunc(caminhoJWKS, func(w http.ResponseWriter, _ *http.Request) {
+		if chamadas.Add(1) <= 2 {
+			http.Error(w, "ainda subindo", http.StatusServiceUnavailable)
+			return
+		}
+		pub := chave.PublicKey
+		_ = json.NewEncoder(w).Encode(map[string]any{"keys": []map[string]string{{
+			"kty": "RSA", "kid": "chave-1", "alg": "RS256", "use": "sig",
+			"n": base64.RawURLEncoding.EncodeToString(pub.N.Bytes()),
+			"e": base64.RawURLEncoding.EncodeToString(big.NewInt(int64(pub.E)).Bytes()),
+		}}})
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	v, err := NovoVerificador(srv.URL, "cinema-app")
+	if err != nil {
+		t.Fatalf("deveria ter esperado o JWKS: %v", err)
+	}
+	if n := chamadas.Load(); n < 3 {
+		t.Fatalf("esperava ao menos 3 buscas (2 falhas + 1 sucesso), houve %d", n)
+	}
+	// As chaves vieram de verdade: um token assinado por ela é aceito.
+	e := &emissorDeTeste{chave: chave, issuer: srv.URL}
+	if _, err := v.Verificar(context.Background(), e.token(t, claimsValidas(srv.URL), nil)); err != nil {
+		t.Fatalf("token válido recusado após a espera: %v", err)
 	}
 }

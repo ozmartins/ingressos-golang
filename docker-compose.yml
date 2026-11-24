@@ -107,7 +107,7 @@ services:
     volumes: ["./catalogo/migrations:/migrations:ro"]
     command:
       - -path=/migrations
-      - -database=postgres://catalogo:${CATALOGO_DB_PASSWORD:?defina CATALOGO_DB_PASSWORD no .env}@postgres:5432/cinema?sslmode=disable&search_path=catalogo
+      - -database=postgres://catalogo:${CATALOGO_DB_PASSWORD:?defina CATALOGO_DB_PASSWORD no .env}@postgres:5432/cinema?sslmode=${DB_SSLMODE:-disable}&search_path=catalogo
       - up
     depends_on:
       postgres:
@@ -118,7 +118,7 @@ services:
     volumes: ["./estoque/migrations:/migrations:ro"]
     command:
       - -path=/migrations
-      - -database=postgres://estoque:${ESTOQUE_DB_PASSWORD:?defina ESTOQUE_DB_PASSWORD no .env}@postgres:5432/cinema?sslmode=disable&search_path=estoque
+      - -database=postgres://estoque:${ESTOQUE_DB_PASSWORD:?defina ESTOQUE_DB_PASSWORD no .env}@postgres:5432/cinema?sslmode=${DB_SSLMODE:-disable}&search_path=estoque
       - up
     depends_on:
       postgres:
@@ -129,7 +129,7 @@ services:
     volumes: ["./notificacao/migrations:/migrations:ro"]
     command:
       - -path=/migrations
-      - -database=postgres://notificacao:${NOTIFICACAO_DB_PASSWORD:?defina NOTIFICACAO_DB_PASSWORD no .env}@postgres:5432/cinema?sslmode=disable&search_path=notificacao
+      - -database=postgres://notificacao:${NOTIFICACAO_DB_PASSWORD:?defina NOTIFICACAO_DB_PASSWORD no .env}@postgres:5432/cinema?sslmode=${DB_SSLMODE:-disable}&search_path=notificacao
       - up
     depends_on:
       postgres:
@@ -140,7 +140,7 @@ services:
     volumes: ["./pagamento/migrations:/migrations:ro"]
     command:
       - -path=/migrations
-      - -database=postgres://pagamento:${PAGAMENTO_DB_PASSWORD:?defina PAGAMENTO_DB_PASSWORD no .env}@postgres:5432/cinema?sslmode=disable&search_path=pagamento
+      - -database=postgres://pagamento:${PAGAMENTO_DB_PASSWORD:?defina PAGAMENTO_DB_PASSWORD no .env}@postgres:5432/cinema?sslmode=${DB_SSLMODE:-disable}&search_path=pagamento
       - up
     depends_on:
       postgres:
@@ -161,7 +161,7 @@ services:
     environment:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
       OBS_ADDR: ":9090"
-      DATABASE_URL: postgres://catalogo:${CATALOGO_DB_PASSWORD:?defina CATALOGO_DB_PASSWORD no .env}@postgres:5432/cinema?sslmode=disable
+      DATABASE_URL: postgres://catalogo:${CATALOGO_DB_PASSWORD:?defina CATALOGO_DB_PASSWORD no .env}@postgres:5432/cinema?sslmode=${DB_SSLMODE:-disable}
       KEYCLOAK_ISSUER_URL: http://keycloak:8081/realms/cinema
       KEYCLOAK_AUDIENCE: cinema-app
       RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/
@@ -207,7 +207,7 @@ services:
     environment:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
       OBS_ADDR: ":9090"
-      DATABASE_URL: postgres://estoque:${ESTOQUE_DB_PASSWORD:?defina ESTOQUE_DB_PASSWORD no .env}@postgres:5432/cinema?sslmode=disable
+      DATABASE_URL: postgres://estoque:${ESTOQUE_DB_PASSWORD:?defina ESTOQUE_DB_PASSWORD no .env}@postgres:5432/cinema?sslmode=${DB_SSLMODE:-disable}
       REDIS_URL: redis://redis:6379/0
       RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/
       ADMIN_ADDR: ":8090"
@@ -266,7 +266,7 @@ services:
     environment:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
       OBS_ADDR: ":9090"
-      DATABASE_URL: postgres://pagamento:${PAGAMENTO_DB_PASSWORD:?defina PAGAMENTO_DB_PASSWORD no .env}@postgres:5432/cinema?sslmode=disable
+      DATABASE_URL: postgres://pagamento:${PAGAMENTO_DB_PASSWORD:?defina PAGAMENTO_DB_PASSWORD no .env}@postgres:5432/cinema?sslmode=${DB_SSLMODE:-disable}
       RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/
       JWKS_URL: http://keycloak:8081/realms/cinema/protocol/openid-connect/certs
       JWT_ISSUER: http://keycloak:8081/realms/cinema
@@ -298,7 +298,7 @@ services:
     environment:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
       OBS_ADDR: ":9090"
-      DATABASE_URL: postgres://notificacao:${NOTIFICACAO_DB_PASSWORD:?defina NOTIFICACAO_DB_PASSWORD no .env}@postgres:5432/cinema?sslmode=disable
+      DATABASE_URL: postgres://notificacao:${NOTIFICACAO_DB_PASSWORD:?defina NOTIFICACAO_DB_PASSWORD no .env}@postgres:5432/cinema?sslmode=${DB_SSLMODE:-disable}
       RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/
       JWKS_URL: http://keycloak:8081/realms/cinema/protocol/openid-connect/certs
       JWT_ISSUER: http://keycloak:8081/realms/cinema

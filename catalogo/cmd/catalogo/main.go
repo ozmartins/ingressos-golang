@@ -184,7 +184,7 @@ func executar() error {
 		opcoesGRPC = append(opcoesGRPC, grpc.Creds(credentials.NewTLS(tlsCfg)))
 		slog.Info("gRPC com TLS", "mtls", cfg.GRPCTLSClientCA != "")
 	} else {
-		slog.Warn("gRPC SEM TLS: defina GRPC_TLS_CERT e GRPC_TLS_KEY fora de desenvolvimento")
+		slog.Warn("gRPC SEM TLS (GRPC_INSECURE=true): só para desenvolvimento")
 	}
 	servidorGRPC := grpc.NewServer(opcoesGRPC...)
 	pb.RegisterCatalogoServiceServer(servidorGRPC, &adaptadorgrpc.Servidor{

@@ -12,6 +12,21 @@ func ambienteMinimo(t *testing.T) {
 	t.Setenv("KEYCLOAK_ISSUER_URL", "http://localhost:8081/realms/cinema")
 	t.Setenv("KEYCLOAK_AUDIENCE", "cinema-app")
 	t.Setenv("RABBITMQ_URL", "amqp://cinema:cinema@localhost:5672/")
+	t.Setenv("GRPC_INSECURE", "true")
+}
+
+func TestCarregarExigeTLSDoGRPCSemOptInInseguro(t *testing.T) {
+	ambienteMinimo(t)
+	t.Setenv("GRPC_INSECURE", "")
+	_, err := Carregar()
+	if err == nil || !strings.Contains(err.Error(), "GRPC_TLS_CERT") {
+		t.Fatalf("esperava erro pedindo TLS do gRPC, obteve: %v", err)
+	}
+	t.Setenv("GRPC_TLS_CERT", "c.pem")
+	t.Setenv("GRPC_TLS_KEY", "k.pem")
+	if _, err := Carregar(); err != nil {
+		t.Fatalf("com cert e chave deveria carregar: %v", err)
+	}
 }
 
 func TestCarregarAplicaPadroes(t *testing.T) {

@@ -32,13 +32,15 @@ import (
 type Opcoes struct {
 	// Endereco do servidor gRPC do catálogo (host:porta).
 	Endereco string
-	// TLS: TLSCA é a CA que assina o certificado do catálogo (vazio = canal sem
-	// TLS, só para testes/dev). TLSCert/TLSKey, se informados, apresentam o
-	// certificado de cliente (mTLS).
+	// TLS: TLSCA é a CA que assina o certificado do catálogo. TLSCert/TLSKey, se
+	// informados, apresentam o certificado de cliente (mTLS).
 	TLSCA, TLSCert, TLSKey string
-	Timeout                time.Duration
-	FalhasParaAbrir        uint32
-	IntervaloAberto        time.Duration
+	// Inseguro autoriza, só em desenvolvimento, o canal sem TLS quando TLSCA está
+	// vazio. Sem TLSCA e sem Inseguro, NovoCliente falha.
+	Inseguro        bool
+	Timeout         time.Duration
+	FalhasParaAbrir uint32
+	IntervaloAberto time.Duration
 	// Tentativas é o total de chamadas por consulta (0 ou 1 = sem retry). Só
 	// indisponibilidade (timeout, conexão recusada) é repetida, com backoff
 	// exponencial a partir de EsperaBase; erro de negócio nunca.
@@ -99,10 +101,14 @@ func NovoCliente(opts Opcoes) (*Cliente, error) {
 }
 
 // credenciaisDeTransporte devolve TLS (com mTLS opcional) quando há CA
-// configurada; sem ela, avisa e segue em texto puro.
+// configurada. Sem CA, só segue em texto puro se Inseguro for pedido de forma
+// explícita; do contrário recusa, para não rodar sem TLS por esquecimento.
 func credenciaisDeTransporte(opts Opcoes) (credentials.TransportCredentials, error) {
 	if opts.TLSCA == "" {
-		slog.Warn("gRPC para o catálogo SEM TLS: defina CATALOGO_GRPC_TLS_CA fora de desenvolvimento")
+		if !opts.Inseguro {
+			return nil, errors.New("gRPC para o catálogo exige TLS: defina CATALOGO_GRPC_TLS_CA (ou CATALOGO_GRPC_INSECURE=true, só em desenvolvimento)")
+		}
+		slog.Warn("gRPC para o catálogo SEM TLS (CATALOGO_GRPC_INSECURE=true): só para desenvolvimento")
 		return insecure.NewCredentials(), nil
 	}
 	pem, err := os.ReadFile(opts.TLSCA)

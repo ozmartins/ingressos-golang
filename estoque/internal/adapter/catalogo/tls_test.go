@@ -170,3 +170,14 @@ func TestTLSConfiguracaoInvalida(t *testing.T) {
 		t.Error("cert sem chave deveria falhar")
 	}
 }
+
+func TestSemCAExigeOptInInseguro(t *testing.T) {
+	if _, err := NovoCliente(Opcoes{Endereco: "x:1"}); err == nil {
+		t.Fatal("sem CA e sem Inseguro deveria falhar")
+	}
+	c, err := NovoCliente(Opcoes{Endereco: "x:1", Inseguro: true})
+	if err != nil {
+		t.Fatalf("Inseguro explícito deveria permitir texto puro: %v", err)
+	}
+	c.Fechar()
+}

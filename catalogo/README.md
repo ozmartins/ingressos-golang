@@ -254,7 +254,8 @@ Opcionais, com padrão:
 | Variável | Padrão | Descrição |
 |---|---|---|
 | `HTTP_PORT` | `8080` | Porta do servidor HTTP |
-| `GRPC_TLS_CERT` / `GRPC_TLS_KEY` | — (sem TLS, com aviso) | certificado e chave do servidor gRPC |
+| `GRPC_TLS_CERT` / `GRPC_TLS_KEY` | — (obrigatórios; sem eles o serviço não sobe) | certificado e chave do servidor gRPC |
+| `GRPC_INSECURE` | `false` | `true` permite gRPC sem TLS (só desenvolvimento) |
 | `GRPC_TLS_CLIENT_CA` | — | CA dos clientes; se definida, exige certificado de cliente (mTLS) |
 | `GRPC_ADDR` | `:9091` | Endereço do servidor gRPC (consumido pelo `estoque`) |
 | `PAGINACAO_TAMANHO_PADRAO` | `20` | Tamanho de página quando não informado |

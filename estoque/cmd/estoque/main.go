@@ -130,6 +130,7 @@ func executar() error {
 		TLSCA:           cfg.CatalogoTLSCA,
 		TLSCert:         cfg.CatalogoTLSCert,
 		TLSKey:          cfg.CatalogoTLSKey,
+		Inseguro:        cfg.CatalogoGRPCInseguro,
 		Timeout:         cfg.CatalogoTimeout,
 		FalhasParaAbrir: uint32(cfg.BreakerFalhas),
 		IntervaloAberto: cfg.BreakerIntervalo,
